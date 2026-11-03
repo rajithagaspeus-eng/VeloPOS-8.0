@@ -178,6 +178,30 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.quick_buttons[1][0].click()
         self.assertEqual(self.window.nav.currentRow(), 2)
 
+    def test_billing_shift_status_is_read_only_and_translated(self):
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeShift:
+            def current(self):
+                return {"id": 12, "cashier": "owner", "opened_at": "2026-11-04"}
+
+        user = PreviewIdentity("owner", "Admin")
+        page = BillingPage(
+            FakeInventory(), self.window.t,
+            shift_reader=FakeShift(), identity=lambda: user,
+        )
+        try:
+            self.assertIn("#12", page.shift_status.text())
+            self.assertIn("owner", page.shift_status.text())
+            self.assertFalse(hasattr(page, "checkout_button"))
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertIn("සේවා වාරය", page.shift_status.text())
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_admin_reports_are_hidden_until_login(self):
         from velopos_qt.auth_model import PreviewIdentity
         from velopos_qt.reports_page import ReportsPage

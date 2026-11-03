@@ -6,6 +6,8 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "forecast_backtest_error": "7-day test error (units)",
+        "forecast_backtest_unavailable": "Not enough history",
         "forecast_title": "Demand planning",
         "forecast_horizon": "Planning horizon (days)",
         "forecast_sale_days": "Selling days (28d)",
@@ -15,7 +17,7 @@ MESSAGES = {
         "forecast_eligible": "Products with usable history",
         "forecast_insufficient": "Insufficient data",
         "forecast_admin_only": "Preview Admin sign-in required for demand planning.",
-        "forecast_caveat": "TEST DATA ONLY • Explainable sales-rate baseline, NOT predictive AI. Past 28 complete days; no returns, seasonality or lost-demand adjustment. No stock or purchases changed.",
+        "forecast_caveat": "TEST DATA ONLY • Explainable sales-rate baseline, NOT predictive AI. Past 28 complete days; up to 3 historical walk-forward error windows; no returns, seasonality or lost-demand adjustment. No stock or purchases changed.",
         "analytics": "Business intelligence",
         "analytics_sales": "Recorded sales",
         "analytics_refunds": "Refunds and returns",
@@ -215,6 +217,8 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "forecast_backtest_error": "දින 7ක අතීත පරීක්ෂණ දෝෂය (ඒකක)",
+        "forecast_backtest_unavailable": "පරීක්ෂණයට දත්ත මදි",
         "forecast_title": "ඉල්ලුම සැලසුම් කිරීම",
         "forecast_horizon": "සැලසුම් දින ගණන",
         "forecast_sale_days": "අලෙවි වූ දින (28)",
@@ -424,6 +428,8 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "forecast_backtest_error": "7 நாள் சோதனைப் பிழை (அலகுகள்)",
+        "forecast_backtest_unavailable": "வரலாற்றுத் தரவு போதாது",
         "forecast_title": "தேவை திட்டமிடல்",
         "forecast_horizon": "திட்ட காலம் (நாட்கள்)",
         "forecast_sale_days": "விற்பனை நாட்கள் (28)",

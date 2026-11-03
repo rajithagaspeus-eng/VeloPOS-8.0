@@ -20,6 +20,8 @@ from .dashboard_model import DashboardReader
 from .reports_model import PreviewReportsReader
 from .shift_model import PreviewShiftReader
 from .billing_readiness import DraftStockReader
+from .inventory_insights import InventoryInsightsReader
+from .inventory_insights_page import InventoryInsightsPage
 from .reports_page import ReportsPage
 from .dashboard_page import DashboardOverview
 from .directory_editor import PreviewDirectoryEditor
@@ -109,6 +111,7 @@ class SettingsPreview(QMainWindow):
         self.reports_reader = PreviewReportsReader(db, authorize=self._is_preview_admin) if db is not None else None
         self.shift_reader = PreviewShiftReader(db) if db is not None else None
         self.stock_reader = DraftStockReader(db) if db is not None else None
+        self.insights_reader = InventoryInsightsReader(db, authorize=self._is_preview_admin) if db is not None else None
         # The guarded editor refuses production DB paths. No authentication
         # or production product mutations are enabled in V8 yet.
         self.product_editor = PreviewProductEditor(db, authorize=self._is_preview_admin) if db is not None else None
@@ -201,7 +204,7 @@ class SettingsPreview(QMainWindow):
         self.nav.setCurrentRow(0)
         self._apply_theme()
 
-    nav_keys = ("dashboard", "inventory", "billing", "customers", "suppliers", "shop_profile", "appearance", "printer_receipts", "about", "reports")
+    nav_keys = ("dashboard", "inventory", "billing", "customers", "suppliers", "shop_profile", "appearance", "printer_receipts", "about", "reports", "smart_inventory")
 
     def t(self, key):
         return translate(self.locale, key)
@@ -232,7 +235,7 @@ class SettingsPreview(QMainWindow):
         if hasattr(self, "printer_notice"):
             self.printer_notice.setText(self.t("printer_notice"))
         for page in self._pages.values():
-            if isinstance(page, (InventoryPage, BillingPage, DirectoryPage, ReportsPage)):
+            if isinstance(page, (InventoryPage, BillingPage, DirectoryPage, ReportsPage, InventoryInsightsPage)):
                 page.retranslate()
 
     def add_field(self, form, key, widget):
@@ -299,6 +302,8 @@ class SettingsPreview(QMainWindow):
                 page.retranslate()
             elif isinstance(page, ReportsPage):
                 page.refresh()
+            elif isinstance(page, InventoryInsightsPage):
+                page.refresh()
             elif isinstance(page, BillingPage):
                 page.refresh_shift()
 
@@ -323,6 +328,8 @@ class SettingsPreview(QMainWindow):
                                  editor=self.directory_editor if self._is_preview_admin() else None)
         if index == 9:
             return ReportsPage(self.reports_reader, self.t, self._is_preview_admin)
+        if index == 10:
+            return InventoryInsightsPage(self.insights_reader, self.t, self._is_preview_admin)
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setSpacing(14)
@@ -407,6 +414,8 @@ class SettingsPreview(QMainWindow):
             self.dashboard_overview.refresh()
         if index == 9 and isinstance(self._pages.get(9), ReportsPage):
             self._pages[9].refresh()
+        if index == 10 and isinstance(self._pages.get(10), InventoryInsightsPage):
+            self._pages[10].refresh()
         if index == 2 and isinstance(self._pages.get(2), BillingPage):
             self._pages[2].refresh_shift()
             self._pages[2].refresh_stock()

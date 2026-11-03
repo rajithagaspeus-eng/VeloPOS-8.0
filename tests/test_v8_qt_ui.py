@@ -202,6 +202,72 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_reports_kpi_tiles_and_error_clearing(self):
+        from velopos_qt.reports_page import ReportsPage
+
+        class DemoReader:
+            def __init__(self):
+                self.fail = False
+            def snapshot(self, start, end):
+                if self.fail:
+                    raise ValueError("Invalid date range")
+                return {
+                    "sale_count": 3,
+                    "sales_total": 1000,
+                    "returns_total": 100,
+                    "net_revenue": 900,
+                    "adjusted_gross_profit": 350,
+                    "expenses": 40,
+                    "indicative_net": 310,
+                    "vat_net": 12,
+                    "service_net": 5,
+                    "recent_sales": [],
+                }
+            def staff_activity(self):
+                return []
+
+        reader = DemoReader()
+        page = ReportsPage(reader, self.window.t, lambda: True)
+        try:
+            self.assertEqual(len(page.metric_cards), 9)
+            self.assertEqual(page.metric_cards[0][1].text(), "3")
+            self.assertEqual(page.metric_cards[3][1].text(), "900.00")
+            self.assertEqual(page.metric_cards[6][1].text(), "310.00")
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.metric_cards[0][0].text(), self.window.t("report_sales_count"))
+            reader.fail = True
+            page.refresh()
+            self.assertTrue(all(value.text() == "—" for _, value in page.metric_cards))
+            self.assertEqual(page.sales.rowCount(), 0)
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_signout_clears_cashier_draft_and_discount(self):
+        from velopos_qt.auth_model import PreviewIdentity
+        self.window.identity = PreviewIdentity("owner", "Admin")
+        self.window.nav.setCurrentRow(2)
+        bill = self.window._pages[2]
+        bill.query.setText("D001")
+        bill.scan_or_add()
+        bill.discount_input.setText("25")
+        bill.tender_input.setText("300")
+        self.assertEqual(len(bill.cart.lines), 1)
+        self.window.preview_logout()
+        self.assertEqual(len(bill.cart.lines), 0)
+        self.assertEqual(bill.discount_input.text(), "0")
+        self.assertEqual(bill.tender_input.text(), "0")
+        self.assertEqual(bill.cart_table.rowCount(), 0)
+        self.assertFalse(hasattr(bill, "checkout_button"))
+
+    def test_cashier_shortcuts_have_correct_targets(self):
+        from PySide6.QtGui import QKeySequence
+        self.window.nav.setCurrentRow(2)
+        bill = self.window._pages[2]
+        self.assertEqual(bill.discount_shortcut.key().toString(), QKeySequence("F4").toString())
+        self.assertEqual(bill.tender_shortcut.key().toString(), QKeySequence("F5").toString())
+
     def test_admin_reports_are_hidden_until_login(self):
         from velopos_qt.auth_model import PreviewIdentity
         from velopos_qt.reports_page import ReportsPage

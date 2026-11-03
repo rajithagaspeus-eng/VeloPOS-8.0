@@ -280,3 +280,34 @@ the absence of lasting refund, stock or idempotency changes. The simulated
 refund is based on original sale-item price and is NOT valid tax/discount,
 loyalty, credit or COGS accounting. No real return, payment or stock posting
 is enabled. Gate A and Gate B remain blocked for commercial operations.
+
+## Gate B — invoice and stock-ledger diagnostic auditing
+
+`PreviewLedgerAuditor` adds a small **read-only, Admin-gated** audit entry
+point on the isolated V8 test database. `audit_invoice(invoice_no)`
+compares the original sale's recorded subtotal to the sum of persisted
+sale-item totals, looks for missing/invalid sale lines, verifies that return
+items point back to the same original invoice and barcode, checks that
+cumulative returned quantity does not exceed sold quantity, and identifies
+orphan/foreign return references. It includes *all historical returns* for
+the targeted invoice, not just a selected date range. The original sale
+may be OK or VOID; an audit never converts it to a sale or issues a refund.
+
+`audit_stock(barcode)` compares a product's current stored stock balance
+to the latest recorded movement's `qty_after`, identifying missing
+movement history and endpoint discrepancies. This is **not** a comprehensive
+stock genealogy, unit-conversion, purchase batch or per-shift reconciliation.
+
+Audit methods require a live Admin authorization callback at each read;
+they never change, repair, export or certify financial data. They return
+specific findings and `certified=False`. Because legitimate returns can
+have VAT, discounts and loyalty adjustments, the auditor deliberately does
+**not** call a raw sum of return-item prices an exact refund/COGS amount.
+This does not yet cover taxes, credit, loyalty, supplier advances or
+profit adjustments. Gate B remains **IN PROGRESS**, not passed.
+
+Disposable-schema automated tests cover a balanced invoice, earlier partial
+return, over-return through repeated historical entries, wrong-invoice
+references, missing return items, subtotal drift, stock-ledger drift and
+revoked/no Admin access. Full financial reconciliation must eventually use
+authoritative posted transactions rather than fabricated rehearsal records.

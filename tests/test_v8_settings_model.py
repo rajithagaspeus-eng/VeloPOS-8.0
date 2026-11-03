@@ -42,6 +42,30 @@ class AdapterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.adapter.save({"theme": "broken"})
 
+    def test_saves_valid_receipt_preferences(self):
+        self.adapter.save({
+            "printer_brand": "Xprinter", "print_mode": "Browser only",
+            "paper_size": "80mm", "print_copies": "2",
+            "receipt_footer": "Thanks for visiting",
+        })
+        self.assertEqual(self.store.data["print_copies"], "2")
+
+    def test_rejects_invalid_printer_brand_without_write(self):
+        with self.assertRaises(ValueError):
+            self.adapter.save({"printer_brand": "UnexpectedDevice"})
+        self.assertEqual(self.store.calls, [])
+
+    def test_rejects_invalid_copies_without_write(self):
+        for copies in ("0", "6", "2.5", "xyz"):
+            with self.subTest(copies=copies), self.assertRaises(ValueError):
+                self.adapter.save({"print_copies": copies})
+        self.assertEqual(self.store.calls, [])
+
+    def test_rejects_overlong_receipt_footer(self):
+        with self.assertRaises(ValueError):
+            self.adapter.save({"receipt_footer": "x" * 251})
+        self.assertEqual(self.store.calls, [])
+
     def test_refuses_invalid_font_size(self):
         with self.assertRaises(ValueError):
             self.adapter.save({"font_size": "999"})

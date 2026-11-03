@@ -6,6 +6,8 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "draft_expired_product": "product expiry passed",
+        "draft_expired_batch": "active batch expiry passed — review before checkout",
         "hold_draft": "Hold draft",
         "resume_draft": "Resume held",
         "draft_held_note": "One draft held in memory • No sale has been made",
@@ -160,6 +162,8 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "draft_expired_product": "භාණ්ඩයේ කල් ඉකුත් දිනය පසු වී ඇත",
+        "draft_expired_batch": "සක්‍රීය කාණ්ඩයක කල් ඉකුත් දිනය පසු වී ඇත",
         "hold_draft": "බිල් කෙටුම්පත තබන්න",
         "resume_draft": "තබාගත් බිල ගන්න",
         "draft_held_note": "එක් බිල් කෙටුම්පතක් තාවකාලිකව තබා ඇත • විකිණීමක් සිදු වී නැත",
@@ -314,6 +318,8 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "draft_expired_product": "பொருளின் காலாவதி தேதி கடந்துவிட்டது",
+        "draft_expired_batch": "செயலில் உள்ள தொகுதி காலாவதியானது",
         "hold_draft": "வரைவு பில்லை நிறுத்து",
         "resume_draft": "நிறுத்திய பில்லை மீட்டு",
         "draft_held_note": "ஒரு வரைவு பில் நினைவகத்தில் உள்ளது • விற்பனை செய்யவில்லை",

@@ -6,6 +6,11 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "preview_cashier": "Draft cashier",
+        "not_signed_in": "Not signed in",
+        "open_shift_label": "Open shift",
+        "no_open_shift": "No open shift — checkout unavailable",
+        "shift_preview_unavailable": "Shift status unavailable in component preview",
         "reports": "Reports & activity",
         "date_from": "From",
         "date_to": "To",
@@ -119,6 +124,11 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "preview_cashier": "බිල් කෙටුම්පත් මුදල් අයකැමි",
+        "not_signed_in": "පිවිසී නැත",
+        "open_shift_label": "විවෘත සේවා වාරය",
+        "no_open_shift": "විවෘත සේවා වාරයක් නැත — ගෙවීම් ක්‍රියාත්මක නැත",
+        "shift_preview_unavailable": "පරීක්ෂණ දර්ශනයේ සේවා වාර තත්ත්වය නොමැත",
         "reports": "වාර්තා සහ ක්‍රියාකාරකම්",
         "date_from": "සිට",
         "date_to": "දක්වා",
@@ -232,6 +242,11 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "preview_cashier": "வரைவு காசாளர்",
+        "not_signed_in": "உள்நுழையவில்லை",
+        "open_shift_label": "திறந்த பணி நேரம்",
+        "no_open_shift": "திறந்த பணி நேரம் இல்லை — கட்டணம் முடக்கப்பட்டுள்ளது",
+        "shift_preview_unavailable": "முன்னோட்டத்தில் பணி நேர நிலை கிடைக்கவில்லை",
         "reports": "அறிக்கைகள் மற்றும் செயல்பாடு",
         "date_from": "முதல்",
         "date_to": "வரை",

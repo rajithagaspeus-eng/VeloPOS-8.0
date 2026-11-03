@@ -166,6 +166,8 @@ class SettingsPreview(QMainWindow):
         if hasattr(self, "dashboard_intro"):
             self.dashboard_intro.setText(self.t("dashboard_intro"))
             self.dashboard_hint.setText(self.t("dashboard_hint"))
+            for button, key in self.quick_buttons:
+                button.setText(self.t(key))
         if hasattr(self, "about_notice"):
             self.about_notice.setText(self.t("about_text"))
         if hasattr(self, "printer_notice"):
@@ -226,6 +228,21 @@ class SettingsPreview(QMainWindow):
             self.dashboard_hint.setWordWrap(True)
             layout.addWidget(self.dashboard_intro)
             layout.addWidget(self.dashboard_hint)
+            # One-click access to the most frequent cashier preview tasks.
+            self.quick_buttons = []
+            quick_row = QHBoxLayout()
+            for key, destination in (
+                ("open_inventory", 1),
+                ("open_billing", 2),
+                ("open_customers", 3),
+            ):
+                action = QPushButton(self.t(key))
+                action.setObjectName("secondaryAction")
+                action.setMinimumHeight(54)
+                action.clicked.connect(lambda _checked=False, idx=destination: self.nav.setCurrentRow(idx))
+                quick_row.addWidget(action)
+                self.quick_buttons.append((action, key))
+            layout.addLayout(quick_row)
         elif index == 5:
             fields = [
                 ("shop_name", "shop_name"), ("phone", "phone"),

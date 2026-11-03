@@ -6,6 +6,11 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "purchase_current_payables": "Current amount owed to suppliers (all time)",
+        "purchase_supplier_advances": "Supplier advances (all time)",
+        "purchase_supplier_balances": "Supplier balances after subsequent payments",
+        "purchase_all_payments": "All payments",
+        "purchase_balance": "Current balance",
         "purchasing": "Purchasing overview",
         "purchase_recent": "Recent goods received notes",
         "purchase_active_suppliers": "Active suppliers",
@@ -188,6 +193,11 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "purchase_current_payables": "සැපයුම්කරුවන්ට දැන් ගෙවිය යුතු මුළු මුදල",
+        "purchase_supplier_advances": "සැපයුම්කරුවන්ට කලින් ගෙවූ අතිරික්ත මුදල්",
+        "purchase_supplier_balances": "පසු ගෙවීම් ඇතුළත් සැපයුම්කරු ශේෂ",
+        "purchase_all_payments": "සියලු ගෙවීම්",
+        "purchase_balance": "වර්තමාන ශේෂය",
         "purchasing": "මිලදී ගැනීම් සාරාංශය",
         "purchase_recent": "මෑත භාණ්ඩ ලැබීම් (GRN)",
         "purchase_active_suppliers": "සක්‍රීය සැපයුම්කරුවන්",
@@ -370,6 +380,11 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "purchase_current_payables": "வழங்குநர்களுக்குச் செலுத்த வேண்டிய மொத்தத் தொகை",
+        "purchase_supplier_advances": "வழங்குநர்களுக்கு முன்பணம்",
+        "purchase_supplier_balances": "பிந்தைய கொடுப்பனவுகளுக்குப் பிறகான நிலுவைகள்",
+        "purchase_all_payments": "அனைத்து கொடுப்பனவுகள்",
+        "purchase_balance": "தற்போதைய நிலுவை",
         "purchasing": "கொள்முதல் சுருக்கம்",
         "purchase_recent": "சமீபத்திய சரக்கு பெறுதல் பதிவுகள்",
         "purchase_active_suppliers": "செயலில் உள்ள வழங்குநர்கள்",

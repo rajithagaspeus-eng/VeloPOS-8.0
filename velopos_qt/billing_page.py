@@ -14,17 +14,18 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from .preview_models import Cart, preview_existing_bill
+from .preview_models import Cart, preview_existing_bill, cash_estimate, money
 
 
 class BillingPage(QWidget):
-    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None):
+    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None, stock_reader=None):
         super().__init__()
         self.inventory = inventory
         self.text = text
         self.bill_preview = bill_preview
         self.shift_reader = shift_reader
         self.identity = identity or (lambda: None)
+        self.stock_reader = stock_reader
         self.cart = Cart()
         self.products = []
         layout = QVBoxLayout(self)
@@ -108,6 +109,29 @@ class BillingPage(QWidget):
         controls.addWidget(self.clear_button)
         layout.addLayout(controls)
 
+        # No payment is recorded. These fields are draft-only estimates.
+        estimate_row = QHBoxLayout()
+        self.discount_label = QLabel()
+        estimate_row.addWidget(self.discount_label)
+        self.discount_input = QLineEdit("0")
+        self.discount_input.setMaximumWidth(90)
+        self.discount_input.textChanged.connect(self.refresh_cart)
+        estimate_row.addWidget(self.discount_input)
+        self.tender_label = QLabel()
+        estimate_row.addWidget(self.tender_label)
+        self.tender_input = QLineEdit("0")
+        self.tender_input.setMaximumWidth(100)
+        self.tender_input.textChanged.connect(self.refresh_cart)
+        estimate_row.addWidget(self.tender_input)
+        estimate_row.addStretch(1)
+        layout.addLayout(estimate_row)
+        self.cash_status = QLabel()
+        self.cash_status.setWordWrap(True)
+        layout.addWidget(self.cash_status)
+        self.stock_status = QLabel()
+        self.stock_status.setWordWrap(True)
+        layout.addWidget(self.stock_status)
+
         self.totals_panel = QFrame()
         self.totals_panel.setObjectName("billingTotals")
         summary = QHBoxLayout(self.totals_panel)
@@ -142,6 +166,8 @@ class BillingPage(QWidget):
         self.remove_button.setText(self.text("remove_line"))
         self.clear_button.setText(self.text("clear_cart"))
         self.cart_title.setText(self.text("draft_items"))
+        self.discount_label.setText(self.text("draft_discount"))
+        self.tender_label.setText(self.text("draft_cash_tender"))
         self.results.setHorizontalHeaderLabels(
             [self.text(k) for k in ("barcode", "product_name", "price")]
         )
@@ -255,13 +281,42 @@ class BillingPage(QWidget):
                 self.cart_table.selectRow(row)
         self.line_count.setText(f'{self.text("draft_items")}: {len(lines)}')
         self.total.setText(f'{self.text("subtotal")}: {self.cart.subtotal():,.2f}')
-        if self.bill_preview is not None and lines:
+        self.cash_status.setText("")
+        if lines:
             try:
-                result = preview_existing_bill(self.cart, self.bill_preview)
-                self.net_total.setText(
-                    f'{self.text("estimated_net")}: {float(result["net"]):,.2f}'
+                if self.bill_preview is not None:
+                    result = preview_existing_bill(
+                        self.cart, self.bill_preview, self.discount_input.text()
+                    )
+                    due = money(result["net"])
+                else:
+                    from .preview_models import validated_discount
+                    due = self.cart.subtotal() - validated_discount(
+                        self.discount_input.text(), self.cart.subtotal()
+                    )
+                self.net_total.setText(f'{self.text("estimated_net")}: {due:,.2f}')
+                cash = cash_estimate(due, self.tender_input.text())
+                key = "draft_change" if not cash["shortfall"] else "draft_shortfall"
+                amount = cash["change"] if not cash["shortfall"] else cash["shortfall"]
+                self.cash_status.setText(
+                    f'{self.text(key)}: {amount:,.2f}  •  {self.text("draft_only_warning")}'
                 )
             except (ValueError, KeyError, TypeError, OSError, RuntimeError) as exc:
                 self.net_total.setText(f'{self.text("preview_error")}: {exc}')
         else:
             self.net_total.setText("")
+        if self.stock_reader is not None and lines:
+            try:
+                warnings = self.stock_reader.inspect(self.cart)
+            except (ValueError, OSError, RuntimeError) as exc:
+                self.stock_status.setText(f'{self.text("stock_check_error")}: {exc}')
+            else:
+                if not warnings:
+                    self.stock_status.setText(self.text("draft_stock_looks_ok"))
+                else:
+                    names = ", ".join(str(entry["barcode"]) for entry in warnings[:5])
+                    self.stock_status.setText(
+                        f'{self.text("draft_stock_attention")}: {names}'
+                    )
+        else:
+            self.stock_status.setText("")

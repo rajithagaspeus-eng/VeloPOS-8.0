@@ -6,6 +6,7 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "report_date": "Date",
         "draft_stock_missing": "product missing",
         "draft_stock_insufficient": "insufficient stock",
         "draft_price_changed": "price changed",
@@ -36,7 +37,7 @@ MESSAGES = {
         "event_action": "Activity",
         "staff_activity": "Recent staff audit activity",
         "admin_report_only": "Admin sign-in required to view financial reports and staff activity.",
-        "report_preview_caveat": "TEST DATA ONLY • Indicative figures; returns, tax and final COGS reconciliation pending.",
+        "report_preview_caveat": "TEST DATA ONLY • Indicative figures, not certified accounting. Returns and tax included; COGS valuation remains subject to review.",
         "report_sales_count": "Bills",
         "report_sales_total": "Recorded sales",
         "report_gross": "Recorded gross profit",
@@ -139,6 +140,7 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "report_date": "දිනය",
         "draft_stock_missing": "භාණ්ඩය නොමැත",
         "draft_stock_insufficient": "තොගය මදි",
         "draft_price_changed": "මිල වෙනස් වී ඇත",
@@ -272,6 +274,7 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "report_date": "தேதி",
         "draft_stock_missing": "பொருள் இல்லை",
         "draft_stock_insufficient": "இருப்பு போதாது",
         "draft_price_changed": "விலை மாறியுள்ளது",

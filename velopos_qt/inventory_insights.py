@@ -43,9 +43,10 @@ class InventoryInsightsReader:
             # is counted only once, even when several batches are expiring.
             expiry_sql = (
                 "SELECT p.barcode, p.name_en, "
+                "MIN(COALESCE(NULLIF(p.expiry_date,''),'9999-12-31'), "
                 "COALESCE((SELECT MIN(b.expiry_date) FROM batches b "
                 "WHERE b.barcode=p.barcode AND b.qty_remaining>0 "
-                "AND b.expiry_date<>''), NULLIF(p.expiry_date,'')) expiry_date "
+                "AND b.expiry_date<>''),'9999-12-31')) expiry_date "
                 "FROM products p WHERE COALESCE(p.stock_qty,0)>0 "
                 "AND ((p.expiry_date<>'' AND p.expiry_date<=?) "
                 "OR EXISTS (SELECT 1 FROM batches b "

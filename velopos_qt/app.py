@@ -160,7 +160,15 @@ class SettingsPreview(QMainWindow):
         if index == 1 and self.inventory is not None:
             return InventoryPage(self.inventory, self.t)
         if index == 2 and self.inventory is not None:
-            return BillingPage(self.inventory, self.t)
+            # Only use the original billing preview engine in our test-only DB.
+            preview_fn = None
+            db = getattr(self.inventory, "database", None)
+            if db is not None:
+                from pathlib import Path
+                if Path(db.DATA_DIR).resolve().name.casefold() == "velopos8previewdata":
+                    from velopos import services
+                    preview_fn = services.preview_bill
+            return BillingPage(self.inventory, self.t, bill_preview=preview_fn)
         if index in (3, 4) and self.directory is not None:
             return DirectoryPage(self.directory, self.nav_keys[index], self.t)
         page = QWidget()

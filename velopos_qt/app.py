@@ -2,7 +2,7 @@
 
 No production db, printer discovery, payment, or license operations are invoked.
 """
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFormLayout, QFrame, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QMainWindow, QMessageBox, QPushButton,
@@ -40,12 +40,14 @@ QLabel#hint { color:#617087; }
 
 
 class SettingsPreview(QMainWindow):
-    def __init__(self, adapter: SettingsAdapter):
+    def __init__(self, adapter: SettingsAdapter, preferences=None):
         super().__init__()
+        self.preferences = preferences if preferences is not None else QSettings("VeloPOS", "VeloPOS8Preview")
         self.adapter = adapter
         self.saved = adapter.read()
         self.controls = {}
-        self.locale = "en"
+        stored_locale = str(self.preferences.value("language", "en"))
+        self.locale = stored_locale if stored_locale in LANGUAGES else "en"
         self.translatable_labels = []
         self.save_buttons = []
         self.setWindowTitle("VeloPOS 8.0 | Settings Preview — TEST DATA")
@@ -71,6 +73,7 @@ class SettingsPreview(QMainWindow):
         self.locale_combo = QComboBox()
         for code, name in LANGUAGES.items():
             self.locale_combo.addItem(name, code)
+        self.locale_combo.setCurrentIndex(list(LANGUAGES).index(self.locale))
         self.locale_combo.currentIndexChanged.connect(self.change_language)
         locale_row.addWidget(self.locale_combo)
         outer.addLayout(locale_row)
@@ -106,6 +109,7 @@ class SettingsPreview(QMainWindow):
 
     def change_language(self, _index):
         self.locale = self.locale_combo.currentData() or "en"
+        self.preferences.setValue("language", self.locale)
         self.subtitle.setText(self.t("subtitle"))
         self.locale_label.setText(self.t("language"))
         for index, key in enumerate(self.nav_keys):

@@ -68,3 +68,45 @@ class Cart:
 
     def subtotal(self):
         return sum((money(line["price"] * line["qty"]) for line in self.lines.values()), Decimal("0.00"))
+
+
+class DirectoryReader:
+    """Bounded customer and supplier lookup. Uses parameterized, read-only SQL."""
+
+    def __init__(self, database):
+        self.database = database
+
+    @staticmethod
+    def _pattern(query):
+        value = str(query).strip()
+        return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+    def customers(self, query="", limit=100):
+        limit = max(1, min(int(limit), 200))
+        search = self._pattern(query)
+        with self.database.db() as connection:
+            records = connection.execute(
+                "SELECT id, name, COALESCE(phone, '') AS phone, "
+                "COALESCE(address, '') AS address, "
+                "COALESCE(credit_balance, 0) AS credit_balance "
+                "FROM customers WHERE name LIKE ? ESCAPE '\\' "
+                "OR phone LIKE ? ESCAPE '\\' "
+                "ORDER BY name COLLATE NOCASE, id LIMIT ?",
+                (search, search, limit),
+            ).fetchall()
+        return [dict(row) for row in records]
+
+    def suppliers(self, query="", limit=100):
+        limit = max(1, min(int(limit), 200))
+        search = self._pattern(query)
+        with self.database.db() as connection:
+            records = connection.execute(
+                "SELECT id, name, COALESCE(contact, '') AS contact, "
+                "COALESCE(phone, '') AS phone, "
+                "COALESCE(address, '') AS address, COALESCE(active, 1) AS active "
+                "FROM suppliers WHERE name LIKE ? ESCAPE '\\' "
+                "OR contact LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' "
+                "ORDER BY name COLLATE NOCASE, id LIMIT ?",
+                (search, search, search, limit),
+            ).fetchall()
+        return [dict(row) for row in records]

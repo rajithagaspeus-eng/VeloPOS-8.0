@@ -17,6 +17,8 @@ class PreviewDirectoryEditor:
 
     def get(self, kind, identifier):
         _guard(self.database)
+        if self.authorize is not None and not self.authorize():
+            raise PermissionError("Preview Admin sign-in is required to read editor details")
         table = self._table(kind)
         with self.database.db() as connection:
             row = connection.execute(

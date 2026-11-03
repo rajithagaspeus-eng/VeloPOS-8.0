@@ -29,3 +29,27 @@ def ensure_preview_products(database):
             SAMPLES,
         )
     return len(SAMPLES)
+
+
+def ensure_preview_directories(database):
+    """Insert clearly fictional records into empty preview-only directories."""
+    directory = os.path.normpath(os.path.abspath(database.DATA_DIR))
+    if os.path.normcase(os.path.basename(directory)) != os.path.normcase("VeloPOS8PreviewData"):
+        raise RuntimeError("Refusing to seed outside dedicated VeloPOS8PreviewData")
+    with database.db() as connection:
+        if not connection.execute("SELECT 1 FROM customers LIMIT 1").fetchone():
+            connection.executemany(
+                "INSERT INTO customers (name, phone, address, credit_balance) VALUES (?, ?, ?, ?)",
+                [
+                    ("Demo Customer A", "0000000001", "Sample Address", 0),
+                    ("Demo Customer B", "0000000002", "Sample Address", 120.50),
+                ],
+            )
+        if not connection.execute("SELECT 1 FROM suppliers LIMIT 1").fetchone():
+            connection.executemany(
+                "INSERT INTO suppliers (name, contact, phone, active) VALUES (?, ?, ?, ?)",
+                [
+                    ("Demo Supplier A", "Sample Contact", "0000000011", 1),
+                    ("Demo Supplier B", "Sample Contact", "0000000012", 0),
+                ],
+            )

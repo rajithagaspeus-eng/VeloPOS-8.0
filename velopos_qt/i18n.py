@@ -6,6 +6,11 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "new_product": "New product",
+        "edit_product": "Edit selected",
+        "product_local_name": "Local name",
+        "stock_absolute_hint": "Enter the full new stock quantity, not the quantity to add.",
+        "preview_edit_warning": "TEST DATA ONLY • Inventory changes use the existing stock ledger in isolated preview storage.",
         "estimated_net": "Estimated payable",
         "preview_error": "Bill preview error",
         "customers": "Customers",
@@ -68,6 +73,11 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "new_product": "අලුත් භාණ්ඩයක්",
+        "edit_product": "තෝරාගත් භාණ්ඩය වෙනස් කරන්න",
+        "product_local_name": "දේශීය නම",
+        "stock_absolute_hint": "එකතු කරන ප්‍රමාණය නොව, නව මුළු තොග ප්‍රමාණය ඇතුළත් කරන්න.",
+        "preview_edit_warning": "පරීක්ෂණ දත්ත පමණයි • වෙනස්කම් සිදුවන්නේ වෙනම Preview දත්ත ගබඩාවේ පමණයි.",
         "estimated_net": "ඇස්තමේන්තුගත ගෙවිය යුතු මුදල",
         "preview_error": "බිල්පත් ඇස්තමේන්තු දෝෂය",
         "customers": "පාරිභෝගිකයන්",
@@ -130,6 +140,11 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "new_product": "புதிய பொருள்",
+        "edit_product": "தேர்ந்த பொருளைத் திருத்து",
+        "product_local_name": "உள்ளூர் பெயர்",
+        "stock_absolute_hint": "சேர்க்கும் அளவு அல்ல; மொத்த புதிய இருப்பை உள்ளிடவும்.",
+        "preview_edit_warning": "சோதனைத் தரவு மட்டும் • மாற்றங்கள் தனிமைப்படுத்தப்பட்ட முன்னோட்டத் தரவுத்தளத்தில் மட்டுமே.",
         "estimated_net": "மதிப்பிடப்பட்ட செலுத்த வேண்டிய தொகை",
         "preview_error": "பில் முன்னோட்டப் பிழை",
         "customers": "வாடிக்கையாளர்கள்",

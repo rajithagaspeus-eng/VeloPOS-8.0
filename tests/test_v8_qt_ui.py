@@ -244,6 +244,62 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_demand_view_is_admin_only_and_displays_sparse_data_honestly(self):
+        from decimal import Decimal
+        from velopos_qt.forecast_page import ForecastPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeDemand:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, **args):
+                self.calls += 1
+                if args["horizon"] == "invalid":
+                    raise ValueError("Invalid planning horizon")
+                return {
+                    "history_from": "2026-10-07", "history_to": "2026-11-03",
+                    "ready_products": 1, "evaluated_products": 2,
+                    "products": [
+                        {"barcode": "GOOD", "product": "Rice", "stock": 10,
+                         "observed_sale_days": 8, "units_28d": Decimal("42"),
+                         "status": "baseline", "units_expected": Decimal("15.75"),
+                         "stock_coverage_days": Decimal("4.4")},
+                        {"barcode": "NEW", "product": "Soap", "stock": 5,
+                         "observed_sale_days": 1, "units_28d": Decimal("1"),
+                         "status": "insufficient", "units_expected": None,
+                         "stock_coverage_days": None},
+                    ],
+                }
+
+        fake = FakeDemand()
+        page = ForecastPage(fake, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(fake.calls, 0)
+            self.assertEqual(page.table.rowCount(), 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 2)
+            self.assertEqual(page.table.item(0, 5).text(), "15.75")
+            self.assertEqual(page.table.item(1, 5).text(),
+                             self.window.t("forecast_insufficient"))
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("forecast_title"))
+            page.horizon_input.setText("invalid")
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 0)
+            self.assertEqual(page.status.text(), "—")
+            page.horizon_input.setText("7")
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 2)
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 0)
+            self.assertEqual(page.status.text(), "—")
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_analytics_view_is_admin_only_localized_and_clears_stale_data(self):
         from decimal import Decimal
         from velopos_qt.analytics_page import AnalyticsPage
@@ -614,7 +670,7 @@ class PreviewSmokeTests(unittest.TestCase):
             page.deleteLater()
 
     def test_dashboard_then_shop_settings(self):
-        self.assertEqual(self.window.nav.count(), 13)
+        self.assertEqual(self.window.nav.count(), 14)
         self.assertEqual(self.window.nav.currentRow(), 0)
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")

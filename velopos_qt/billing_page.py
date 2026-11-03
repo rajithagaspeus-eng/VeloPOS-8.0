@@ -282,7 +282,13 @@ class BillingPage(QWidget):
         try:
             matches = self.customer_reader.search(self.customer_search.text())
         except (ValueError, RuntimeError, OSError, PermissionError) as exc:
+            # On a revoked session or a failed sensitive lookup, never retain
+            # the previous customer's name, phone, points, or held ID in UI.
+            self.customer_choice.blockSignals(True)
             self.customer_choice.clear()
+            self.customer_choice.blockSignals(False)
+            self.customer_id = None
+            self.loyalty_projection.setText("")
             self.customer_summary.setText(str(exc))
             return
         previous = self.customer_id

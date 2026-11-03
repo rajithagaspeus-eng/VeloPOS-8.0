@@ -1,0 +1,51 @@
+"""A mandatory-deny service gateway for the *nontransactional* V8 preview.
+
+All contemplated transaction entry points must be represented by this gateway
+when introduced in Qt. Every method calls PreviewTransactionGate.require
+BEFORE touching any delegated original service, even if the caller supplies an
+Admin role, payment information, or a fabricated license/shift claim.
+
+This protects ONLY calls through the new gateway. The original V7 services
+remain directly importable and must be refactored behind a verified production
+session before any commercial checkout or other financial UI is enabled.
+"""
+from .transaction_policy import PreviewTransactionGate
+
+
+class PreviewTransactionGateway:
+    """Fail closed without storing a service reference or making a DB write."""
+
+    def __init__(self, database):
+        self._gate = PreviewTransactionGate(database)
+
+    def _block(self, action, identity):
+        self._gate.require(action, identity)
+        # Defensive redundancy if a broken policy is ever substituted.
+        raise PermissionError("V8 preview transactions are disabled")
+
+    def sale(self, *, identity=None, **_payload):
+        self._block("sale", identity)
+
+    def return_sale(self, *, identity=None, **_payload):
+        self._block("return", identity)
+
+    def purchase(self, *, identity=None, **_payload):
+        self._block("purchase", identity)
+
+    def supplier_payment(self, *, identity=None, **_payload):
+        self._block("supplier_payment", identity)
+
+    def credit_payment(self, *, identity=None, **_payload):
+        self._block("credit_payment", identity)
+
+    def redeem_points(self, *, identity=None, **_payload):
+        self._block("points_redemption", identity)
+
+    def open_shift(self, *, identity=None, **_payload):
+        self._block("shift_open", identity)
+
+    def close_shift(self, *, identity=None, **_payload):
+        self._block("shift_close", identity)
+
+    def print_receipt(self, *, identity=None, **_payload):
+        self._block("receipt_print", identity)

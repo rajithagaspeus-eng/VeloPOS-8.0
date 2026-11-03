@@ -6,6 +6,8 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "estimated_net": "Estimated payable",
+        "preview_error": "Bill preview error",
         "customers": "Customers",
         "suppliers": "Suppliers",
         "name": "Name",
@@ -66,6 +68,8 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "estimated_net": "ඇස්තමේන්තුගත ගෙවිය යුතු මුදල",
+        "preview_error": "බිල්පත් ඇස්තමේන්තු දෝෂය",
         "customers": "පාරිභෝගිකයන්",
         "suppliers": "සැපයුම්කරුවන්",
         "name": "නම",
@@ -126,6 +130,8 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "estimated_net": "மதிப்பிடப்பட்ட செலுத்த வேண்டிய தொகை",
+        "preview_error": "பில் முன்னோட்டப் பிழை",
         "customers": "வாடிக்கையாளர்கள்",
         "suppliers": "விநியோகஸ்தர்கள்",
         "name": "பெயர்",

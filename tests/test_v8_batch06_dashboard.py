@@ -1,4 +1,8 @@
 """Batch 06 dashboard tests, using an isolated SQLite database only."""
+import os
+import subprocess
+import sys
+import textwrap
 import sqlite3
 import tempfile
 import unittest
@@ -78,6 +82,32 @@ class DashboardStatsTests(unittest.TestCase):
         self.database.DATA_DIR = str(Path(self.temp.name) / "VeloPOS")
         with self.assertRaises(RuntimeError):
             self.reader.snapshot()
+
+    def test_real_velopos_schema_demo_counts_in_subprocess(self):
+        with tempfile.TemporaryDirectory(prefix="v8_dashboard_real_") as root:
+            env = os.environ.copy()
+            env["VELOPOS_HOME"] = str(Path(root) / "VeloPOS8PreviewData")
+            script = textwrap.dedent(
+                """
+                from velopos import database
+                from velopos_qt.dashboard_model import DashboardReader
+                from velopos_qt.demo_data import ensure_preview_products, ensure_preview_directories
+                database.init_db()
+                ensure_preview_products(database)
+                ensure_preview_directories(database)
+                reader = DashboardReader(database)
+                result = reader.snapshot()
+                assert result["products"] == 5, result
+                assert result["customers"] == 2, result
+                assert result["suppliers"] == 1, result
+                assert result["low_stock"] == 0, result
+                """
+            )
+            process = subprocess.run(
+                [sys.executable, "-c", script],
+                env=env, text=True, capture_output=True, timeout=35,
+            )
+            self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
 
     def test_does_not_write_during_snapshot(self):
         before = self.database.connection.total_changes

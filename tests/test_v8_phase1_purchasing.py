@@ -79,6 +79,54 @@ class PurchaseOverviewIntegrationTests(unittest.TestCase):
             """
         )
 
+    def test_supplier_balances_reconcile_later_payments_and_advances(self):
+        self.isolated(
+            """
+            from decimal import Decimal
+            from velopos import database, services
+            from velopos_qt.purchasing_model import PurchaseOverviewReader
+            database.init_db()
+            a = services.add_supplier("Supplier A", "tester")
+            b = services.add_supplier("Supplier B", "tester")
+            services.save_product("PAY-1", "Rice", "tester",
+                                  cost=20, sell=40, stock=0)
+            services.create_purchase(
+                a, [{"barcode":"PAY-1", "qty": 5, "cost": 20}],
+                "tester", date="2026-11-02", paid_now=0,
+            )
+            services.create_purchase(
+                b, [{"barcode":"PAY-1", "qty": 2, "cost": 20}],
+                "tester", date="2026-11-03", paid_now=0,
+            )
+            # A pays 35 of 100 after receiving the goods. B prepays
+            # 60 against 40; this is a 20 advance, NOT a reduction in A's due.
+            services.pay_supplier(a, 35, "Bank", "tester")
+            services.pay_supplier(
+                b, 60, "Bank", "tester", allow_advance=True,
+            )
+            reader = PurchaseOverviewReader(database, authorize=lambda: True)
+            report = reader.snapshot(start="2026-11-03", end="2026-11-03")
+            assert report["purchase_count"] == 1, report
+            assert report["total"] == Decimal("40"), report
+            assert report["paid"] == Decimal("0"), report
+            assert report["unpaid_estimate"] == Decimal("40"), report
+            assert report["supplier_payables"] == Decimal("65"), report
+            assert report["supplier_advances"] == Decimal("20"), report
+            balance = {x["name"]: x["balance"] for x in report["balances"]}
+            assert balance == {
+                "Supplier A": Decimal("65"),
+                "Supplier B": Decimal("-20"),
+            }, balance
+            original = {x["name"]: Decimal(str(x["balance"]))
+                        for x in services.supplier_balances()}
+            assert balance == original, (balance, original)
+            assert Decimal(str(services.payables_total())) == report["supplier_payables"]
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM supplier_payments").fetchone()[0] == 2
+                assert c.execute("SELECT COUNT(*) FROM purchases").fetchone()[0] == 2
+            """
+        )
+
     def test_reader_requires_admin_every_time_and_rejects_invalid_dates(self):
         self.isolated(
             """

@@ -42,7 +42,7 @@ If your `.venv` is one directory higher than the cloned repo:
 ## Unit tests
 
 ```powershell
-python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_batch05_billing tests.test_v8_batch05_engine tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_batch05_billing tests.test_v8_batch05_engine tests.test_v8_batch06_dashboard tests.test_v8_qt_ui -v
 ```
 
 These include headless model and isolated offscreen Qt smoke tests. A successful run is **not** evidence that the full Windows GUI, live POS, or hardware works.
@@ -115,3 +115,11 @@ The isolated Qt **Billing draft** now has a barcode-first search field, Enter-to
 All changes are **in-memory draft state**. No checkout, payment, receipt, invoice, stock deduction, or customer credit operation is accessible. For tax/service charge estimates the preview uses the original `services.preview_bill` only against test data. Updated models reject negative/zero, overlarge and nonfinite quantities. Tests in `tests/test_v8_batch05_billing.py` and offscreen Qt smoke cases verify model rules and scanner workflow.
 
 Run the single combined command above. The new Batch 05 tests have been committed, but **not yet executed on the user's Windows machine**.
+
+## Batch 06 — Premium overview dashboard (preview-only)
+
+The Dashboard now displays **four verified counts from isolated preview storage**: product catalogue size, customer count, active suppliers and products with stock **5 or below**. A separate low-stock panel shows up to six products with actual demo stock balances. It has an Inventory shortcut and a Refresh button. Counts automatically refresh when the Dashboard is opened again. This is a lightweight four-count query plus a bounded six-row alert query; it makes no network or hardware calls.
+
+All totals are **test-only operational counts, not real business reports**. No actual sales, revenue, profit or payment KPI is fabricated. When no database is supplied, cards show an em dash rather than invented values. The dashboard rejects the production data directory before reading, and it does not write to products, customers, suppliers or stock. Three languages and two-column cards support narrower Windows screens.
+
+Run the combined test command above. Tests include isolated SQLite model checks, no-write assertions, refresh behavior, a production path guard and offscreen Qt KPI/navigation/translation tests. This batch is committed but its new tests have **not yet been run in the user's Windows environment**.

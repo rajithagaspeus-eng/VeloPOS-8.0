@@ -265,3 +265,13 @@ Admin can filter the **GRN history and purchasing totals by date** while the rea
 
 A Windows test milestone **121/121** passed before the current screenshot-driven Billing scroll/overlap fix and this reconciliation batch. Subsequent new code and tests have not yet been verified on Windows; following the owner's preference, defer full manual UI acceptance until a later combined milestone.
 
+
+## Phase 2 preview foundation — Historical Business Intelligence
+
+An **Admin-only Business intelligence** sidebar view has been added with three-language labels (English, Sinhala, Tamil). It reads only isolated test storage and supplies four accounting summary cards: recorded sales, refunds, revenue after refunds, and **indicative** net profit. Additional views show the per-event-date daily trend (including days with expense/return activity but no new sales), grouped expense categories, and top products sold by original sale-item turnover. These figures use the same `sales.status='OK'`, `returns.date`, `returns.profit_adj`, and `expenses.date` semantics as the original V8 Reports model.
+
+**Accounting caveats:** Historical descriptive analysis is **not a forecasting engine** and not independently certified P&L. Daily refunds belong to the refund-processing day, and a negative daily number may be legitimate. Top-selling products are ranked by sales **before** returns; there is no false claim of item-level net-return margin. Original recorded `sales.profit` is used rather than reconstructing costs from today's product prices. Final cost of goods sold, tax, returns and stock valuation reconciliation still requires commercial accounting acceptance.
+
+**Safety and limits:** Reader requires Preview Admin on every call and passes the isolated database guard. Date ranges are validated and capped at 367 inclusive calendar days, top-N queries limited to 50 rows. Invalid dates, query errors, logout or role loss clear all displayed analytics figures and tables. There is no sales, stock, payment, third-party AI/cloud call, or production-data mutation. Tests include ledger parity with `PreviewReportsReader`, void exclusion, returns, expenses, top-selling original line items, Admin revocation, date limits and offscreen Qt data clearing/localization.
+
+The previous confirmed Windows milestone was **121/121 checks passed**. The Billing scrollbar screenshot fix, supplier payable reconciliation, and this analytics batch have **not yet been verified by another Windows run**. The owner's preferred workflow remains a single combined test and manual QA later, not tests after each small commit.

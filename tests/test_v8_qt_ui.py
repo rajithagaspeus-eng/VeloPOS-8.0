@@ -444,6 +444,40 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_customer_lookup_failure_redacts_previous_profile(self):
+        from decimal import Decimal
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        gate = {"failure": False}
+        class Reader:
+            def search(self, term):
+                if gate["failure"]:
+                    raise PermissionError("Access revoked")
+                return [{"id": 11, "name": "Private Name", "phone": "0770009999"}]
+            def get(self, customer_id):
+                return {
+                    "name": "Private Name", "loyalty_points": Decimal("8"),
+                    "credit_balance": Decimal("12"), "credit_limit": Decimal("50"),
+                }
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=Reader(),
+            identity=lambda: PreviewIdentity("cashier", "Cashier"),
+        )
+        try:
+            page.refresh_customers()
+            page.customer_choice.setCurrentIndex(1)
+            self.assertIn("Private Name", page.customer_summary.text())
+            gate["failure"] = True
+            page.refresh_customers()
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertIsNone(page.customer_id)
+            self.assertEqual(page.loyalty_projection.text(), "")
+            self.assertNotIn("Private Name", page.customer_summary.text())
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_customer_ui_rechecks_live_authorization_not_cached_role(self):
         from decimal import Decimal
         from velopos_qt.billing_page import BillingPage

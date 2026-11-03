@@ -60,6 +60,45 @@ def demand_baseline(daily_units, *, horizon=7, stock=0, min_sale_days=5):
     return result
 
 
+def walk_forward_backtest(daily_units, *, min_sale_days=5):
+    """Three non-overlapping seven-day holdouts after 28-day training windows.
+
+    Each training window uses only dates preceding its holdout. Errors are in
+    units; no percentage score is reported for zero demand, and no claim of
+    general predictive accuracy is justified by three short windows.
+    """
+    try:
+        values = [Decimal(str(item)) for item in daily_units]
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Invalid backtest units") from exc
+    if len(values) != 49 or any(not x.is_finite() or x < 0 for x in values):
+        raise ValueError("Exactly 49 nonnegative daily values required")
+    evaluations = []
+    for offset in (0, 7, 14):
+        training = values[offset:offset + 28]
+        holdout = sum(values[offset + 28:offset + 35], Decimal(0))
+        prediction = demand_baseline(
+            training, horizon=7, min_sale_days=min_sale_days
+        )["units_expected"]
+        if prediction is not None:
+            evaluations.append({
+                "predicted": prediction,
+                "actual": holdout,
+                "absolute_error": abs(prediction - holdout),
+            })
+    error = None
+    if len(evaluations) >= 2:
+        error = (
+            sum((x["absolute_error"] for x in evaluations), Decimal(0))
+            / len(evaluations)
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return {
+        "evaluated_windows": len(evaluations),
+        "possible_windows": 3,
+        "mean_absolute_error": error,
+    }
+
+
 class DemandForecastReader:
     def __init__(self, database, authorize):
         _guard(database)
@@ -78,6 +117,7 @@ class DemandForecastReader:
         # Exclude today's incomplete trading period.
         end_day = today - timedelta(days=1)
         first_day = today - timedelta(days=28)
+        backtest_start = today - timedelta(days=49)
         with self.database.db() as c:
             products = c.execute(
                 "SELECT barcode, name_en, COALESCE(stock_qty,0) stock_qty "
@@ -88,13 +128,17 @@ class DemandForecastReader:
                 "FROM sale_items i JOIN sales s ON s.invoice_no=i.invoice_no "
                 "WHERE s.status='OK' AND s.date BETWEEN ? AND ? "
                 "GROUP BY i.barcode, s.date",
-                (first_day.isoformat(), end_day.isoformat()),
+                (backtest_start.isoformat(), end_day.isoformat()),
             ).fetchall()
         by_product = {}
         for row in items:
             by_product.setdefault(row["barcode"], {})[row["day"]] = row["qty"]
         calendar = [(first_day + timedelta(days=day)).isoformat()
                     for day in range(28)]
+        evaluation_calendar = [
+            (backtest_start + timedelta(days=day)).isoformat()
+            for day in range(49)
+        ]
         output = []
         for p in products:
             history = by_product.get(p["barcode"], {})
@@ -102,8 +146,12 @@ class DemandForecastReader:
                 [history.get(day, 0) for day in calendar],
                 horizon=horizon, stock=p["stock_qty"],
             )
+            backtest = walk_forward_backtest(
+                [history.get(day, 0) for day in evaluation_calendar]
+            )
             output.append({
                 "barcode": p["barcode"], "product": p["name_en"],
+                "backtest": backtest,
                 "stock": p["stock_qty"], **stats,
             })
         # Sparse products remain visible and explicitly marked; stable order.
@@ -114,6 +162,7 @@ class DemandForecastReader:
         ))
         return {
             "history_from": first_day.isoformat(),
+            "backtest_history_from": backtest_start.isoformat(),
             "history_to": end_day.isoformat(),
             "horizon": horizon,
             "products": output[:limit],

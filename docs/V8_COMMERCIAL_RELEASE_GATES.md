@@ -174,3 +174,28 @@ repeated lines, altered price, expired/missing items, hostile inputs, and
 zero sale/payment/stock mutations. The preflight is constructed by
 `SettingsPreview` but is not a Checkout UI action.
 
+
+## Gate A next foundation: transaction-scoped idempotency ledger
+
+The preview now includes `PreviewIdempotencyLedger`, an isolated **TEST DATA
+ONLY** SQLite request-journal contract. It is a low-level building block for
+future atomic sale/return service transactions, **not** a checkout feature or a
+production guarantee. Callers must obtain `BEGIN IMMEDIATE` on the canonical
+preview DB connection and keep the claim, any business mutations and result
+marking in that **same** transaction. The helper never commits by itself.
+`claim()` tracks a bounded request ID and SHA-256 of canonical request data;
+identical completed requests return the existing result reference, changed
+payloads using a previously claimed key raise an explicit conflict. Unfinished
+committed claims fail closed, rather than being treated as safe automatic
+retries. A rollback removes both uncommitted claim and related business writes.
+
+The implementation includes disposable-DB tests for restart/crash rollback,
+identical replay, conflicting payloads, malformed identifiers and payloads,
+scope isolation, unrelated DB rejection and concurrent serialized claims.
+Only the request metadata and opaque result reference are stored in the test
+ledger; no live invoice, payment, stock movement or paid-license check is
+performed. Crucially, none of the legacy `velopos.services` functions or V8
+Qt Checkout is wired to this helper yet. Secure production transactions still
+need verified session/license/shift authorization inside the same atomic
+service-boundary operation, and appropriate operational idempotency recovery.
+

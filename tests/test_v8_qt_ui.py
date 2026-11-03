@@ -178,8 +178,52 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.quick_buttons[1][0].click()
         self.assertEqual(self.window.nav.currentRow(), 2)
 
+    def test_admin_reports_are_hidden_until_login(self):
+        from velopos_qt.auth_model import PreviewIdentity
+        from velopos_qt.reports_page import ReportsPage
+
+        class FakeReports:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, start, end):
+                self.calls += 1
+                return {
+                    "sale_count": 2,
+                    "sales_total": 400,
+                    "recorded_gross_profit": 100,
+                    "expenses": 20,
+                    "indicative_net": 80,
+                    "recent_sales": [{"invoice_no": "DEMO", "date": "2026-11-01",
+                                      "total_amount": 400, "payment_method": "Cash"}],
+                }
+            def staff_activity(self, limit=30):
+                return [{"ts": "2026-11-01", "user": "admin", "action": "TEST"}]
+
+        reader = FakeReports()
+        page = ReportsPage(reader, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(page.sales.rowCount(), 0)
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("cashier", "Cashier")
+            page.refresh()
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(reader.calls, 1)
+            self.assertEqual(page.sales.rowCount(), 1)
+            self.assertEqual(page.audit.rowCount(), 1)
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.title.text(), "වාර්තා සහ ක්‍රියාකාරකම්")
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.sales.rowCount(), 0)
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_dashboard_then_shop_settings(self):
-        self.assertEqual(self.window.nav.count(), 9)
+        self.assertEqual(self.window.nav.count(), 10)
         self.assertEqual(self.window.nav.currentRow(), 0)
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")

@@ -32,6 +32,9 @@ QFrame#brandBar { background:#131e30; border:1px solid #283750; border-radius:14
 QFrame#billingTotals { background:#173e42; border:1px solid #316b6d; border-radius:12px; }
 QFrame#metricCard { background:#192a40; border:1px solid #2b415e; border-radius:13px; }
 QFrame#stockPanel { background:#192b36; border:1px solid #3a5960; border-radius:13px; }
+QFrame#reportMetricCard { background:#182d43; border:1px solid #32475c; border-radius:12px; }
+QLabel#reportMetricLabel { color:#b2c8dd; font-size:9.5pt; }
+QLabel#reportMetricValue { color:#81eed4; font-size:19pt; font-weight:750; }
 QLabel#metricLabel { color:#abc0d8; font-size:10pt; }
 QLabel#metricValue { color:#81eed4; font-size:25pt; font-weight:750; }
 QFrame#billingTotals QLabel { color:#bff7eb; background:transparent; }
@@ -65,6 +68,9 @@ QFrame#brandBar { background:white; border:1px solid #dce5f1; border-radius:14px
 QFrame#billingTotals { background:#e0f5f0; border:1px solid #b8ded6; border-radius:12px; }
 QFrame#metricCard { background:white; border:1px solid #d6e4f0; border-radius:13px; }
 QFrame#stockPanel { background:#f5faf9; border:1px solid #cde6df; border-radius:13px; }
+QFrame#reportMetricCard { background:#ffffff; border:1px solid #d3e2ef; border-radius:12px; }
+QLabel#reportMetricLabel { color:#557086; font-size:9.5pt; }
+QLabel#reportMetricValue { color:#078678; font-size:19pt; font-weight:750; }
 QLabel#metricLabel { color:#526b80; font-size:10pt; }
 QLabel#metricValue { color:#087d70; font-size:25pt; font-weight:750; }
 QFrame#billingTotals QLabel { color:#125749; background:transparent; }

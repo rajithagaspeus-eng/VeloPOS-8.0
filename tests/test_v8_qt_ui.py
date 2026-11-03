@@ -45,10 +45,35 @@ class PreviewSmokeTests(unittest.TestCase):
         self.sandbox.cleanup()
 
     def test_dashboard_then_shop_settings(self):
-        self.assertEqual(self.window.nav.count(), 4)
+        self.assertEqual(self.window.nav.count(), 5)
         self.assertEqual(self.window.nav.currentRow(), 0)
         self.window.nav.setCurrentRow(1)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")
+
+    def test_printer_settings_page_is_lazy_and_safe(self):
+        self.assertNotIn(3, self.window._pages)
+        self.window.nav.setCurrentRow(3)
+        self.assertIn(3, self.window._pages)
+        self.assertEqual(self.window.controls["printer_brand"].currentText(), "")
+        self.window.controls["printer_brand"].setCurrentText("Xprinter")
+        self.window.controls["paper_size"].setCurrentText("80mm")
+        self.window.controls["print_mode"].setCurrentText("Browser only")
+        self.window.controls["print_copies"].setCurrentText("2")
+        self.window.controls["receipt_footer"].setText("Thanks")
+        # Test the adapter directly to avoid a modal confirmation blocking smoke tests.
+        settings = self.window.adapter.save({
+            key: self.window.controls[key].currentText()
+                 if hasattr(self.window.controls[key], "currentText")
+                 else self.window.controls[key].text()
+            for key in ("printer_brand", "paper_size", "print_mode", "print_copies", "receipt_footer")
+        })
+        self.assertEqual(settings["print_copies"], "2")
+
+    def test_printer_labels_translate_in_sinhala(self):
+        self.window.nav.setCurrentRow(3)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(self.window.nav.item(3).text(), "මුද්‍රණ යන්ත්‍ර සහ රිසිට්පත්")
+        self.assertEqual(self.window.printer_notice.text()[:4], "මෙහි")
 
     def test_sinhala_switch_updates_visible_labels(self):
         self.window.nav.setCurrentRow(1)

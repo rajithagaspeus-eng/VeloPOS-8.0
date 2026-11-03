@@ -19,6 +19,7 @@ from .login_dialog import PreviewLoginDialog
 from .dashboard_model import DashboardReader
 from .reports_model import PreviewReportsReader
 from .shift_model import PreviewShiftReader
+from .billing_readiness import DraftStockReader
 from .reports_page import ReportsPage
 from .dashboard_page import DashboardOverview
 from .directory_editor import PreviewDirectoryEditor
@@ -101,6 +102,7 @@ class SettingsPreview(QMainWindow):
         self.dashboard_reader = DashboardReader(db) if db is not None else None
         self.reports_reader = PreviewReportsReader(db) if db is not None else None
         self.shift_reader = PreviewShiftReader(db) if db is not None else None
+        self.stock_reader = DraftStockReader(db) if db is not None else None
         # The guarded editor refuses production DB paths. No authentication
         # or production product mutations are enabled in V8 yet.
         self.product_editor = PreviewProductEditor(db, authorize=self._is_preview_admin) if db is not None else None
@@ -304,7 +306,8 @@ class SettingsPreview(QMainWindow):
                     from velopos import services
                     preview_fn = services.preview_bill
             return BillingPage(self.inventory, self.t, bill_preview=preview_fn,
-                               shift_reader=self.shift_reader, identity=lambda: self.identity)
+                               shift_reader=self.shift_reader, identity=lambda: self.identity,
+                               stock_reader=self.stock_reader)
         if index in (3, 4) and self.directory is not None:
             return DirectoryPage(self.directory, self.nav_keys[index], self.t,
                                  editor=self.directory_editor if self._is_preview_admin() else None)

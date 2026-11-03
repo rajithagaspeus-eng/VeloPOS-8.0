@@ -275,10 +275,12 @@ class BillingPage(QWidget):
         if restored == -1 and previous is not None:
             self.customer_id = None
         self.refresh_customer_summary()
+        self.refresh_cart()
 
     def choose_customer(self, _index):
         self.customer_id = self.customer_choice.currentData()
         self.refresh_customer_summary()
+        self.refresh_cart()
 
     def clear_customer(self):
         self.customer_id = None
@@ -286,6 +288,7 @@ class BillingPage(QWidget):
         self.customer_choice.setCurrentIndex(0 if self.customer_choice.count() else -1)
         self.customer_choice.blockSignals(False)
         self.refresh_customer_summary()
+        self.refresh_cart()
 
     def refresh_customer_summary(self):
         # Never expose balances/points unless authenticated at read time.

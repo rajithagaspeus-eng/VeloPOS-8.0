@@ -43,6 +43,8 @@ class PreviewProductEditor:
 
     def get(self, barcode):
         _guard(self.database)
+        if self.authorize is not None and not self.authorize():
+            raise PermissionError("Preview Admin sign-in is required to read editor details")
         with self.database.db() as connection:
             row = connection.execute(
                 "SELECT barcode, name_en, name_local, selling_price, stock_qty "

@@ -42,7 +42,7 @@ If your `.venv` is one directory higher than the cloned repo:
 ## Unit tests
 
 ```powershell
-python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_qt_ui -v
 ```
 
 These include headless model and isolated offscreen Qt smoke tests. A successful run is **not** evidence that the full Windows GUI, live POS, or hardware works.
@@ -99,3 +99,11 @@ This batch delivers preview foundations **only**, not full Billing/Inventory mig
 The UI now has refreshed dark/light styles and a prominent TEST MODE indicator. A product Add/Edit dialog uses the existing VeloPOS stock service, but only for the isolated preview database. Stock is the new total quantity (not an increment). Production checkout remains unavailable.
 
 New inventory regression tests cover stock ledger records, audit logs, validation and refusal of production-like storage. The tests are committed but still require execution in the developer's Windows environment.
+
+## Batch 04 — guarded customer and supplier editing
+
+Customer and supplier directories now provide **Add new** and **Edit selected** buttons in the dedicated preview environment. The forms reuse the original validated and audited `services.add_customer`, `update_customer`, `add_supplier` and `update_supplier` workflows. Customer credit balances and loyalty balances are never directly edited, and supplier payment workflows are not available. Invalid phone numbers and supplier duplicate names remain guarded by the original business services.
+
+The adapter checks the canonical preview database path before every operation and never enables editing on the production POS database. No commercial login or role-based security is implemented in this preview, so these actions must not be enabled for real shop use.
+
+Run the combined command above once after pulling `develop-v8`. New tests have not yet been executed in the user's Windows environment.

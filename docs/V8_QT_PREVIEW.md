@@ -143,3 +143,22 @@ The preview top bar includes Sign in for the isolated demo database. An empty de
 Inventory/Customer/Supplier Add/Edit controls are visible only to an Admin identity. **This is a preview UI gate only, NOT a production authorization boundary.** Legacy service APIs do not yet uniformly require an authenticated Qt session, so actual checkout and commercial write access remain disabled. The real release must check service permissions independent of UI visibility.
 
 The global product feature scope is recorded in [V8_MASTER_ROADMAP.md](V8_MASTER_ROADMAP.md). It includes advanced dashboards, stock, billing, multi-branch, local-first BI, optional cloud sync, phone owner dashboard, loyalty, P&L, staff security, online/offline commercial licensing, trial continuity and verified-email recovery. These are roadmap requirements, not promises of completed features.
+
+## Fast combined validation — one command
+
+Close the Windows preview window, then from the project root run:
+
+```powershell
+python run_v8_checks.py
+```
+
+The runner discovers every `tests/test_v8_*.py` test automatically, including new batches, prints one compact pass/fail summary and fails if tests are skipped. Use `python run_v8_checks.py --verbose` to investigate failures. It runs offscreen PySide6 tests without opening a desktop GUI; separate live Windows rendering/hardware acceptance is still required at milestones. If dependencies are missing, install the project's requirements and PySide6 in the project's virtual environment; the script does not install packages or access production storage.
+
+To update the branch and test in one paste:
+
+```powershell
+git pull origin develop-v8
+python run_v8_checks.py
+```
+
+The additional `test_v8_batch07_trial.py` suite covers the existing trial decision logic with **mocked server first-seen**, local clock rollback and corrupted-store cases; no real server call, registry mutation, license signing or private key use occurs. It is **not** proof against deliberate offline trial reset or piracy.

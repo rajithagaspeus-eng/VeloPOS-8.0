@@ -198,6 +198,42 @@ class PreviewSmokeTests(unittest.TestCase):
             dialog.deleteLater()
             inventory_page.deleteLater()
 
+    def test_customer_supplier_edit_dialog_preview_only(self):
+        from PySide6.QtWidgets import QDialog
+        from velopos_qt.directory_dialog import DirectoryDialog
+        from velopos_qt.directory_pages import DirectoryPage
+
+        class FakeEditor:
+            def __init__(self):
+                self.saved = []
+            def get(self, kind, identifier):
+                if kind == "customers":
+                    return {"id": identifier, "name": "Demo Customer",
+                            "phone": "0771112222", "address": "Demo Town"}
+                return {"id": identifier, "name": "Demo Supplier",
+                        "contact": "Rep", "phone": "0773334444", "whatsapp": "",
+                        "address": "", "notes": "", "active": 1}
+            def save(self, kind, **kwargs):
+                self.saved.append((kind, kwargs))
+
+        editor = FakeEditor()
+        page = DirectoryPage(FakeDirectory(), "customers", self.window.t, editor=editor)
+        dialog = DirectoryDialog(editor, "customers", self.window.t, identifier=1)
+        try:
+            self.assertEqual(page.table.rowCount(), 1)
+            self.assertEqual(page.new_button.text(), "Add new")
+            self.assertEqual(dialog.fields["name"].text(), "Demo Customer")
+            dialog.fields["address"].setText("Updated")
+            dialog.accept()
+            self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted)
+            self.assertEqual(editor.saved[0][1]["address"], "Updated")
+            self.assertEqual(editor.saved[0][1]["identifier"], 1)
+        finally:
+            dialog.close()
+            page.close()
+            dialog.deleteLater()
+            page.deleteLater()
+
     def test_printer_settings_page_is_lazy_and_safe(self):
         self.assertNotIn(7, self.window._pages)
         self.window.nav.setCurrentRow(7)

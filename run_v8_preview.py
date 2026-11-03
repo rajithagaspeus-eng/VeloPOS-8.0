@@ -29,6 +29,8 @@ def main():
     if os.path.normcase(os.path.realpath(database.DATA_DIR)) != os.path.normcase(os.path.realpath(location)):
         raise RuntimeError("Refusing to run without a dedicated preview database.")
     database.init_db()
+    from velopos_qt.demo_data import ensure_preview_products
+    ensure_preview_products(database)
     from velopos_qt.app import run
     return run(database.settings, database=database)
 

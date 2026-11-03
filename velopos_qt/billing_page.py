@@ -326,9 +326,17 @@ class BillingPage(QWidget):
                     if not warnings:
                         self.stock_status.setText(self.text("draft_stock_looks_ok"))
                     else:
-                        names = ", ".join(str(entry["barcode"]) for entry in warnings[:5])
+                        messages = []
+                        for entry in warnings[:5]:
+                            reason_key = {
+                                "missing": "draft_stock_missing",
+                                "insufficient": "draft_stock_insufficient",
+                                "price_changed": "draft_price_changed",
+                            }.get(entry["status"], "draft_stock_attention")
+                            messages.append(f'{entry["barcode"]} ({self.text(reason_key)})')
                         self.stock_status.setText(
-                            f'{self.text("draft_stock_attention")}: {names}'
+                            f'{self.text("draft_stock_attention")}: ' +
+                            ", ".join(messages)
                         )
             else:
                 self.stock_status.setText("")

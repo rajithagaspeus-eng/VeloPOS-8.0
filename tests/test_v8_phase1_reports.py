@@ -81,6 +81,42 @@ class ReportingIntegrationTests(unittest.TestCase):
             """
         )
 
+    def test_refunds_and_tax_adjustments_follow_legacy_reporting(self):
+        self.isolated(
+            """
+            from velopos import database, services
+            from velopos_qt.reports_model import PreviewReportsReader
+            database.init_db()
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO sales(invoice_no,date,time,total_amount,profit,status,payment_method,"
+                    "vat_amount,service_amount) "
+                    "VALUES('SALE1','2026-11-01','10:00',500,120,'OK','Cash',30,10)"
+                )
+                c.execute(
+                    "INSERT INTO returns(return_no,invoice_no,date,time,amount,profit_adj,"
+                    "vat_adj,service_adj) VALUES('RET1','SALE1','2026-11-02','11:00',100,-24,6,2)"
+                )
+                c.execute(
+                    "INSERT INTO expenses(date,category,description,amount,added_by) "
+                    "VALUES('2026-11-03','Rent','Test',20,'owner')"
+                )
+            reader = PreviewReportsReader(database)
+            data = reader.snapshot('2026-11-01','2026-11-04')
+            legacy = services.report_data('2026-11-01','2026-11-04')
+            assert str(data['returns_total']) == '100.00', data
+            assert str(data['net_revenue']) == '400.00', data
+            assert str(data['adjusted_gross_profit']) == '96.00', data
+            assert str(data['indicative_net']) == '76.00', data
+            assert str(data['vat_net']) == '24.00', data
+            assert str(data['service_net']) == '8.00', data
+            assert float(data['net_revenue']) == legacy['revenue']
+            assert float(data['indicative_net']) == legacy['profit']
+            assert float(data['vat_net']) == legacy['vat']
+            assert float(data['service_net']) == legacy['service']
+            """
+        )
+
     def test_shift_status_is_read_only_and_matches_original_schema(self):
         self.isolated(
             """

@@ -248,3 +248,9 @@ New isolated database tests cover authenticated lookups, literal wildcard escapi
 
 **Combined tests:** disposable test subprocesses exercise the *original* `create_purchase` stock/GRN/audit path and original `create_sale` loyalty accrual/failed-redemption rollback, without exposing transactions through Qt. Qt tests verify Purchasing Admin gate and logout clearing, multilingual labels, customer points illustration, and hold/resume privacy. Model tests verify financial input validation and production-path rejection. These latest tests are committed but **have not been executed on the user's Windows installation**. Run `python run_v8_checks.py` at the next combined milestone instead of separate tests for each small change.
 
+
+## Windows screenshot feedback — Billing layout (121-test milestone)
+
+The owner confirmed **121/121 automated checks passed** on Windows on the pre-fix `develop-v8` snapshot. Only the Billing screenshot was inspected, not a complete manual acceptance run. It showed **"Draft items" visibly overlapping the product results table** and an unnecessarily tall sidebar navigation.
+
+The follow-up layout fix places the full Billing draft in a scrollable Qt canvas, with minimum product-results and draft-cart table heights, instead of compressing those widgets when customer, loyalty and hold controls exceed the available window height. The sidebar item spacing was reduced for twelve navigation pages in both light and dark themes. A new offscreen regression test checks non-overlap and vertical scrolling at small heights. **This fix has not yet been Windows-tested**; defer full manual testing until the next combined milestone, as requested. Do not present untested Smart Inventory, Purchasing or Customer Loyalty manual workflows as passed.

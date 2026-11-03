@@ -55,7 +55,7 @@ class InventoryInsightsPage(QWidget):
 
         self.stock_title = QLabel()
         outer.addWidget(self.stock_title)
-        self.low_table = self._table(3)
+        self.low_table = self._table(4)
         outer.addWidget(self.low_table, 1)
         self.expiry_title = QLabel()
         outer.addWidget(self.expiry_title)
@@ -91,7 +91,7 @@ class InventoryInsightsPage(QWidget):
         for key, (label, _) in zip(self.metric_keys, self.cards):
             label.setText(self.text(key))
         self.low_table.setHorizontalHeaderLabels(
-            [self.text(key) for key in ("barcode", "product_name", "stock")])
+            [self.text(key) for key in ("barcode", "product_name", "stock", "insight_suggested_topup")])
         self.expiry_table.setHorizontalHeaderLabels(
             [self.text(key) for key in ("barcode", "product_name", "insight_expiry_date")])
         self.ledger_table.setHorizontalHeaderLabels(
@@ -137,7 +137,7 @@ class InventoryInsightsPage(QWidget):
                 self.cards, ("low_count", "expired_count", "expiring_count")):
             number.setText(str(data[key]))
         self._set_rows(self.low_table, data["low_rows"],
-                       ("barcode", "name_en", "stock_qty"))
+                       ("barcode", "name_en", "stock_qty", "suggested_topup"))
         self._set_rows(self.expiry_table, data["expiry_rows"],
                        ("barcode", "name_en", "expiry_date"))
         self._set_rows(self.ledger_table, data["movements"],

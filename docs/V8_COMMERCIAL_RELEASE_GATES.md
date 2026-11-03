@@ -199,3 +199,32 @@ Qt Checkout is wired to this helper yet. Secure production transactions still
 need verified session/license/shift authorization inside the same atomic
 service-boundary operation, and appropriate operational idempotency recovery.
 
+
+## Gate A service-bound authorization diagnostic (preview only)
+
+`velopos_qt/service_authorization.py` introduces a `PreviewServiceAuthorization`
+contract for future service-side authorization checks using the **same**
+caller-owned SQLite transaction as the operation being evaluated. It rejects
+non-preview/foreign DB connections and missing transactions, rechecks the
+persisted user role and credential fingerprint, validates per-action roles,
+and checks open shifts and cashier assignment for applicable financial
+actions. An Admin-looking Qt identity, untrusted boolean, deleted account,
+rotated password, demoted user, wrong shift or closed shift cannot bypass
+these checks.
+
+**This is intentionally not a license verifier and grants no permission.**
+Every returned decision has `can_execute=False` and an explicit
+`commercial_license_unverified` and `preview_transactions_disabled`
+reason. `require()` raises `PermissionError` unconditionally. Neither this
+module nor the idempotency journal is wired to the original V7 financial
+service methods, so Gate A remains BLOCKED. Commercial implementation must
+enforce signed entitlements, verified sessions, branch, cashier shift, stock,
+tax and idempotency within a **single** atomic service transaction and
+remove alternate unauthenticated legacy entry points before checkout is
+exposed.
+
+The newly added disposable-database tests exercise valid user checks that
+still deny checkout, cashier-versus-admin rules, mismatched or missing shifts,
+forged identities, persisted role changes, password rotation, invalid
+actions, transaction requirements, foreign SQLite connections and database
+path isolation. Passing preview tests alone is not production acceptance.

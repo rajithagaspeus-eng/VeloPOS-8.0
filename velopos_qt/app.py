@@ -270,6 +270,10 @@ class SettingsPreview(QMainWindow):
 
     def preview_logout(self):
         self.identity = None
+        # A new cashier must never inherit the previous cashier\'s draft.
+        bill = self._pages.get(2)
+        if isinstance(bill, BillingPage):
+            bill.clear_session_draft()
         self._update_auth_ui()
 
     def _update_auth_ui(self):

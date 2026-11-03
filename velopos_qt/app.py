@@ -14,6 +14,8 @@ from .preview_models import InventoryReader, DirectoryReader
 from .directory_pages import DirectoryPage
 from .core_pages import InventoryPage, BillingPage
 from .product_editor import PreviewProductEditor
+from .dashboard_model import DashboardReader
+from .dashboard_page import DashboardOverview
 from .directory_editor import PreviewDirectoryEditor
 
 DARK = """
@@ -22,6 +24,10 @@ QLabel { background:transparent; }
 QFrame#panel { background:#121e31; border:1px solid #283750; border-radius:16px; }
 QFrame#brandBar { background:#131e30; border:1px solid #283750; border-radius:14px; }
 QFrame#billingTotals { background:#173e42; border:1px solid #316b6d; border-radius:12px; }
+QFrame#metricCard { background:#192a40; border:1px solid #2b415e; border-radius:13px; }
+QFrame#stockPanel { background:#192b36; border:1px solid #3a5960; border-radius:13px; }
+QLabel#metricLabel { color:#abc0d8; font-size:10pt; }
+QLabel#metricValue { color:#81eed4; font-size:25pt; font-weight:750; }
 QFrame#billingTotals QLabel { color:#bff7eb; background:transparent; }
 QLabel#appTitle { font-size:22pt; font-weight:750; color:#f5f9ff; }
 QLabel#previewPill { background:#193b35; color:#8cf4d0; border:1px solid #2c7666;
@@ -51,6 +57,10 @@ QLabel { background:transparent; }
 QFrame#panel { background:white; border:1px solid #dce5f1; border-radius:16px; }
 QFrame#brandBar { background:white; border:1px solid #dce5f1; border-radius:14px; }
 QFrame#billingTotals { background:#e0f5f0; border:1px solid #b8ded6; border-radius:12px; }
+QFrame#metricCard { background:white; border:1px solid #d6e4f0; border-radius:13px; }
+QFrame#stockPanel { background:#f5faf9; border:1px solid #cde6df; border-radius:13px; }
+QLabel#metricLabel { color:#526b80; font-size:10pt; }
+QLabel#metricValue { color:#087d70; font-size:25pt; font-weight:750; }
 QFrame#billingTotals QLabel { color:#125749; background:transparent; }
 QLabel#appTitle { font-size:22pt; font-weight:750; color:#162d40; }
 QLabel#previewPill { background:#e2f6ee; color:#137b65; border:1px solid #b4e1d5;
@@ -83,6 +93,7 @@ class SettingsPreview(QMainWindow):
         self.inventory = inventory
         db = getattr(inventory, "database", None)
         self.directory = DirectoryReader(db) if db is not None else None
+        self.dashboard_reader = DashboardReader(db) if db is not None else None
         # The guarded editor refuses production DB paths. No authentication
         # or production product mutations are enabled in V8 yet.
         self.product_editor = PreviewProductEditor(db) if db is not None else None
@@ -183,6 +194,7 @@ class SettingsPreview(QMainWindow):
             self.dashboard_hint.setText(self.t("dashboard_hint"))
             for button, key in self.quick_buttons:
                 button.setText(self.t(key))
+            self.dashboard_overview.retranslate()
         if hasattr(self, "about_notice"):
             self.about_notice.setText(self.t("about_text"))
         if hasattr(self, "printer_notice"):
@@ -259,6 +271,11 @@ class SettingsPreview(QMainWindow):
                 quick_row.addWidget(action)
                 self.quick_buttons.append((action, key))
             layout.addLayout(quick_row)
+            self.dashboard_overview = DashboardOverview(
+                self.dashboard_reader, self.t,
+                open_inventory=lambda: self.nav.setCurrentRow(1),
+            )
+            layout.addWidget(self.dashboard_overview)
         elif index == 5:
             fields = [
                 ("shop_name", "shop_name"), ("phone", "phone"),
@@ -303,6 +320,8 @@ class SettingsPreview(QMainWindow):
             self._pages[index] = page
             self.pages.addWidget(page)
         self.pages.setCurrentWidget(self._pages[index])
+        if index == 0 and hasattr(self, "dashboard_overview"):
+            self.dashboard_overview.refresh()
 
     def save_settings(self):
         try:

@@ -134,6 +134,40 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_inventory_editor_dialog_and_preview_header(self):
+        from velopos_qt.product_dialog import ProductDialog
+        from velopos_qt.core_pages import InventoryPage
+
+        class FakeEditor:
+            def __init__(self):
+                self.saved = []
+            def get(self, barcode):
+                return {
+                    "barcode": barcode, "name_en": "Rice",
+                    "name_local": "සහල්", "stock_qty": 5,
+                    "selling_price": 250
+                }
+            def save(self, *args, **kwargs):
+                self.saved.append((args, kwargs))
+
+        editor = FakeEditor()
+        self.assertIn("TEST MODE", self.window.preview_badge.text())
+        inventory_page = InventoryPage(FakeInventory(), self.window.t, editor=editor)
+        dialog = ProductDialog(editor, self.window.t, barcode="D001")
+        try:
+            self.assertFalse(dialog.barcode.isEnabled() and not dialog.barcode.isReadOnly())
+            self.assertEqual(dialog.name.text(), "Rice")
+            dialog.stock.setText("8")
+            dialog.accept()
+            self.assertEqual(editor.saved[0][0], ("D001", "Rice"))
+            self.assertEqual(editor.saved[0][1]["stock"], "8")
+            self.assertEqual(inventory_page.add_product_button.text(), "New product")
+        finally:
+            dialog.close()
+            inventory_page.close()
+            dialog.deleteLater()
+            inventory_page.deleteLater()
+
     def test_printer_settings_page_is_lazy_and_safe(self):
         self.assertNotIn(7, self.window._pages)
         self.window.nav.setCurrentRow(7)

@@ -56,7 +56,7 @@ QPushButton:hover { background:#5bdecf; }
 QPushButton#secondaryAction { background:#23354d; color:#e3efff; border:1px solid #3b506a; }
 QPushButton#secondaryAction:hover { background:#314961; }
 QListWidget { border:0; background:transparent; font-size:10.5pt; outline:0; }
-QListWidget::item { padding:14px 15px; margin:3px 0; border-radius:9px; }
+QListWidget::item { padding:10px 13px; margin:2px 0; border-radius:9px; }
 QListWidget::item:selected { background:#164f4e; color:#9cfbea; }
 QListWidget::item:hover:!selected { background:#20344c; }
 QTableWidget { background:#111e30; alternate-background-color:#17283c;
@@ -92,7 +92,7 @@ QPushButton:hover { background:#097b70; }
 QPushButton#secondaryAction { background:#eef5f9; color:#236178; border:1px solid #c9dae6; }
 QPushButton#secondaryAction:hover { background:#d9edf2; }
 QListWidget { border:0; background:transparent; font-size:10.5pt; outline:0; }
-QListWidget::item { padding:14px 15px; margin:3px 0; border-radius:9px; }
+QListWidget::item { padding:10px 13px; margin:2px 0; border-radius:9px; }
 QListWidget::item:selected { background:#d8f4ed; color:#086b5d; }
 QListWidget::item:hover:!selected { background:#eef3f9; }
 QTableWidget { background:#ffffff; alternate-background-color:#f7f9fc;

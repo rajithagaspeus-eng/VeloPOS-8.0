@@ -1,0 +1,10 @@
+name = "velopos-dashboard"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "velopos"
+database_id = "dc4f8f72-f207-416a-ba90-8ebd22d68236"
+
+# Secret (never put it in this file):  npx wrangler secret put ADMIN_KEY

@@ -1,0 +1,6 @@
+customtkinter>=5.2
+cryptography>=42
+pillow>=10
+qrcode
+pywin32; sys_platform == "win32"
+pyserial

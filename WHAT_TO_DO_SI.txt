@@ -1,0 +1,22 @@
+VeloPOS - ඔයාට අවශ්‍ය දේවල් 3යි (සිංහලෙන්)
+============================================
+
+A) CUSTOMER කෙනෙක්ට PROGRAM එක දෙන්න
+   1. installer\build_windows.bat double-click කරන්න.
+   2. "Old folder" කියලා ඇහුවොත්, ඔයාගේ පරණ VeloPOS folder එක ඒ window එකට drag කරලා Enter ඔබන්න (මුලින්ම වතාවේදී විතරයි).
+   3. ඉවර වුණාම installer\Output\VeloPOS_Setup.exe එක customer ට දෙන්න.
+
+B) CUSTOMER ට LICENCE KEY එකක් දෙන්න
+   1. Customer ගේ program එකේ පෙන්නන Machine ID (POS-XXXX-XXXX-XXXX) ඉල්ලගන්න.
+   2. tools\VeloPOS_Admin.bat -> "Licence key" tab -> Machine ID + කඩේ නම -> ISSUE LICENCE KEY.
+   3. Key එක customer ට WhatsApp කරන්න.
+
+C) CUSTOMER ට PHONE DASHBOARD එක දෙන්න (ගෙව්වොත් විතරයි)
+   1. tools\VeloPOS_Admin.bat -> "Dashboard code" tab -> ADMIN_KEY + කඩේ නම + දවස් -> MAKE DASHBOARD CODE.
+   2. "Copy WhatsApp message" ඔබලා customer ට යවන්න.
+
+ADMIN_KEY අමතක වුණොත්:  cloud folder එකේ Command Prompt එකක
+   npx wrangler secret put ADMIN_KEY
+ගහලා අලුත් password එකක් දාන්න. ඒක ලියාගන්න.
+
+tools folder එක, private_key.pem, ADMIN_KEY - මේවා කවදාවත් customers ට දෙන්න එපා.

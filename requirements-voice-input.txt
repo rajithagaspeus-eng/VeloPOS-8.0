@@ -1,0 +1,4 @@
+# OPTIONAL - only for the assistant's microphone button (online speech recognition via Google).
+# Install with:  pip install -r requirements-voice-input.txt
+SpeechRecognition
+pyaudio

@@ -16,7 +16,7 @@ def preview_purchase_line(qty, unit_cost):
         raise ValueError("Invalid quantity or cost") from exc
     if not q.is_finite() or not cost.is_finite() or q <= 0 or q > 1000000:
         raise ValueError("Invalid quantity")
-    if cost < 0 or cost > 100000000:
+    if not cost.is_finite() or cost < 0 or cost > 100000000:
         raise ValueError("Invalid unit cost")
     return (q * cost).quantize(Decimal("0.01"))
 

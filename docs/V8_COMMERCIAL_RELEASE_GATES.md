@@ -126,3 +126,26 @@ an older test milestone passed.
 Next recommended integrated batch: audited service transaction authorization
 with disposable-schema tests, then atomic sale/return flows. Don't enable
 payments, printing, cloud or paid licenses from the preview beforehand.
+
+## Preview transaction gateway baseline (November 2026)
+
+The PySide6 preview now constructs `PreviewTransactionGateway` backed by
+`PreviewTransactionGate`. All nine contemplated financial actions
+(sale, return, GRN, supplier/credit payments, points redemption, shift
+open/close and receipt printing) **always raise PermissionError**, even if
+a caller passes an Admin identity and fabricated license/shift claims.
+This is explicitly **not** a commercial transaction authorization service:
+the original `velopos.services` functions can still be imported and invoked
+directly. The new gateway is therefore a deliberate interface and release
+safety barrier, *not* an assertion that legacy transaction calls have been
+secured. Do not add a Qt Checkout button until Gate A service-boundary
+authentication, atomic rechecks, idempotency, shift validation and financial
+rollback testing are completed.
+
+Preview product and customer/supplier editor `get()` operations now
+also recheck Admin authorization on every detail read; previously only writes
+were authorized. Customer lookup failures clear prior customer identity,
+selector and loyalty projection, and a revoked session cannot use a cached
+role to search or display protected customer data. Disposable DB regressions
+cover these cases.
+

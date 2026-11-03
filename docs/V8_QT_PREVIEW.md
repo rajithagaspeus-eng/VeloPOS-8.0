@@ -5,8 +5,8 @@
 ## What is implemented
 
 - A new standalone PySide6 window with left navigation, light/dark styles and lazily built pages.
-- An isolated **Dashboard placeholder** (no fabricated sales data) and live **English / Sinhala / Tamil** text switcher. Language choice applies to preview UI only; it resets when the test process closes.
-- Existing Settings values and technical combo-box option values remain in English; full localization and locale persistence are not yet implemented.
+- An isolated **Dashboard placeholder** (no fabricated sales data) and live **English / Sinhala / Tamil** text switcher. Language choice applies to preview UI only; the chosen language is now preserved across launches using Qt QSettings under a separate **VeloPOS8Preview** application identity.
+- Existing Settings values and technical combo-box option values remain in English; **full localization is not yet implemented**. Preview language persistence does not modify the production VeloPOS database.
 - Functional **Shop profile** and **Appearance** settings forms backed by the existing `velopos.database.Settings` API.
 - Input validation and a whitelist that excludes secrets and license-related settings.
 - Existing UI, `run.py`, licensing, billing, stock and schema untouched.
@@ -46,16 +46,16 @@ These are headless adapter tests only. A successful test run is **not** evidence
 
 1. Launch and verify Shop profile opens without a blank screen or flicker.
 2. Switch between Dashboard, Shop profile, Appearance and About repeatedly; observe render time.
-3. Switch the top language selector between **English**, **සිංහල** and **தமிழ்**; verify navigation, field labels and messages update immediately and text renders without boxes or clipping.
+3. Switch the top language selector between **English**, **සිංහල** and **தமிழ்**; verify navigation, field labels and messages update immediately and text renders without boxes or clipping. Close and relaunch the preview: the selected language should persist.
 4. Change a test shop name and Save; see a translated confirmation.
 5. Switch to Appearance, choose dark/light, Save and verify theme changes.
-6. Exit, rerun and verify the shop name resets to sample defaults (proof of isolated temp database).
+6. Exit, rerun and verify the shop name resets to sample defaults (proof of isolated temp database) while **language preference persists**.
 7. Confirm the existing production VeloPOS database and old desktop application are unaffected.
 
 ## Pending before VeloPOS 8 can be released
 
 - Validate Windows scroll and repaint behavior on actual target PCs.
-- Implement all settings pages, complete internationalization including localized option labels, settings language persistence, and security/role guard in the eventual integrated app.
+- Implement all settings pages, complete internationalization including localized option labels, and integrated application language settings, together with security/role guard in the eventual integrated app.
 - Build Qt adapters for billing, inventory, reports and printer integration.
 - Full regression and migration tests, packaging, licensing audits, code-signing decision and country-specific regulatory checks.
 - Audit dependency obligations, including PySide6/Qt's commercial redistribution requirements.
@@ -64,4 +64,4 @@ This code is not ready for live shop use. Never merge this experimental UI direc
 
 ## Status
 
-The preview has been committed to GitHub. **Unit and GUI tests have not been executed in this editing session**; run the commands above on Windows before treating it as validated. Previous screenshot from the owner confirmed the initial English Qt Settings preview opened, not the later multilingual extension.
+The preview has been committed to GitHub. **Unit and GUI tests have not been executed in this editing session**; run the commands above on Windows before treating it as validated. The user's subsequent screenshot showed Sinhala navigation and dashboard labels rendered on Windows, and they reported **14/14 preview tests passing** before this language persistence change. Re-run the tests and the Windows preview after updating.

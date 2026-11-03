@@ -42,7 +42,7 @@ If your `.venv` is one directory higher than the cloned repo:
 ## Unit tests
 
 ```powershell
-python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_batch05_billing tests.test_v8_batch05_engine tests.test_v8_batch06_dashboard tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_batch05_billing tests.test_v8_batch05_engine tests.test_v8_batch06_dashboard tests.test_v8_batch07_auth tests.test_v8_batch07_license tests.test_v8_qt_ui -v
 ```
 
 These include headless model and isolated offscreen Qt smoke tests. A successful run is **not** evidence that the full Windows GUI, live POS, or hardware works.
@@ -123,3 +123,15 @@ The Dashboard now displays **four verified counts from isolated preview storage*
 All totals are **test-only operational counts, not real business reports**. No actual sales, revenue, profit or payment KPI is fabricated. When no database is supplied, cards show an em dash rather than invented values. The dashboard rejects the production data directory before reading, and it does not write to products, customers, suppliers or stock. Three languages and two-column cards support narrower Windows screens.
 
 Run the combined test command above. Tests include isolated SQLite model checks, no-write assertions, refresh behavior, a production path guard and offscreen Qt KPI/navigation/translation tests. This batch is committed but its new tests have **not yet been run in the user's Windows environment**.
+
+## Batch 07 — authentication and commercial security foundations
+
+Commercial security requirements are now tracked in [V8_SECURITY_TRIAL_RECOVERY.md](V8_SECURITY_TRIAL_RECOVERY.md). This includes resisting license tampering, preventing trivial trial resets after reinstall, and verified-email forgotten-password recovery (not yet implemented). These items are mandatory release checks, **not completed claims**.
+
+A preview-only `PreviewAuthenticator` verifies **already-existing** user credentials with the original PBKDF2 verifier and persistent per-user lockout logic. It returns a narrow, immutable role identity. There is no preset production login, no email dispatch, no checkout authorization and no ability to mutate a user's license or trial. UI login and write-action session enforcement remain future implementation work.
+
+Additional tests use isolated subprocess databases for successful Admin/Cashier logins, bad credentials, persistent lockouts and production-folder refusal. Ed25519 license test signatures are generated using ephemeral in-memory keys without creating or replacing any genuine license signing key.
+
+**Important audit:** the current offline trial HMAC is derived from public device information and does not prevent a knowledgeable local user from rewriting their own files. The existing remote first-seen Worker integration is a useful building block but must be independently deployed/audited. Email recovery requires a previously verified address, trusted email backend and expiring single-use token verification before any password update.
+
+Run the single combined test command above once. The new Batch 07 tests are committed but not yet executed in the user's Windows environment.

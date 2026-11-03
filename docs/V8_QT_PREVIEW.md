@@ -37,6 +37,7 @@ If your `.venv` is one directory higher than the cloned repo:
 
 ```powershell
 python -m unittest tests.test_v8_settings_model tests.test_v8_i18n -v
+python -m unittest tests.test_v8_qt_ui -v
 ```
 
 These are headless adapter tests only. A successful test run is **not** evidence that the full Windows GUI or existing POS works.

@@ -131,8 +131,14 @@ class SettingsPreview(QMainWindow):
         navlayout = QVBoxLayout(navpanel)
         self.nav = QListWidget()
         self.nav.addItems([self.t(key) for key in self.nav_keys])
+        # Sinhala/Tamil labels can be wider than English. Avoid the
+        # unprofessional horizontal scrollbar and retain keyboard navigation.
+        self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.nav.setTextElideMode(Qt.TextElideMode.ElideRight)
+        for index, key in enumerate(self.nav_keys):
+            self.nav.item(index).setToolTip(self.t(key))
         navlayout.addWidget(self.nav)
-        navpanel.setFixedWidth(230)
+        navpanel.setFixedWidth(265)
         body.addWidget(navpanel)
         content = QFrame()
         content.setObjectName("panel")
@@ -161,6 +167,7 @@ class SettingsPreview(QMainWindow):
         self.locale_label.setText(self.t("language"))
         for index, key in enumerate(self.nav_keys):
             self.nav.item(index).setText(self.t(key))
+            self.nav.item(index).setToolTip(self.t(key))
         for label, key in self.translatable_labels:
             label.setText(self.t(key))
         for button in self.save_buttons:

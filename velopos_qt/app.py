@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (
 )
 from .settings_model import SettingsAdapter, PRINTER_BRANDS, PRINT_MODES, PAPER_SIZES
 from .i18n import LANGUAGES, translate
-from .preview_models import InventoryReader
+from .preview_models import InventoryReader, DirectoryReader
+from .directory_pages import DirectoryPage
 from .core_pages import InventoryPage, BillingPage
 
 DARK = """
@@ -47,6 +48,7 @@ class SettingsPreview(QMainWindow):
         self.preferences = preferences if preferences is not None else QSettings("VeloPOS", "VeloPOS8Preview")
         self.adapter = adapter
         self.inventory = inventory
+        self.directory = DirectoryReader(inventory.database) if inventory is not None else None
         self.saved = adapter.read()
         self.controls = {}
         stored_locale = str(self.preferences.value("language", "en"))
@@ -105,7 +107,7 @@ class SettingsPreview(QMainWindow):
         self.nav.setCurrentRow(0)
         self._apply_theme()
 
-    nav_keys = ("dashboard", "inventory", "billing", "shop_profile", "appearance", "printer_receipts", "about")
+    nav_keys = ("dashboard", "inventory", "billing", "customers", "suppliers", "shop_profile", "appearance", "printer_receipts", "about")
 
     def t(self, key):
         return translate(self.locale, key)
@@ -129,7 +131,7 @@ class SettingsPreview(QMainWindow):
         if hasattr(self, "printer_notice"):
             self.printer_notice.setText(self.t("printer_notice"))
         for page in self._pages.values():
-            if isinstance(page, (InventoryPage, BillingPage)):
+            if isinstance(page, (InventoryPage, BillingPage, DirectoryPage)):
                 page.retranslate()
 
     def add_field(self, form, key, widget):
@@ -158,6 +160,8 @@ class SettingsPreview(QMainWindow):
             return InventoryPage(self.inventory, self.t)
         if index == 2 and self.inventory is not None:
             return BillingPage(self.inventory, self.t)
+        if index in (3, 4) and self.directory is not None:
+            return DirectoryPage(self.directory, self.nav_keys[index], self.t)
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setSpacing(14)
@@ -174,7 +178,7 @@ class SettingsPreview(QMainWindow):
             self.dashboard_hint.setWordWrap(True)
             layout.addWidget(self.dashboard_intro)
             layout.addWidget(self.dashboard_hint)
-        elif index == 3:
+        elif index == 5:
             fields = [
                 ("shop_name", "shop_name"), ("phone", "phone"),
                 ("address", "address"), ("currency", "currency"),
@@ -183,12 +187,12 @@ class SettingsPreview(QMainWindow):
             ]
             for label, key in fields:
                 self.add_field(form, key, self._line(key))
-        elif index == 4:
+        elif index == 6:
             self.add_field(form, "theme", self._choice("theme", ["light", "dark", "system"]))
             self.add_field(form, "accent", self._choice("accent", ["Blue", "Green", "Purple", "Orange", "Red"]))
             self.add_field(form, "font_family", self._choice("font_family", ["Segoe UI", "Arial", "Nirmala UI", "Calibri"]))
             self.add_field(form, "font_size", self._choice("font_size", ["13", "14", "15", "16", "18", "20", "22"]))
-        elif index == 5:
+        elif index == 7:
             self.printer_notice = QLabel(self.t("printer_notice"))
             self.printer_notice.setWordWrap(True)
             layout.addWidget(self.printer_notice)
@@ -201,7 +205,7 @@ class SettingsPreview(QMainWindow):
             self.about_notice = QLabel(self.t("about_text"))
             self.about_notice.setWordWrap(True)
             layout.addWidget(self.about_notice)
-        if index in (3, 4, 5):
+        if index in (5, 6, 7):
             layout.addLayout(form)
             save = QPushButton(self.t("save"))
             save.clicked.connect(self.save_settings)
@@ -223,9 +227,9 @@ class SettingsPreview(QMainWindow):
         try:
             # Save only the visible page's values, avoiding stale values from other pages.
             page_fields = {
-                3: ("shop_name", "phone", "address", "currency", "bank_name", "bank_branch", "bank_acc", "bank_holder"),
-                4: ("theme", "accent", "font_family", "font_size"),
-                5: ("printer_brand", "print_mode", "paper_size", "print_copies", "receipt_footer"),
+                5: ("shop_name", "phone", "address", "currency", "bank_name", "bank_branch", "bank_acc", "bank_holder"),
+                6: ("theme", "accent", "font_family", "font_size"),
+                7: ("printer_brand", "print_mode", "paper_size", "print_copies", "receipt_footer"),
             }
             keys = page_fields.get(self.nav.currentRow(), ())
             changes = {

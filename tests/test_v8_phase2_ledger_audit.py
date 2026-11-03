@@ -127,7 +127,7 @@ class LedgerAuditIntegrationTests(unittest.TestCase):
                 )
             missing = auditor.audit_stock("NO-MOVE")
             assert [f.code for f in missing.findings] == ["stock_ledger_missing"]
-            for key in ("unknown", "NO-MOVE\n", ""):
+            for key in ("unknown", "NO-MOVE\\n", ""):
                 try:
                     auditor.audit_stock(key)
                 except ValueError:

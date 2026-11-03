@@ -1,7 +1,7 @@
 """Premium, localized KPI dashboard for safe VeloPOS 8 test previews."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
+    QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
 )
 
 
@@ -42,13 +42,14 @@ class DashboardOverview(QWidget):
         self.refresh_button.clicked.connect(self.refresh)
         heading.addWidget(self.refresh_button)
         outer.addLayout(heading)
-        metrics = QHBoxLayout()
+        # Two columns fit minimum-sized Windows screens and long translations.
+        metrics = QGridLayout()
         metrics.setSpacing(12)
         self.cards = []
-        for _ in self.keys:
+        for index, _ in enumerate(self.keys):
             card = MetricCard()
             self.cards.append(card)
-            metrics.addWidget(card, 1)
+            metrics.addWidget(card, index // 2, index % 2)
         outer.addLayout(metrics)
 
         self.alert_frame = QFrame()

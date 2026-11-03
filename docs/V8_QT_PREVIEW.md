@@ -187,3 +187,16 @@ This batch closes several high-risk gaps *without turning on production checkout
 - **Original transaction engine regression:** subprocess tests execute the existing `services.create_sale` against disposable preview storage to verify stock ledger/audit consistency and rollback when stock is insufficient. These tests do **not** expose any checkout/payment action in the Qt preview; full role, session, licensing, shift and transaction-hardening gates remain mandatory before real use.
 
 Run `python run_v8_checks.py` once after `git pull origin develop-v8` at the next combined Windows milestone. Until then the new tests are committed but not verified on the user's Windows environment. The previous combined suite ran **84 tests successfully**.
+
+## Phase 1 — larger billing readiness delivery: cash, discount and stock checks
+
+The scanner-first Billing draft now accepts a **draft discount** and **cash given** input, with **estimated payable**, change or remaining cash calculated locally. Discount amounts use Decimal validation, cannot be negative or exceed subtotal, and are passed to the original read-only `services.preview_bill` so that taxable/exempt items and VAT/service policies use the original billing mathematics. No credit, cash transfer, invoice creation, receipt or shift mutation occurs. All amounts are visually marked as preview only.
+
+The test-only Stock Reader checks draft lines for **removed products, insufficient on-hand stock or changed selling prices**. Alerts are localized to Sinhala, Tamil and English. It executes read-only parameterized queries, guarded against the production data directory. A positive result is **never authorization to checkout**; the original transaction engine must check units, batches, stock, licensing, authentication, payment and shift again inside one transaction.
+
+For speed, cash/discount typing updates in-memory calculations without repeatedly querying the stock database. Stock signals refresh when the cart changes or on Billing page entry; line totals use the same per-line currency rounding convention as the original service.
+
+The Admin-only Reports Reader also checks the Qt-owned Admin gate at the data-adapter boundary, not just when its page is visible. This remains preview-only: the legacy services are **not** yet secured by a production-grade session/permission boundary.
+
+New automatic tests cover model validation, cash estimates, read-only stock/price signals, VAT/tax parity with the original service, display localization, query caching and report access after sign-out. They are discovered automatically by `python run_v8_checks.py` alongside prior tests. The previous confirmed milestone was **84/84 Windows checks passed**; newly committed tests have not yet been run on Windows.
+

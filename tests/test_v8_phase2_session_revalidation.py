@@ -40,7 +40,7 @@ class PreviewSessionRevalidationTests(unittest.TestCase):
                     c.execute(
                         "UPDATE users SET role='Cashier' WHERE username='owner'"
                     )
-                assert auth.current_role(session) == "Cashier"
+                assert auth.current_role(session) is None
                 try:
                     editor.save("SESSION-1", "Unauthorized", sell="15", stock="2")
                 except PermissionError:

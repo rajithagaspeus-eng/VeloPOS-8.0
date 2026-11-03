@@ -4,6 +4,7 @@ Barcodes can be scanned into the search field and submitted with Enter.
 The cart exists in memory only. Display totals use the existing read-only
 bill preview service when the isolated launcher provides it.
 """
+from copy import deepcopy
 from decimal import Decimal
 
 from PySide6.QtCore import Qt
@@ -28,6 +29,7 @@ class BillingPage(QWidget):
         self.stock_reader = stock_reader
         self._last_stock_signature = None
         self.cart = Cart()
+        self._held_draft = None
         self.products = []
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -111,6 +113,21 @@ class BillingPage(QWidget):
         controls.addWidget(self.clear_button)
         layout.addLayout(controls)
 
+        hold_row = QHBoxLayout()
+        self.hold_button = QPushButton()
+        self.hold_button.setObjectName("secondaryAction")
+        self.hold_button.clicked.connect(self.hold_draft)
+        hold_row.addWidget(self.hold_button)
+        self.resume_button = QPushButton()
+        self.resume_button.setObjectName("secondaryAction")
+        self.resume_button.clicked.connect(self.resume_draft)
+        hold_row.addWidget(self.resume_button)
+        self.hold_note = QLabel()
+        self.hold_note.setObjectName("hint")
+        self.hold_note.setWordWrap(True)
+        hold_row.addWidget(self.hold_note, 1)
+        layout.addLayout(hold_row)
+
         # No payment is recorded. These fields are draft-only estimates.
         estimate_row = QHBoxLayout()
         self.discount_label = QLabel()
@@ -172,6 +189,9 @@ class BillingPage(QWidget):
         self.remove_button.setText(self.text("remove_line"))
         self.clear_button.setText(self.text("clear_cart"))
         self.cart_title.setText(self.text("draft_items"))
+        self.hold_button.setText(self.text("hold_draft"))
+        self.resume_button.setText(self.text("resume_draft"))
+        self._refresh_hold_controls()
         self.discount_label.setText(self.text("draft_discount"))
         self.tender_label.setText(self.text("draft_cash_tender"))
         self.results.setHorizontalHeaderLabels(
@@ -279,16 +299,57 @@ class BillingPage(QWidget):
         self.refresh_cart()
 
     def clear_session_draft(self):
-        """Discard sensitive unsaved draft state on sign-out; no DB calls."""
+        """Discard ALL active and held data at sign-out; no DB calls."""
+        self._held_draft = None
         self.cart.clear()
         self.discount_input.setText("0")
         self.tender_input.setText("0")
         self.quantity_input.setText("1")
         self.query.clear()
         self.refresh_cart()
+        self._refresh_hold_controls()
+
+    def _refresh_hold_controls(self):
+        if not hasattr(self, "hold_button"):
+            return
+        held = self._held_draft is not None
+        self.hold_button.setEnabled(bool(self.cart.lines) and not held)
+        self.resume_button.setEnabled(held and not bool(self.cart.lines))
+        self.hold_note.setText(
+            self.text("draft_held_note") if held else self.text("draft_hold_hint")
+        )
+
+    def hold_draft(self):
+        """Hold one unsaved draft in memory; never create a transaction."""
+        if not self.cart.lines or self._held_draft is not None:
+            return
+        self._held_draft = (
+            deepcopy(self.cart.lines),
+            self.discount_input.text(),
+            self.tender_input.text(),
+        )
+        self.cart.clear()
+        self.discount_input.setText("0")
+        self.tender_input.setText("0")
+        self.query.clear()
+        self.refresh_cart()
+        self._refresh_hold_controls()
+
+    def resume_draft(self):
+        """Prevent silently replacing a second active draft."""
+        if self._held_draft is None or self.cart.lines:
+            return
+        held_lines, discount, tender = self._held_draft
+        self.cart.lines = deepcopy(held_lines)
+        self._held_draft = None
+        self.discount_input.setText(discount)
+        self.tender_input.setText(tender)
+        self.refresh_cart()
+        self._refresh_hold_controls()
 
     def refresh_cart(self, selected_barcode=None):
         lines = list(self.cart.lines.values())
+        self._refresh_hold_controls()
         self.cart_table.setRowCount(len(lines))
         for row, line in enumerate(lines):
             values = (line["name"], f'{line["qty"]:g}', f'{line["price"]:,.2f}',

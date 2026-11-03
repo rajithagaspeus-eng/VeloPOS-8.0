@@ -7,9 +7,10 @@ from .product_editor import _guard
 
 
 class PreviewDirectoryEditor:
-    def __init__(self, database, services=None):
+    def __init__(self, database, services=None, authorize=None):
         _guard(database)
         self.database = database
+        self.authorize = authorize
         if services is None:
             from velopos import services
         self.services = services
@@ -36,6 +37,8 @@ class PreviewDirectoryEditor:
              address="", contact="", whatsapp="", notes="", active=True):
         _guard(self.database)
         self._table(kind)
+        if self.authorize is not None and not self.authorize():
+            raise PermissionError("Preview Admin sign-in is required for directory changes")
         if not str(name).strip():
             raise ValueError("Name is required")
         if len(str(address)) > 500 or len(str(notes)) > 1000:

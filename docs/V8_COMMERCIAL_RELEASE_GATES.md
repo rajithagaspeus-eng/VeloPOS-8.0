@@ -228,3 +228,33 @@ still deny checkout, cashier-versus-admin rules, mismatched or missing shifts,
 forged identities, persisted role changes, password rotation, invalid
 actions, transaction requirements, foreign SQLite connections and database
 path isolation. Passing preview tests alone is not production acceptance.
+
+## Gate A — HMAC preview sessions and rollback-only sale integration exercise
+
+Preview sign-ins now receive a process-local **random-nonce HMAC session proof**
+bound to the canonical preview database path, username, current role and
+stored password hash. This replaces the earlier forgeable
+`SHA256(stored_pw_hash)` credential fingerprint. The proof must be present
+in the current process's active session set, so copying a user-table password
+hash cannot manufacture a valid session; a process restart or explicit UI
+sign-out invalidates it. Role mismatch, password rotation or deletion revokes
+the proof on detection, preventing a demote-and-repromote cycle from reviving
+a session. Checkout preflight, protected service authorization diagnostics,
+and normal Admin/Cashier readers share this same verifier. This is a
+**preview-only process session**, not a remote/production authentication
+infrastructure; stolen live session objects, local machine compromise, and
+production entitlement threats are not solved by HMAC alone.
+
+The standalone `RollbackOnlySaleRehearsal` now joins service-authorization
+diagnostics, idempotency claim/complete, duplicate-barcode stock aggregation,
+current-price validation, synthetic invoice and sale-item staging **inside
+one `BEGIN IMMEDIATE` transaction** on the isolated TEST database.
+**Every execution, including apparent success, unconditionally rolls back.**
+This simulates atomic failure behavior without selling, printing, charging,
+persisting invoice records, changing lasting stock, or enabling checkout.
+It is intentionally not wired to the Qt gateway or legacy service. Rehearsal
+regressions verify injected failures after stock and invoice staging,
+invalid data, denied sessions/shifts, idempotency and full state rollback.
+It does **not** implement actual revenue, taxes, loyalty, purchase posting,
+returns, real idempotent replay, stock batches or commercial licensing.
+Release Gate A remains BLOCKED; these are engineering test scaffolds only.

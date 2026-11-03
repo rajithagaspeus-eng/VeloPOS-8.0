@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QStackedWidget, QVBoxLayout, QWidget,
 )
 from .settings_model import SettingsAdapter
+from .i18n import LANGUAGES, translate
 
 DARK = """
 QWidget { background:#0b1220; color:#e8edf8; font: 10pt 'Segoe UI'; }
@@ -44,6 +45,9 @@ class SettingsPreview(QMainWindow):
         self.adapter = adapter
         self.saved = adapter.read()
         self.controls = {}
+        self.locale = "en"
+        self.translatable_labels = []
+        self.save_buttons = []
         self.setWindowTitle("VeloPOS 8.0 | Settings Preview — TEST DATA")
         self.resize(1020, 680)
         self.setMinimumSize(760, 520)
@@ -55,9 +59,21 @@ class SettingsPreview(QMainWindow):
         title = QLabel("VeloPOS 8.0")
         title.setStyleSheet("font-size:24pt; font-weight:700;")
         outer.addWidget(title)
-        sub = QLabel("Modern Settings Preview  •  Isolated test data  •  Not for shop use")
-        sub.setObjectName("hint")
-        outer.addWidget(sub)
+        self.subtitle = QLabel(self.t("subtitle"))
+        self.subtitle.setObjectName("hint")
+        self.subtitle.setWordWrap(True)
+        outer.addWidget(self.subtitle)
+
+        locale_row = QHBoxLayout()
+        locale_row.addStretch()
+        self.locale_label = QLabel(self.t("language"))
+        locale_row.addWidget(self.locale_label)
+        self.locale_combo = QComboBox()
+        for code, name in LANGUAGES.items():
+            self.locale_combo.addItem(name, code)
+        self.locale_combo.currentIndexChanged.connect(self.change_language)
+        locale_row.addWidget(self.locale_combo)
+        outer.addLayout(locale_row)
 
         body = QHBoxLayout()
         outer.addLayout(body, 1)
@@ -65,7 +81,7 @@ class SettingsPreview(QMainWindow):
         navpanel.setObjectName("panel")
         navlayout = QVBoxLayout(navpanel)
         self.nav = QListWidget()
-        self.nav.addItems(["Shop profile", "Appearance", "About preview"])
+        self.nav.addItems([self.t(key) for key in self.nav_keys])
         navlayout.addWidget(self.nav)
         navpanel.setFixedWidth(230)
         body.addWidget(navpanel)
@@ -82,6 +98,33 @@ class SettingsPreview(QMainWindow):
         self.nav.currentRowChanged.connect(self.open_page)
         self.nav.setCurrentRow(0)
         self._apply_theme()
+
+    nav_keys = ("dashboard", "shop_profile", "appearance", "about")
+
+    def t(self, key):
+        return translate(self.locale, key)
+
+    def change_language(self, _index):
+        self.locale = self.locale_combo.currentData() or "en"
+        self.subtitle.setText(self.t("subtitle"))
+        self.locale_label.setText(self.t("language"))
+        for index, key in enumerate(self.nav_keys):
+            self.nav.item(index).setText(self.t(key))
+        for label, key in self.translatable_labels:
+            label.setText(self.t(key))
+        for button in self.save_buttons:
+            button.setText(self.t("save"))
+        if hasattr(self, "dashboard_intro"):
+            self.dashboard_intro.setText(self.t("dashboard_intro"))
+            self.dashboard_hint.setText(self.t("dashboard_hint"))
+        if hasattr(self, "about_notice"):
+            self.about_notice.setText(self.t("about_text"))
+
+    def add_field(self, form, key, widget):
+        label = QLabel(self.t(key))
+        label.setMinimumWidth(155)
+        form.addRow(label, widget)
+        self.translatable_labels.append((label, key))
 
     def _line(self, key):
         widget = QLineEdit(self.saved.get(key, ""))
@@ -102,38 +145,42 @@ class SettingsPreview(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setSpacing(14)
-        heading = QLabel(["Shop profile", "Appearance", "About this preview"][index])
+        heading = QLabel(self.t(self.nav_keys[index]))
+        self.translatable_labels.append((heading, self.nav_keys[index]))
         heading.setStyleSheet("font-size:19pt; font-weight:650;")
         layout.addWidget(heading)
         form = QFormLayout()
         form.setVerticalSpacing(15)
         if index == 0:
+            self.dashboard_intro = QLabel(self.t("dashboard_intro"))
+            self.dashboard_intro.setWordWrap(True)
+            self.dashboard_hint = QLabel(self.t("dashboard_hint"))
+            self.dashboard_hint.setWordWrap(True)
+            layout.addWidget(self.dashboard_intro)
+            layout.addWidget(self.dashboard_hint)
+        elif index == 1:
             fields = [
-                ("Shop name", "shop_name"), ("Telephone", "phone"),
-                ("Address", "address"), ("Currency symbol", "currency"),
-                ("Bank name", "bank_name"), ("Bank branch", "bank_branch"),
-                ("Bank account", "bank_acc"), ("Account holder", "bank_holder"),
+                ("shop_name", "shop_name"), ("phone", "phone"),
+                ("address", "address"), ("currency", "currency"),
+                ("bank_name", "bank_name"), ("bank_branch", "bank_branch"),
+                ("bank_acc", "bank_acc"), ("bank_holder", "bank_holder"),
             ]
             for label, key in fields:
-                form.addRow(label, self._line(key))
-        elif index == 1:
-            form.addRow("Theme", self._choice("theme", ["light", "dark", "system"]))
-            form.addRow("Accent", self._choice("accent", ["Blue", "Green", "Purple", "Orange", "Red"]))
-            form.addRow("Font", self._choice("font_family", ["Segoe UI", "Arial", "Nirmala UI", "Calibri"]))
-            form.addRow("Font size", self._choice("font_size", ["13", "14", "15", "16", "18", "20", "22"]))
+                self.add_field(form, key, self._line(key))
+        elif index == 2:
+            self.add_field(form, "theme", self._choice("theme", ["light", "dark", "system"]))
+            self.add_field(form, "accent", self._choice("accent", ["Blue", "Green", "Purple", "Orange", "Red"]))
+            self.add_field(form, "font_family", self._choice("font_family", ["Segoe UI", "Arial", "Nirmala UI", "Calibri"]))
+            self.add_field(form, "font_size", self._choice("font_size", ["13", "14", "15", "16", "18", "20", "22"]))
         else:
-            notice = QLabel(
-                "This is an isolated interface proof of concept.\n\n"
-                "Existing billing, inventory, reports, licensing, and production "
-                "settings remain in the original application.\n\n"
-                "This preview does not read or write real shop data."
-            )
-            notice.setWordWrap(True)
-            layout.addWidget(notice)
-        if index in (0, 1):
+            self.about_notice = QLabel(self.t("about_text"))
+            self.about_notice.setWordWrap(True)
+            layout.addWidget(self.about_notice)
+        if index in (1, 2):
             layout.addLayout(form)
-            save = QPushButton("Save settings to test database")
+            save = QPushButton(self.t("save"))
             save.clicked.connect(self.save_settings)
+            self.save_buttons.append(save)
             layout.addWidget(save, alignment=Qt.AlignmentFlag.AlignRight)
         layout.addStretch()
         return page
@@ -156,11 +203,11 @@ class SettingsPreview(QMainWindow):
             }
             self.adapter.save(changes)
         except (ValueError, OSError, RuntimeError) as exc:
-            QMessageBox.warning(self, "Unable to save", str(exc))
+            QMessageBox.warning(self, self.t("failed_title"), str(exc))
             return
         self.saved.update(changes)
         self._apply_theme()
-        QMessageBox.information(self, "Saved", "Saved to isolated preview test database.")
+        QMessageBox.information(self, self.t("saved_title"), self.t("saved"))
 
     def _apply_theme(self):
         theme_widget = self.controls.get("theme")

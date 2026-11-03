@@ -4,7 +4,7 @@ A draft cart never calls create_sale, prints receipts, or changes stock.
 """
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+    QAbstractItemView, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 from .preview_models import Cart, preview_existing_bill
@@ -43,7 +43,14 @@ class InventoryPage(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        # Let product names use remaining width instead of truncating after
+        # only a few characters, while numeric columns remain compact.
+        header = self.table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         layout.addWidget(self.table)
         self.status = QLabel()
         layout.addWidget(self.status)
@@ -98,6 +105,7 @@ class InventoryPage(QWidget):
                 f'{float(product["selling_price"]):,.2f}',
             )):
                 item = QTableWidgetItem(str(value))
+                item.setToolTip(str(value))
                 self.table.setItem(row, col, item)
 
 

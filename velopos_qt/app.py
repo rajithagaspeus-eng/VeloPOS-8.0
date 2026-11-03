@@ -453,6 +453,17 @@ class SettingsPreview(QMainWindow):
     def open_page(self, index):
         if index < 0:
             return
+        # Revalidation at navigation boundaries also redacts held drafts,
+        # customer selections and visible user identity when the preview
+        # account is deleted, its password rotates, or its role changes.
+        if (self.identity is not None and self.authenticator is not None
+                and hasattr(self.authenticator, "current_role")):
+            try:
+                current = self.authenticator.current_role(self.identity)
+            except (RuntimeError, OSError):
+                current = None
+            if current is None or current != self.identity.role:
+                self.preview_logout()
         if index not in self._pages:
             page = self._create_page(index)
             self._pages[index] = page

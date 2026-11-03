@@ -83,6 +83,58 @@ class StockReadinessIntegrationTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_expired_product_and_batch_are_flagged_without_writing(self):
+        with tempfile.TemporaryDirectory(prefix="v8_expiry_draft_") as root:
+            env = os.environ.copy()
+            env["VELOPOS_HOME"] = str(Path(root) / "VeloPOS8PreviewData")
+            source = textwrap.dedent(
+                """
+                from velopos import database, services
+                from velopos_qt.billing_readiness import DraftStockReader
+                from velopos_qt.preview_models import Cart
+                database.init_db()
+                services.save_product("EXP-A", "Expired Product", "test",
+                                      sell=20, stock=5, expiry="2026-11-01")
+                services.save_product("EXP-B", "Expired Batch", "test",
+                                      sell=30, stock=5)
+                services.save_product("GOOD", "Not Expired", "test",
+                                      sell=40, stock=5)
+                with database.db() as connection:
+                    connection.execute(
+                        "INSERT INTO batches(barcode,batch_no,expiry_date,qty_remaining)"
+                        "VALUES('EXP-B','B1','2026-10-31',3)"
+                    )
+                    connection.execute(
+                        "INSERT INTO batches(barcode,batch_no,expiry_date,qty_remaining)"
+                        "VALUES('GOOD','EMPTY','2026-10-31',0)"
+                    )
+                cart = Cart()
+                for barcode, name, price in (
+                    ("EXP-A", "Expired Product", 20),
+                    ("EXP-B", "Expired Batch", 30),
+                    ("GOOD", "Not Expired", 40),
+                ):
+                    cart.add({"barcode": barcode, "name_en": name,
+                              "selling_price": price})
+                reader = DraftStockReader(database)
+                signals = {
+                    x["barcode"]: x["status"]
+                    for x in reader.inspect(cart, today="2026-11-04")
+                }
+                assert signals == {
+                    "EXP-A": "expired", "EXP-B": "expired_batch"
+                }, signals
+                with database.db() as connection:
+                    assert connection.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+                    assert connection.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0] == 3
+                """
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", source],
+                env=env, text=True, capture_output=True, timeout=40,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_stock_and_changed_price_warnings_with_no_writes(self):
         with tempfile.TemporaryDirectory(prefix="v8_stock_readiness_") as root:
             env = os.environ.copy()

@@ -13,6 +13,46 @@ from pathlib import Path
 
 
 class LegacyLoyaltyCompatibilityTests(unittest.TestCase):
+    def test_partial_credit_only_earns_points_on_paid_amount(self):
+        with tempfile.TemporaryDirectory(prefix="v8_loyalty_credit_") as root:
+            env = os.environ.copy()
+            env["VELOPOS_HOME"] = str(Path(root) / "VeloPOS8PreviewData")
+            script = textwrap.dedent(
+                """
+                from velopos import database, services
+                database.init_db()
+                services.save_product(
+                    "LOYAL-CREDIT", "Credit Item", "preview",
+                    cost=50, sell=100, stock=10,
+                )
+                with database.db() as c:
+                    cid = c.execute(
+                        "INSERT INTO customers(name,phone,loyalty_points) "
+                        "VALUES('Credit Buyer','0711234568',0)"
+                    ).lastrowid
+                cart = [{"barcode":"LOYAL-CREDIT", "name":"Credit Item", "qty":2,
+                         "price":100, "serial":"", "warranty":""}]
+                sale = services.create_sale(
+                    cart, 0, 0, 100, "Credit", "", cid,
+                    "preview-cashier", shift_id=None,
+                )
+                assert sale["net"] == 200, sale
+                assert sale["credit_due"] == 100, sale
+                with database.db() as c:
+                    row = c.execute(
+                        "SELECT loyalty_points,credit_balance FROM customers WHERE id=?",
+                        (cid,)
+                    ).fetchone()
+                    assert round(row["loyalty_points"], 2) == 1.00, row
+                    assert round(row["credit_balance"], 2) == 100.00, row
+                """
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", script], env=env,
+                capture_output=True, text=True, timeout=45,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_full_paid_sale_earns_points_and_failed_redemption_rolls_back(self):
         with tempfile.TemporaryDirectory(prefix="v8_loyalty_legacy_") as root:
             env = os.environ.copy()

@@ -257,6 +257,35 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")
 
+    def test_tender_typing_does_not_requery_stock(self):
+        from velopos_qt.billing_page import BillingPage
+
+        class CountingStock:
+            def __init__(self):
+                self.calls = 0
+            def inspect(self, cart):
+                self.calls += 1
+                return []
+
+        stock = CountingStock()
+        page = BillingPage(FakeInventory(), self.window.t, stock_reader=stock)
+        try:
+            page.query.setText("D001")
+            page.scan_or_add()
+            self.assertEqual(stock.calls, 1)
+            page.discount_input.setText("5")
+            page.tender_input.setText("300")
+            self.assertEqual(stock.calls, 1)
+            page.cart_table.selectRow(0)
+            page.quantity_input.setText("2")
+            page.edit_quantity()
+            self.assertEqual(stock.calls, 2)
+            page.refresh_stock()
+            self.assertEqual(stock.calls, 3)
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_billing_discount_cash_estimate_and_no_checkout(self):
         self.window.nav.setCurrentRow(2)
         page = self.window._pages[2]

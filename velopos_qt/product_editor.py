@@ -32,9 +32,10 @@ def _number(value, field, *, max_value):
 class PreviewProductEditor:
     """Create/update products in TEST storage using services.save_product."""
 
-    def __init__(self, database, save_fn=None):
+    def __init__(self, database, save_fn=None, authorize=None):
         _guard(database)
         self.database = database
+        self.authorize = authorize
         if save_fn is None:
             from velopos.services import save_product
             save_fn = save_product
@@ -51,6 +52,8 @@ class PreviewProductEditor:
 
     def save(self, barcode, name_en, *, name_local="", sell="0", stock="0"):
         _guard(self.database)
+        if self.authorize is not None and not self.authorize():
+            raise PermissionError("Preview Admin sign-in is required for product changes")
         barcode = str(barcode).strip()
         name_en = " ".join(str(name_en).split())
         if not barcode or len(barcode) > 80:

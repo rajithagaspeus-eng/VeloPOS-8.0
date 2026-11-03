@@ -225,3 +225,13 @@ An Admin-only **Smart inventory** screen has been added to the sidebar. It reads
 
 The combined Windows check is `git pull origin develop-v8` and `python run_v8_checks.py` **once per milestone**, followed by `python run_v8_preview.py` for the optional GUI acceptance check. New Smart Inventory and Qt hold/resume tests are committed but have **not yet been executed on Windows**. The confirmed previous Windows suite was 97/97 and subsequent unverified batches have added more tests.
 
+
+## Phase 1 larger batch — Customer loyalty lookups and actionable replenishment
+
+The cashier Billing draft now supports an **opt-in customer search** by existing name or phone and a selector for an authorized, signed-in **Admin or Cashier**. It displays the customer's stored loyalty points, outstanding credit balance and credit limit **read-only**. The original `customers` table and schema migrations are reused. There is no redemption, point creation, credit sale, payment or customer write. The preview data adapter checks the current login at **every query** and rejects non-preview storage. Unauthenticated UI controls are disabled, and an unsaved held draft stores only the customer ID (not name/phone); the ID is revalidated when resuming.
+
+**Privacy:** on Sign out, the cashier UI discards the active cart, held cart, selected customer, cached selector names/phones, discount and tender. A new cashier never inherits the prior user's customer selection or unsaved draft. If a customer is removed while a draft is held, the UI will not silently treat the deleted record as valid. Production transaction rights remain disabled.
+
+**Smart Inventory:** the Low Stock table also contains a *Suggested top-up* column, calculated as the amount required to take stock **above** the selected threshold. This is a basic arithmetic planning hint only, not an AI forecast, purchase order, or automatic stock change. The underlying original stock ledger is unchanged.
+
+New isolated database tests cover authenticated lookups, literal wildcard escaping, read-only points/credit, production-folder rejection and logout revocation; Qt tests cover customer selection, held-draft association and privacy, as well as reorder quantities. They join the existing one-command suite. **This latest batch is committed but not yet Windows-tested.** No changes were made to `main`, the real shop database, private license signing keys, or real checkout.

@@ -100,7 +100,7 @@ class SettingsPreview(QMainWindow):
         db = getattr(inventory, "database", None)
         self.directory = DirectoryReader(db) if db is not None else None
         self.dashboard_reader = DashboardReader(db) if db is not None else None
-        self.reports_reader = PreviewReportsReader(db) if db is not None else None
+        self.reports_reader = PreviewReportsReader(db, authorize=self._is_preview_admin) if db is not None else None
         self.shift_reader = PreviewShiftReader(db) if db is not None else None
         self.stock_reader = DraftStockReader(db) if db is not None else None
         # The guarded editor refuses production DB paths. No authentication

@@ -25,12 +25,18 @@ def _currency(value):
 
 
 class PreviewReportsReader:
-    def __init__(self, database):
+    def __init__(self, database, authorize=None):
         _guard(database)
         self.database = database
+        self.authorize = authorize
+
+    def _require_view_permission(self):
+        if self.authorize is not None and not self.authorize():
+            raise PermissionError("Preview Admin sign-in is required for reports")
 
     def snapshot(self, start, end):
         _guard(self.database)
+        self._require_view_permission()
         start, end = _date(start), _date(end)
         if start > end:
             raise ValueError("Start date cannot be later than end date")
@@ -86,8 +92,9 @@ class PreviewReportsReader:
         }
 
     def staff_activity(self, limit=30):
-        """Admin-only caller required; source remains an unmodified audit log."""
+        """Only activity metadata, with optional explicit Admin gate."""
         _guard(self.database)
+        self._require_view_permission()
         limit = max(1, min(int(limit), 100))
         with self.database.db() as connection:
             rows = connection.execute(

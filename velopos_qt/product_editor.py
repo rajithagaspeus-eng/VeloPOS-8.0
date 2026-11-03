@@ -61,10 +61,24 @@ class PreviewProductEditor:
             raise ValueError("Local name is too long")
         selling = _number(sell, "Price", max_value=100000000)
         quantity = _number(stock, "Stock", max_value=1000000)
-        # Do not change cost, tax rules, categories, unit conversions, expiry
-        # or stock logs here. The original service applies ledger/audit rules.
+        # save_product upserts all product metadata, so omitted fields would
+        # otherwise be silently reset. Carry them through when editing.
+        with self.database.db() as connection:
+            existing = connection.execute(
+                "SELECT keywords, wholesale_price, expiry_date, warranty "
+                "FROM products WHERE barcode=?", (barcode,)
+            ).fetchone()
+        metadata = {} if existing is None else {
+            "keywords": existing["keywords"] or "",
+            "wholesale": existing["wholesale_price"] or 0,
+            "expiry": existing["expiry_date"] or "",
+            "warranty": existing["warranty"] or "",
+        }
+        # Original audited service preserves cost, category, taxation, image
+        # and stock ledger. Other existing metadata is forwarded explicitly.
         return self._save(
             barcode, name_en, "v8-preview",
             name_local=str(name_local).strip(),
-            sell=selling, stock=quantity, add=0, reason="V8 preview inventory edit"
+            sell=selling, stock=quantity, add=0,
+            reason="V8 preview inventory edit", **metadata,
         )

@@ -48,7 +48,8 @@ class SettingsPreview(QMainWindow):
         self.preferences = preferences if preferences is not None else QSettings("VeloPOS", "VeloPOS8Preview")
         self.adapter = adapter
         self.inventory = inventory
-        self.directory = DirectoryReader(inventory.database) if inventory is not None else None
+        db = getattr(inventory, "database", None)
+        self.directory = DirectoryReader(db) if db is not None else None
         self.saved = adapter.read()
         self.controls = {}
         stored_locale = str(self.preferences.value("language", "en"))

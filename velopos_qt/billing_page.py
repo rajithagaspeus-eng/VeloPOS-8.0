@@ -116,13 +116,13 @@ class BillingPage(QWidget):
         estimate_row.addWidget(self.discount_label)
         self.discount_input = QLineEdit("0")
         self.discount_input.setMaximumWidth(90)
-        self.discount_input.textChanged.connect(self.refresh_cart)
+        self.discount_input.textChanged.connect(lambda _text: self.refresh_cart())
         estimate_row.addWidget(self.discount_input)
         self.tender_label = QLabel()
         estimate_row.addWidget(self.tender_label)
         self.tender_input = QLineEdit("0")
         self.tender_input.setMaximumWidth(100)
-        self.tender_input.textChanged.connect(self.refresh_cart)
+        self.tender_input.textChanged.connect(lambda _text: self.refresh_cart())
         estimate_row.addWidget(self.tender_input)
         estimate_row.addStretch(1)
         layout.addLayout(estimate_row)
@@ -175,6 +175,7 @@ class BillingPage(QWidget):
         self.cart_table.setHorizontalHeaderLabels(
             [self.text(k) for k in ("product_name", "quantity", "price", "line_total")]
         )
+        self._last_stock_signature = None
         self.refresh_cart()
         self.refresh_shift()
 

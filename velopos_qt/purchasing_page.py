@@ -1,6 +1,7 @@
 """Admin-only purchasing overview for isolated preview data; no GRN writes."""
+from datetime import date, timedelta
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHBoxLayout, QHeaderView, QLabel, QPushButton,
+    QAbstractItemView, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -16,6 +17,14 @@ class PurchasingPage(QWidget):
         self.heading.setStyleSheet("font-size:19pt; font-weight:650;")
         heading_row.addWidget(self.heading)
         heading_row.addStretch()
+        self.from_label = QLabel()
+        self.start_input = QLineEdit((date.today() - timedelta(days=30)).isoformat())
+        self.start_input.setMaximumWidth(120)
+        self.to_label = QLabel()
+        self.end_input = QLineEdit(date.today().isoformat())
+        self.end_input.setMaximumWidth(120)
+        for widget in (self.from_label, self.start_input, self.to_label, self.end_input):
+            heading_row.addWidget(widget)
         self.refresh_button = QPushButton()
         self.refresh_button.setObjectName("secondaryAction")
         self.refresh_button.clicked.connect(self.refresh)
@@ -64,6 +73,8 @@ class PurchasingPage(QWidget):
 
     def retranslate(self):
         self.heading.setText(self.text("purchasing"))
+        self.from_label.setText(self.text("date_from"))
+        self.to_label.setText(self.text("date_to"))
         self.refresh_button.setText(self.text("refresh_stats"))
         self.recent_title.setText(self.text("purchase_recent"))
         self.suppliers_title.setText(self.text("purchase_active_suppliers"))
@@ -107,7 +118,9 @@ class PurchasingPage(QWidget):
             self._clear(self.text("purchase_admin_only"))
             return
         try:
-            snap = self.reader.snapshot()
+            snap = self.reader.snapshot(
+                start=self.start_input.text(), end=self.end_input.text()
+            )
         except (PermissionError, OSError, RuntimeError, ValueError) as exc:
             self._clear(str(exc))
             return

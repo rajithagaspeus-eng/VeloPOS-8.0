@@ -42,7 +42,7 @@ If your `.venv` is one directory higher than the cloned repo:
 ## Unit tests
 
 ```powershell
-python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_qt_ui -v
 ```
 
 These include headless model and isolated offscreen Qt smoke tests. A successful run is **not** evidence that the full Windows GUI, live POS, or hardware works.
@@ -93,3 +93,9 @@ This batch delivers preview foundations **only**, not full Billing/Inventory mig
 - Customer and supplier screens use bounded parameterized read-only SQL against the separate preview DB. No real contacts are imported.
 - Only the existing read-only `services.preview_bill` is called from Billing Draft, not `create_sale`. Actual stock movement, checkout and payments remain disabled.
 - Qt GUI and headless tests were added, but **new tests have not yet been run** during this editing session. Run the combined test command once on Windows.
+
+## Batch 03 — Modern interface and preview-only inventory
+
+The UI now has refreshed dark/light styles and a prominent TEST MODE indicator. A product Add/Edit dialog uses the existing VeloPOS stock service, but only for the isolated preview database. Stock is the new total quantity (not an increment). Production checkout remains unavailable.
+
+New inventory regression tests cover stock ledger records, audit logs, validation and refusal of production-like storage. The tests are committed but still require execution in the developer's Windows environment.

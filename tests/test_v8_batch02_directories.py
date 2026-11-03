@@ -3,7 +3,7 @@ import sqlite3
 import unittest
 from contextlib import contextmanager
 
-from velopos_qt.preview_models import DirectoryReader
+from velopos_qt.preview_models import DirectoryReader, Cart, preview_existing_bill
 
 
 class TestDatabase:
@@ -60,6 +60,26 @@ class DirectoryTests(unittest.TestCase):
         self.assertEqual(len(self.reader.customers(limit=-5)), 1)
         self.assertEqual(self.db.connection.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 2)
         self.assertEqual(self.db.connection.execute("SELECT COUNT(*) FROM suppliers").fetchone()[0], 2)
+
+
+class BillingPreviewTests(unittest.TestCase):
+    def test_original_preview_is_called_without_checkout(self):
+        cart = Cart()
+        cart.add({"barcode": "DEMO-001", "name_en": "Rice", "selling_price": "245.00"}, quantity=2)
+        calls = []
+        def calculate(lines, discount, redeem):
+            calls.append((lines, discount, redeem))
+            return {"sub": 490.0, "net": 490.0, "vat": 0.0}
+        totals = preview_existing_bill(cart, calculate)
+        self.assertEqual(totals["net"], 490.0)
+        self.assertEqual(calls[0][0][0]["barcode"], "DEMO-001")
+        self.assertEqual(calls[0][0][0]["qty"], 2.0)
+        self.assertEqual((calls[0][1], calls[0][2]), (0.0, 0.0))
+
+    def test_empty_cart_does_not_call_billing_service(self):
+        def unsafe(*args):
+            raise AssertionError("Do not touch the billing service for empty cart")
+        self.assertIsNone(preview_existing_bill(Cart(), unsafe))
 
 
 if __name__ == "__main__":

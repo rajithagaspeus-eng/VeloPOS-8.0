@@ -32,6 +32,18 @@ class FakeInventory:
                 (p["barcode"] + p["name_en"] + p["name_local"]).lower()][:limit]
 
 
+class FakeDirectory:
+    def customers(self, query="", limit=100):
+        records = [{"id": 1, "name": "Demo Customer", "phone": "0771112222",
+                    "address": "Demo Town", "credit_balance": 125.50}]
+        return [row for row in records if query.lower() in row["name"].lower()][:limit]
+
+    def suppliers(self, query="", limit=100):
+        records = [{"id": 1, "name": "Demo Supplier", "contact": "Demo Contact",
+                    "phone": "0773334444", "address": "", "active": 1}]
+        return [row for row in records if query.lower() in row["name"].lower()][:limit]
+
+
 class FakeStore:
     def __init__(self):
         self.data = {"shop_name": "Demo", "theme": "light", "font_size": "15"}
@@ -54,6 +66,7 @@ class PreviewSmokeTests(unittest.TestCase):
         self.preferences = QSettings(os.path.join(self.sandbox.name, "preview.ini"), QSettings.Format.IniFormat)
         self.window = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences,
                                       inventory=FakeInventory())
+        self.window.directory = FakeDirectory()
 
     def tearDown(self):
         self.window.close()
@@ -85,6 +98,20 @@ class PreviewSmokeTests(unittest.TestCase):
         billing.clear_cart()
         self.assertEqual(billing.cart_table.rowCount(), 0)
 
+    def test_customer_supplier_directories(self):
+        self.window.nav.setCurrentRow(3)
+        customers = self.window._pages[3]
+        self.assertEqual(customers.table.rowCount(), 1)
+        self.assertEqual(customers.table.item(0, 0).text(), "Demo Customer")
+        customers.search.setText("nonexistent")
+        self.assertEqual(customers.table.rowCount(), 0)
+
+        self.window.nav.setCurrentRow(4)
+        suppliers = self.window._pages[4]
+        self.assertEqual(suppliers.table.rowCount(), 1)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(suppliers.heading.text(), "සැපයුම්කරුවන්")
+
     def test_printer_settings_page_is_lazy_and_safe(self):
         self.assertNotIn(7, self.window._pages)
         self.window.nav.setCurrentRow(7)
@@ -111,7 +138,7 @@ class PreviewSmokeTests(unittest.TestCase):
         self.assertEqual(self.window.printer_notice.text()[:4], "මෙහි")
 
     def test_sinhala_switch_updates_visible_labels(self):
-        self.window.nav.setCurrentRow(3)
+        self.window.nav.setCurrentRow(5)
         self.window.locale_combo.setCurrentIndex(1)
         self.assertEqual(self.window.nav.item(5).text(), "වෙළඳසැල් තොරතුරු")
         self.assertTrue(any(label.text() == "වෙළඳසැලේ නම"
@@ -140,7 +167,7 @@ class PreviewSmokeTests(unittest.TestCase):
             other.deleteLater()
 
     def test_tamil_then_english_does_not_destroy_inputs(self):
-        self.window.nav.setCurrentRow(3)
+        self.window.nav.setCurrentRow(5)
         self.window.controls["shop_name"].setText("Unsaved demo")
         self.window.locale_combo.setCurrentIndex(2)
         self.window.locale_combo.setCurrentIndex(0)

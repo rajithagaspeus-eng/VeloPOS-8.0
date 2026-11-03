@@ -149,3 +149,28 @@ selector and loyalty projection, and a revoked session cannot use a cached
 role to search or display protected customer data. Disposable DB regressions
 cover these cases.
 
+
+## Atomic checkout diagnostic foundation (not checkout)
+
+`PreviewCheckoutPreflight` provides a *read-only, fail-closed diagnostic* over
+the canonical isolated preview SQLite schema. It validates draft inputs and
+uses `BEGIN IMMEDIATE` to inspect persisted cashier identity/password-hash
+fingerprint, an assigned open shift, combined stock requirements for repeated
+barcodes, current sale prices, product expiry and active expired-batch
+warnings in one locked snapshot. It **always rolls the transaction back**
+and sets `can_checkout=False`; no payment, invoice, stock deduction,
+receipt or idempotency reservation is created. The diagnostic deliberately
+includes `idempotency_not_implemented` and `license_not_verified`, since a
+well-formed request identifier or a UI license flag cannot be trusted to
+authorize a commercial sale.
+
+This is not a full sale validator: unit conversions, mixed batches, tax,
+discounts, credit, loyalty, true duplicate request reservation, receipt
+printing and verified commercial licensing are still missing. A locked
+preflight does not reserve stock for a later sale; all rules must be
+revalidated **inside the future atomic write transaction**. Disposable DB
+tests exercise the true schema, stale sessions, shift closure, stock,
+repeated lines, altered price, expired/missing items, hostile inputs, and
+zero sale/payment/stock mutations. The preflight is constructed by
+`SettingsPreview` but is not a Checkout UI action.
+

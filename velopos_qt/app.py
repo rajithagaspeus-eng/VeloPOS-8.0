@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QListWidget, QMainWindow, QMessageBox, QPushButton,
     QStackedWidget, QVBoxLayout, QWidget,
 )
-from .settings_model import SettingsAdapter
+from .settings_model import SettingsAdapter, PRINTER_BRANDS, PRINT_MODES, PAPER_SIZES
 from .i18n import LANGUAGES, translate
 
 DARK = """
@@ -102,7 +102,7 @@ class SettingsPreview(QMainWindow):
         self.nav.setCurrentRow(0)
         self._apply_theme()
 
-    nav_keys = ("dashboard", "shop_profile", "appearance", "about")
+    nav_keys = ("dashboard", "shop_profile", "appearance", "printer_receipts", "about")
 
     def t(self, key):
         return translate(self.locale, key)
@@ -123,6 +123,8 @@ class SettingsPreview(QMainWindow):
             self.dashboard_hint.setText(self.t("dashboard_hint"))
         if hasattr(self, "about_notice"):
             self.about_notice.setText(self.t("about_text"))
+        if hasattr(self, "printer_notice"):
+            self.printer_notice.setText(self.t("printer_notice"))
 
     def add_field(self, form, key, widget):
         label = QLabel(self.t(key))
@@ -176,11 +178,20 @@ class SettingsPreview(QMainWindow):
             self.add_field(form, "accent", self._choice("accent", ["Blue", "Green", "Purple", "Orange", "Red"]))
             self.add_field(form, "font_family", self._choice("font_family", ["Segoe UI", "Arial", "Nirmala UI", "Calibri"]))
             self.add_field(form, "font_size", self._choice("font_size", ["13", "14", "15", "16", "18", "20", "22"]))
+        elif index == 3:
+            self.printer_notice = QLabel(self.t("printer_notice"))
+            self.printer_notice.setWordWrap(True)
+            layout.addWidget(self.printer_notice)
+            self.add_field(form, "printer_brand", self._choice("printer_brand", PRINTER_BRANDS))
+            self.add_field(form, "print_mode", self._choice("print_mode", PRINT_MODES))
+            self.add_field(form, "paper_size", self._choice("paper_size", PAPER_SIZES))
+            self.add_field(form, "print_copies", self._choice("print_copies", [str(i) for i in range(1, 6)]))
+            self.add_field(form, "receipt_footer", self._line("receipt_footer"))
         else:
             self.about_notice = QLabel(self.t("about_text"))
             self.about_notice.setWordWrap(True)
             layout.addWidget(self.about_notice)
-        if index in (1, 2):
+        if index in (1, 2, 3):
             layout.addLayout(form)
             save = QPushButton(self.t("save"))
             save.clicked.connect(self.save_settings)
@@ -200,17 +211,26 @@ class SettingsPreview(QMainWindow):
 
     def save_settings(self):
         try:
+            # Save only the visible page's values, avoiding stale values from other pages.
+            page_fields = {
+                1: ("shop_name", "phone", "address", "currency", "bank_name", "bank_branch", "bank_acc", "bank_holder"),
+                2: ("theme", "accent", "font_family", "font_size"),
+                3: ("printer_brand", "print_mode", "paper_size", "print_copies", "receipt_footer"),
+            }
+            keys = page_fields.get(self.nav.currentRow(), ())
             changes = {
-                key: (widget.currentText() if isinstance(widget, QComboBox)
-                      else widget.text())
-                for key, widget in self.controls.items()
+                key: (self.controls[key].currentText()
+                      if isinstance(self.controls[key], QComboBox)
+                      else self.controls[key].text())
+                for key in keys if key in self.controls
             }
             self.adapter.save(changes)
         except (ValueError, OSError, RuntimeError) as exc:
             QMessageBox.warning(self, self.t("failed_title"), str(exc))
             return
         self.saved.update(changes)
-        self._apply_theme()
+        if "theme" in changes:
+            self._apply_theme()
         QMessageBox.information(self, self.t("saved_title"), self.t("saved"))
 
     def _apply_theme(self):

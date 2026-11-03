@@ -6,8 +6,66 @@ authorization; this is not a production authentication gateway.
 """
 from dataclasses import dataclass
 from hashlib import sha256
-from hmac import compare_digest
+from hmac import compare_digest, new as hmac_new
+from pathlib import Path
+from secrets import token_bytes, token_hex
 from .product_editor import _guard
+
+
+# Session proofs are HMAC-authenticated with a process-local random key.
+# They are never derived from a public hash alone. Restart invalidates them.
+_PROCESS_KEY = token_bytes(32)
+_ACTIVE_TOKENS = set()
+
+
+def _proof(database, username, role, pw_hash, nonce):
+    database_id = str(Path(database.DB_PATH).resolve())
+    message = "\\0".join((database_id, username, role, str(pw_hash), nonce))
+    return hmac_new(_PROCESS_KEY, message.encode("utf-8"), sha256).hexdigest()
+
+
+def _issue_preview_token(database, username, role, pw_hash):
+    nonce = token_hex(16)
+    token = nonce + "." + _proof(database, username, role, pw_hash, nonce)
+    _ACTIVE_TOKENS.add(token)
+    return token
+
+
+def revoke_preview_session(identity):
+    """Invalidate an individual process-local preview login immediately."""
+    _ACTIVE_TOKENS.discard(getattr(identity, "credential_tag", None))
+
+
+def verify_preview_session(database, identity, persisted):
+    """Validate a live identity against one DB row read in the caller's TX.
+
+    The caller MUST have independently enforced _guard(database) and opened
+    the canonical preview connection. Never a commercial transaction license.
+    """
+    if identity is None or persisted is None:
+        return False
+    username = getattr(identity, "username", None)
+    role = getattr(identity, "role", None)
+    token = getattr(identity, "credential_tag", None)
+    if not isinstance(username, str) or not isinstance(role, str):
+        return False
+    if not isinstance(token, str) or token not in _ACTIVE_TOKENS:
+        return False
+    try:
+        nonce, mac = token.split(".", 1)
+        if len(nonce) != 32 or len(mac) != 64:
+            return False
+        int(nonce, 16)
+        int(mac, 16)
+        if persisted["role"] != role or role not in ("Admin", "Cashier"):
+            return False
+        expected = _proof(database, username, role, persisted["pw_hash"], nonce)
+        valid = compare_digest(mac, expected)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        valid = False
+    if not valid:
+        revoke_preview_session(identity)
+    return valid
 
 
 @dataclass(frozen=True)
@@ -57,16 +115,10 @@ class PreviewAuthenticator:
         role = row["role"] if row else None
         if role not in ("Admin", "Cashier"):
             return None
-        # Credential rotation/deletion invalidates previously signed-in UI
-        # identities. A role promotion also requires a fresh login.
-        tag = sha256(str(row["pw_hash"]).encode("utf-8")).hexdigest()
-        if (not identity.credential_tag
-                or not compare_digest(identity.credential_tag, tag)):
-            return None
-        # Any role change invalidates the original login rather than
-        # silently converting an Admin session into a Cashier session, or
-        # restoring stale Admin access after a demote/re-promote cycle.
-        if role != identity.role:
+        # An HMAC-authenticated, process-local token binds DB, user, role,
+        # password hash and a random nonce; invalidation is irreversible.
+        # A role restore after revocation cannot revive this session.
+        if not verify_preview_session(self.database, identity, row):
             return None
         return role
 
@@ -111,5 +163,7 @@ class PreviewAuthenticator:
             self.services.login_failed(name)
             raise ValueError("Invalid username or password")
         self.services.login_ok(name)
-        tag = sha256(str(row["pw_hash"]).encode("utf-8")).hexdigest()
+        tag = _issue_preview_token(
+            self.database, row["username"], row["role"], row["pw_hash"]
+        )
         return PreviewIdentity(row["username"], row["role"], tag)

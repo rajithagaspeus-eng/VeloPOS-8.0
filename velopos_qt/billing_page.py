@@ -18,11 +18,13 @@ from .preview_models import Cart, preview_existing_bill
 
 
 class BillingPage(QWidget):
-    def __init__(self, inventory, text, bill_preview=None):
+    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None):
         super().__init__()
         self.inventory = inventory
         self.text = text
         self.bill_preview = bill_preview
+        self.shift_reader = shift_reader
+        self.identity = identity or (lambda: None)
         self.cart = Cart()
         self.products = []
         layout = QVBoxLayout(self)
@@ -34,6 +36,10 @@ class BillingPage(QWidget):
         self.notice = QLabel()
         self.notice.setWordWrap(True)
         layout.addWidget(self.notice)
+        self.shift_status = QLabel()
+        self.shift_status.setWordWrap(True)
+        self.shift_status.setObjectName("hint")
+        layout.addWidget(self.shift_status)
 
         search_row = QHBoxLayout()
         self.query = QLineEdit()
@@ -143,6 +149,29 @@ class BillingPage(QWidget):
             [self.text(k) for k in ("product_name", "quantity", "price", "line_total")]
         )
         self.refresh_cart()
+        self.refresh_shift()
+
+    def refresh_shift(self):
+        """Information only; never used to authorize sale operations."""
+        if self.shift_reader is None:
+            self.shift_status.setText(self.text("shift_preview_unavailable"))
+            return
+        try:
+            shift = self.shift_reader.current()
+        except (OSError, RuntimeError) as exc:
+            self.shift_status.setText(str(exc))
+            return
+        user = self.identity()
+        actor = user.username if user is not None else self.text("not_signed_in")
+        if shift:
+            self.shift_status.setText(
+                f'{self.text("preview_cashier")}: {actor}  •  '
+                f'{self.text("open_shift_label")}: #{shift["id"]} ({shift["cashier"]})'
+            )
+        else:
+            self.shift_status.setText(
+                f'{self.text("preview_cashier")}: {actor}  •  {self.text("no_open_shift")}'
+            )
 
     def refresh_products(self, _value=None):
         try:

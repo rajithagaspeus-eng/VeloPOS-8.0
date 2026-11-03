@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from .preview_models import Cart, preview_existing_bill, cash_estimate, money
+from .customer_loyalty import projected_points_for_paid_bill
 
 
 class BillingPage(QWidget):
@@ -73,6 +74,10 @@ class BillingPage(QWidget):
         self.customer_summary.setObjectName("hint")
         self.customer_summary.setWordWrap(True)
         layout.addWidget(self.customer_summary)
+        self.loyalty_projection = QLabel()
+        self.loyalty_projection.setObjectName("hint")
+        self.loyalty_projection.setWordWrap(True)
+        layout.addWidget(self.loyalty_projection)
 
         search_row = QHBoxLayout()
         self.query = QLineEdit()
@@ -292,9 +297,11 @@ class BillingPage(QWidget):
         self.customer_clear_button.setEnabled(allowed and self.customer_reader is not None)
         if not allowed or self.customer_reader is None:
             self.customer_summary.setText(self.text("billing_customer_login_needed"))
+            self.loyalty_projection.setText("")
             return
         if self.customer_id is None:
             self.customer_summary.setText(self.text("billing_walk_in_note"))
+            self.loyalty_projection.setText("")
             return
         try:
             customer = self.customer_reader.get(self.customer_id)
@@ -302,6 +309,7 @@ class BillingPage(QWidget):
             customer = None
         if customer is None:
             self.customer_summary.setText(self.text("billing_customer_unavailable"))
+            self.loyalty_projection.setText("")
             return
         self.customer_summary.setText(
             f'{customer["name"]}  •  {self.text("billing_points")}: '
@@ -483,6 +491,7 @@ class BillingPage(QWidget):
         self.line_count.setText(f'{self.text("draft_items")}: {len(lines)}')
         self.total.setText(f'{self.text("subtotal")}: {self.cart.subtotal():,.2f}')
         self.cash_status.setText("")
+        self.loyalty_projection.setText("")
         if lines:
             try:
                 if self.bill_preview is not None:
@@ -496,6 +505,12 @@ class BillingPage(QWidget):
                         self.discount_input.text(), self.cart.subtotal()
                     )
                 self.net_total.setText(f'{self.text("estimated_net")}: {due:,.2f}')
+                if self.customer_id is not None and self.customer_reader is not None and self.identity() is not None:
+                    points = projected_points_for_paid_bill(due)
+                    self.loyalty_projection.setText(
+                        f'{self.text("loyalty_earn_estimate")}: {points:,.2f}'
+                        f'  •  {self.text("loyalty_no_redemption")}'
+                    )
                 cash = cash_estimate(due, self.tender_input.text())
                 key = "draft_change" if not cash["shortfall"] else "draft_shortfall"
                 amount = cash["change"] if not cash["shortfall"] else cash["shortfall"]

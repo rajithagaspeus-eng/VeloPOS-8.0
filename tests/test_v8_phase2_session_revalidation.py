@@ -31,6 +31,18 @@ class PreviewSessionRevalidationTests(unittest.TestCase):
                 # An identity manually fabricated from a username/role cannot
                 # access protected adapters in a real preview DB.
                 assert auth.current_role(PreviewIdentity("owner", "Admin")) is None
+                # The earlier SHA256(stored pw_hash) identity was forgeable by
+                # any process able to read a local preview DB. It must fail.
+                from hashlib import sha256
+                with database.db() as c:
+                    pw_hash = c.execute(
+                        "SELECT pw_hash FROM users WHERE username='owner'"
+                    ).fetchone()[0]
+                old_fingerprint = sha256(str(pw_hash).encode("utf-8")).hexdigest()
+                forged = PreviewIdentity("owner", "Admin", old_fingerprint)
+                assert auth.current_role(forged) is None
+                assert len(session.credential_tag) == 97
+                assert session.credential_tag != old_fingerprint
                 admin = lambda: auth.current_role(session) == "Admin"
                 editor = PreviewProductEditor(database, authorize=admin)
                 reports = PreviewReportsReader(database, authorize=admin)
@@ -41,6 +53,16 @@ class PreviewSessionRevalidationTests(unittest.TestCase):
                         "UPDATE users SET role='Cashier' WHERE username='owner'"
                     )
                 assert auth.current_role(session) is None
+                # Demote and restore must never resurrect a revoked token.
+                with database.db() as c:
+                    c.execute(
+                        "UPDATE users SET role='Admin' WHERE username='owner'"
+                    )
+                assert auth.current_role(session) is None
+                with database.db() as c:
+                    c.execute(
+                        "UPDATE users SET role='Cashier' WHERE username='owner'"
+                    )
                 try:
                     editor.save("SESSION-1", "Unauthorized", sell="15", stock="2")
                 except PermissionError:
@@ -59,6 +81,12 @@ class PreviewSessionRevalidationTests(unittest.TestCase):
                     c.execute("UPDATE users SET role='Admin' WHERE username='owner'")
                 assert auth.current_role(cashier) is None
                 fresh = auth.authenticate("owner", "StrongUniquePassword2026!")
+                assert auth.current_role(fresh) == "Admin"
+                from velopos_qt.auth_model import revoke_preview_session
+                alternative = auth.authenticate("owner", "StrongUniquePassword2026!")
+                assert auth.current_role(alternative) == "Admin"
+                revoke_preview_session(alternative)
+                assert auth.current_role(alternative) is None
                 assert auth.current_role(fresh) == "Admin"
                 with database.db() as c:
                     c.execute(

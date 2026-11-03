@@ -17,6 +17,16 @@ except ImportError:
     QApplication = None
 
 
+class FakeInventory:
+    def search(self, query="", limit=100):
+        products = [
+            {"barcode": "D001", "name_en": "Sample Rice", "name_local": "සහල්", "stock_qty": 5, "selling_price": 250},
+            {"barcode": "D002", "name_en": "Sample Soap", "name_local": "සබන්", "stock_qty": 8, "selling_price": 180},
+        ]
+        return [p for p in products if query.lower() in
+                (p["barcode"] + p["name_en"] + p["name_local"]).lower()][:limit]
+
+
 class FakeStore:
     def __init__(self):
         self.data = {"shop_name": "Demo", "theme": "light", "font_size": "15"}
@@ -37,7 +47,8 @@ class PreviewSmokeTests(unittest.TestCase):
     def setUp(self):
         self.sandbox = tempfile.TemporaryDirectory(prefix="velopos8_qt_test_")
         self.preferences = QSettings(os.path.join(self.sandbox.name, "preview.ini"), QSettings.Format.IniFormat)
-        self.window = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences)
+        self.window = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences,
+                                      inventory=FakeInventory())
 
     def tearDown(self):
         self.window.close()
@@ -49,6 +60,25 @@ class PreviewSmokeTests(unittest.TestCase):
         self.assertEqual(self.window.nav.currentRow(), 0)
         self.window.nav.setCurrentRow(3)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")
+
+    def test_inventory_and_billing_draft_without_checkout(self):
+        self.window.nav.setCurrentRow(1)
+        inventory = self.window._pages[1]
+        self.assertEqual(inventory.table.rowCount(), 2)
+        inventory.query.setText("Rice")
+        self.assertEqual(inventory.table.rowCount(), 1)
+
+        self.window.nav.setCurrentRow(2)
+        billing = self.window._pages[2]
+        billing.results.setCurrentCell(0, 0)
+        billing.add_selected()
+        self.assertEqual(billing.cart_table.rowCount(), 1)
+        self.assertEqual(str(billing.cart.subtotal()), "250.00")
+        self.assertFalse(hasattr(billing, "checkout_button"))
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(billing.heading.text(), "බිල්පත් කෙටුම්පත")
+        billing.clear_cart()
+        self.assertEqual(billing.cart_table.rowCount(), 0)
 
     def test_printer_settings_page_is_lazy_and_safe(self):
         self.assertNotIn(5, self.window._pages)
@@ -85,7 +115,8 @@ class PreviewSmokeTests(unittest.TestCase):
     def test_language_persists_across_preview_windows(self):
         self.window.locale_combo.setCurrentIndex(1)
         self.assertEqual(self.preferences.value("language"), "si")
-        other = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences)
+        other = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences,
+                                inventory=FakeInventory())
         try:
             self.assertEqual(other.locale, "si")
             self.assertEqual(other.locale_combo.currentData(), "si")

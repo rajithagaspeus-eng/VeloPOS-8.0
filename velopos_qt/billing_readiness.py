@@ -24,12 +24,12 @@ class DraftStockReader:
                 ).fetchone()
                 if row is None:
                     results.append({"barcode": item["barcode"], "status": "missing"})
-                elif Decimal(str(row["stock_qty"])) < item["qty"]:
+                elif Decimal(str(row["stock_qty"] or 0)) < item["qty"]:
                     results.append({
                         "barcode": item["barcode"],
                         "status": "insufficient",
-                        "available": str(row["stock_qty"]),
+                        "available": str(row["stock_qty"] or 0),
                     })
-                elif Decimal(str(row["selling_price"])) != item["price"]:
+                elif Decimal(str(row["selling_price"] or 0)) != item["price"]:
                     results.append({"barcode": item["barcode"], "status": "price_changed"})
         return results

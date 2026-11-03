@@ -20,7 +20,7 @@ from .customer_loyalty import projected_points_for_paid_bill
 
 
 class BillingPage(QWidget):
-    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None, stock_reader=None, customer_reader=None):
+    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None, stock_reader=None, customer_reader=None, authorize_customer=None):
         super().__init__()
         self.inventory = inventory
         self.text = text
@@ -29,6 +29,14 @@ class BillingPage(QWidget):
         self.identity = identity or (lambda: None)
         self.stock_reader = stock_reader
         self.customer_reader = customer_reader
+        # A real preview window passes its persisted-session verifier here.
+        # Component-only tests may fall back to their synthetic identity.
+        self.authorize_customer = authorize_customer or (
+            lambda: bool(
+                self.identity() and
+                getattr(self.identity(), "role", None) in ("Admin", "Cashier")
+            )
+        )
         self.customer_id = None
         self._last_stock_signature = None
         self.cart = Cart()
@@ -268,8 +276,7 @@ class BillingPage(QWidget):
         self.refresh_shift()
 
     def refresh_customers(self):
-        if self.customer_reader is None:
-            self.customer_choice.clear()
+        if self.customer_reader is None or not self.authorize_customer():
             self.refresh_customer_summary()
             return
         try:
@@ -310,8 +317,7 @@ class BillingPage(QWidget):
 
     def refresh_customer_summary(self):
         # Never expose balances/points unless authenticated at read time.
-        user = self.identity()
-        allowed = bool(user and user.role in ("Admin", "Cashier"))
+        allowed = bool(self.authorize_customer())
         self.customer_search.setEnabled(allowed and self.customer_reader is not None)
         self.customer_search_button.setEnabled(allowed and self.customer_reader is not None)
         self.customer_choice.setEnabled(allowed and self.customer_reader is not None)
@@ -537,7 +543,8 @@ class BillingPage(QWidget):
                         self.discount_input.text(), self.cart.subtotal()
                     )
                 self.net_total.setText(f'{self.text("estimated_net")}: {due:,.2f}')
-                if self.customer_id is not None and self.customer_reader is not None and self.identity() is not None:
+                if (self.customer_id is not None and self.customer_reader is not None
+                        and self.authorize_customer()):
                     points = projected_points_for_paid_bill(due)
                     self.loyalty_projection.setText(
                         f'{self.text("loyalty_earn_estimate")}: {points:,.2f}'

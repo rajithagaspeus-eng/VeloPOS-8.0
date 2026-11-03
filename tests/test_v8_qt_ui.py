@@ -444,6 +444,54 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_customer_ui_rechecks_live_authorization_not_cached_role(self):
+        from decimal import Decimal
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        gate = {"authorized": True}
+        class Reader:
+            def __init__(self):
+                self.calls = 0
+            def search(self, term):
+                self.calls += 1
+                if not gate["authorized"]:
+                    raise AssertionError("Reader called after session revoked")
+                return [{"id": 10, "name": "Private Customer", "phone": "0701234567"}]
+            def get(self, customer_id):
+                if not gate["authorized"]:
+                    raise AssertionError("Stale profile exposed")
+                return {
+                    "name": "Private Customer",
+                    "loyalty_points": Decimal("6"), "credit_balance": Decimal("1"),
+                    "credit_limit": Decimal("20"),
+                }
+        reader = Reader()
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=reader,
+            identity=lambda: PreviewIdentity("owner", "Admin"),
+            authorize_customer=lambda: gate["authorized"],
+        )
+        try:
+            page.refresh_customers()
+            self.assertEqual(reader.calls, 1)
+            page.customer_choice.setCurrentIndex(1)
+            self.assertIn("Private Customer", page.customer_summary.text())
+            gate["authorized"] = False
+            page.refresh_customer_summary()
+            self.assertFalse(page.customer_search.isEnabled())
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertEqual(page.customer_search.text(), "")
+            self.assertEqual(page.loyalty_projection.text(), "")
+            page.refresh_customers()
+            self.assertEqual(reader.calls, 1)
+            page.query.setText("D001")
+            page.scan_or_add()
+            self.assertEqual(page.loyalty_projection.text(), "")
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_customer_privacy_clears_selector_if_access_revoked(self):
         from decimal import Decimal
         from velopos_qt.auth_model import PreviewIdentity

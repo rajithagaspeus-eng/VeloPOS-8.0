@@ -125,12 +125,30 @@ class DirectoryReader:
         return [dict(row) for row in records]
 
 
-def preview_existing_bill(cart, calculate):
+def validated_discount(value, subtotal):
+    """Exact, nonnegative currency discount for a draft bill only."""
+    amount = money(value)
+    if amount > subtotal:
+        raise ValueError("Discount cannot exceed draft subtotal")
+    return amount
+
+
+def cash_estimate(payable, tendered):
+    """Preview change/shortfall only. Never accepts or records payment."""
+    due, tender = money(payable), money(tendered)
+    return {"due": due, "tendered": tender,
+            "change": max(Decimal("0.00"), tender - due),
+            "shortfall": max(Decimal("0.00"), due - tender)}
+
+
+def preview_existing_bill(cart, calculate, discount=0):
     """Call original *read-only* preview_bill service, never create_sale.
 
-    This is a display estimate. Actual checkout must revalidate permissions,
-    customer, stock, VAT, discounts, payment and shift inside create_sale.
+    Actual checkout must revalidate permissions, customer, stock, VAT,
+    discounts, payment and shift *inside* the original transaction service.
     """
+    subtotal = cart.subtotal()
+    deduction = validated_discount(discount, subtotal)
     items = [
         {"barcode": line["barcode"], "qty": float(line["qty"]),
          "price": float(line["price"]), "name": line["name"]}
@@ -138,4 +156,4 @@ def preview_existing_bill(cart, calculate):
     ]
     if not items:
         return None
-    return calculate(items, 0.0, 0.0)
+    return calculate(items, float(deduction), 0.0)

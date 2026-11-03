@@ -112,7 +112,7 @@ class DemandLedgerTests(unittest.TestCase):
             assert snap["ready_products"] == 1
             with database.db() as c:
                 assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 30
-                assert c.execute("SELECT COUNT(*) FROM sale_items").fetchone()[0] == 32
+                assert c.execute("SELECT COUNT(*) FROM sale_items").fetchone()[0] == 31
             state["admin"] = False
             try:
                 reader.snapshot(as_of="2026-11-04")

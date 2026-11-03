@@ -30,6 +30,7 @@ from .analytics_model import BusinessIntelligenceReader
 from .analytics_page import AnalyticsPage
 from .forecast_model import DemandForecastReader
 from .forecast_page import ForecastPage
+from .transaction_gateway import PreviewTransactionGateway
 from .dashboard_page import DashboardOverview
 from .directory_editor import PreviewDirectoryEditor
 
@@ -125,6 +126,9 @@ class SettingsPreview(QMainWindow):
         self.purchasing_reader = PurchaseOverviewReader(db, authorize=self._is_preview_admin) if db is not None else None
         self.analytics_reader = BusinessIntelligenceReader(db, authorize=self._is_preview_admin) if db is not None else None
         self.forecast_reader = DemandForecastReader(db, authorize=self._is_preview_admin) if db is not None else None
+        # Sole V8-facing financial gateway, intentionally denies ALL actions.
+        # Never wire legacy services.create_sale directly into preview Qt.
+        self.transaction_gateway = PreviewTransactionGateway(db) if db is not None else None
         # The guarded editor refuses production DB paths. No authentication
         # or production product mutations are enabled in V8 yet.
         self.product_editor = PreviewProductEditor(db, authorize=self._is_preview_admin) if db is not None else None

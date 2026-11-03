@@ -16,32 +16,57 @@ from .core_pages import InventoryPage, BillingPage
 from .product_editor import PreviewProductEditor
 
 DARK = """
-QWidget { background:#0b1220; color:#e8edf8; font: 10pt 'Segoe UI'; }
-QFrame#panel { background:#131f32; border:1px solid #26364c; border-radius:12px; }
-QLineEdit, QComboBox { background:#1c2b40; border:1px solid #37506b;
-  border-radius:7px; min-height:31px; padding:3px 10px; }
-QPushButton { background:#15b8a6; color:#061c24; border:0; border-radius:8px;
-  padding:10px 18px; font-weight:600; }
-QPushButton:hover { background:#44d4c4; }
-QListWidget { border:0; background:#131f32; font-size:11pt; }
-QListWidget::item { padding:16px; border-radius:7px; }
-QListWidget::item:selected { background:#1b716b; }
-QLabel#hint { color:#a6b5ca; }
+QWidget { background:#0a1120; color:#e8eef8; font: 10pt 'Segoe UI'; }
+QFrame#panel { background:#121e31; border:1px solid #283750; border-radius:16px; }
+QFrame#brandBar { background:#131e30; border:1px solid #283750; border-radius:14px; }
+QLabel#appTitle { font-size:22pt; font-weight:750; color:#f5f9ff; }
+QLabel#previewPill { background:#193b35; color:#8cf4d0; border:1px solid #2c7666;
+  border-radius:10px; padding:7px 12px; font-weight:650; }
+QLabel#hint { color:#a9b9d0; }
+QLineEdit, QComboBox { background:#1b2c42; border:1px solid #344b65;
+  border-radius:9px; min-height:36px; padding:3px 11px; selection-background-color:#16a996; }
+QLineEdit:focus, QComboBox:focus { border:2px solid #1ed0b1; }
+QPushButton { background:#24c3ad; color:#06242c; border:0; border-radius:9px;
+  min-height:34px; padding:7px 15px; font-weight:650; }
+QPushButton:hover { background:#5bdecf; }
+QPushButton#secondaryAction { background:#23354d; color:#e3efff; border:1px solid #3b506a; }
+QPushButton#secondaryAction:hover { background:#314961; }
+QListWidget { border:0; background:transparent; font-size:10.5pt; outline:0; }
+QListWidget::item { padding:14px 15px; margin:3px 0; border-radius:9px; }
+QListWidget::item:selected { background:#164f4e; color:#9cfbea; }
+QListWidget::item:hover:!selected { background:#20344c; }
+QTableWidget { background:#111e30; alternate-background-color:#17283c;
+  border:1px solid #30405a; border-radius:10px; gridline-color:#283951;
+  selection-background-color:#1b615c; selection-color:white; }
+QHeaderView::section { background:#1c2d44; color:#c6d5e9; padding:9px;
+  border:0; border-bottom:1px solid #34475d; font-weight:650; }
 """
 LIGHT = """
-QWidget { background:#f4f7fc; color:#17263a; font: 10pt 'Segoe UI'; }
-QFrame#panel { background:#ffffff; border:1px solid #dbe4ef; border-radius:12px; }
-QLineEdit, QComboBox { background:white; border:1px solid #c8d4e3;
-  border-radius:7px; min-height:31px; padding:3px 10px; }
-QPushButton { background:#087f78; color:white; border:0; border-radius:8px;
-  padding:10px 18px; font-weight:600; }
-QPushButton:hover { background:#076f69; }
-QListWidget { border:0; background:#ffffff; font-size:11pt; }
-QListWidget::item { padding:16px; border-radius:7px; }
-QListWidget::item:selected { background:#c7eae6; color:#06463f; }
-QLabel#hint { color:#617087; }
+QWidget { background:#f1f5fb; color:#192b42; font: 10pt 'Segoe UI'; }
+QFrame#panel { background:white; border:1px solid #dce5f1; border-radius:16px; }
+QFrame#brandBar { background:white; border:1px solid #dce5f1; border-radius:14px; }
+QLabel#appTitle { font-size:22pt; font-weight:750; color:#162d40; }
+QLabel#previewPill { background:#e2f6ee; color:#137b65; border:1px solid #b4e1d5;
+  border-radius:10px; padding:7px 12px; font-weight:650; }
+QLabel#hint { color:#64778e; }
+QLineEdit, QComboBox { background:#ffffff; border:1px solid #cedbe9;
+  border-radius:9px; min-height:36px; padding:3px 11px; selection-background-color:#0fa390; }
+QLineEdit:focus, QComboBox:focus { border:2px solid #10a58f; }
+QPushButton { background:#0b8f82; color:white; border:0; border-radius:9px;
+  min-height:34px; padding:7px 15px; font-weight:650; }
+QPushButton:hover { background:#097b70; }
+QPushButton#secondaryAction { background:#eef5f9; color:#236178; border:1px solid #c9dae6; }
+QPushButton#secondaryAction:hover { background:#d9edf2; }
+QListWidget { border:0; background:transparent; font-size:10.5pt; outline:0; }
+QListWidget::item { padding:14px 15px; margin:3px 0; border-radius:9px; }
+QListWidget::item:selected { background:#d8f4ed; color:#086b5d; }
+QListWidget::item:hover:!selected { background:#eef3f9; }
+QTableWidget { background:#ffffff; alternate-background-color:#f7f9fc;
+  border:1px solid #d7e3f0; border-radius:10px; gridline-color:#e2eaf3;
+  selection-background-color:#c9eae5; selection-color:#164a4b; }
+QHeaderView::section { background:#ecf3fa; color:#425a71; padding:9px;
+  border:0; border-bottom:1px solid #d7e3f0; font-weight:650; }
 """
-
 
 class SettingsPreview(QMainWindow):
     def __init__(self, adapter: SettingsAdapter, preferences=None, inventory=None):
@@ -68,9 +93,18 @@ class SettingsPreview(QMainWindow):
         self.setCentralWidget(root)
         outer = QVBoxLayout(root)
         outer.setContentsMargins(22, 20, 22, 20)
+        brand_bar = QFrame()
+        brand_bar.setObjectName("brandBar")
+        brand_row = QHBoxLayout(brand_bar)
+        brand_row.setContentsMargins(20, 13, 20, 13)
         title = QLabel("VeloPOS 8.0")
-        title.setStyleSheet("font-size:24pt; font-weight:700;")
-        outer.addWidget(title)
+        title.setObjectName("appTitle")
+        brand_row.addWidget(title)
+        brand_row.addStretch()
+        self.preview_badge = QLabel(self.t("test_mode_badge"))
+        self.preview_badge.setObjectName("previewPill")
+        brand_row.addWidget(self.preview_badge)
+        outer.addWidget(brand_bar)
         self.subtitle = QLabel(self.t("subtitle"))
         self.subtitle.setObjectName("hint")
         self.subtitle.setWordWrap(True)
@@ -121,6 +155,7 @@ class SettingsPreview(QMainWindow):
         self.locale = self.locale_combo.currentData() or "en"
         self.preferences.setValue("language", self.locale)
         self.subtitle.setText(self.t("subtitle"))
+        self.preview_badge.setText(self.t("test_mode_badge"))
         self.locale_label.setText(self.t("language"))
         for index, key in enumerate(self.nav_keys):
             self.nav.item(index).setText(self.t(key))

@@ -244,6 +244,50 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_purchasing_is_admin_only_and_clears_on_logout(self):
+        from velopos_qt.purchasing_page import PurchasingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class DemoPurchaseReader:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self):
+                self.calls += 1
+                return {
+                    "purchase_count": 1, "total": 210,
+                    "paid": 40, "unpaid_estimate": 170,
+                    "recent": [{"grn_no": "GRN-DEMO", "date": "2026-11-01",
+                                "supplier": "Demo", "total": 210,
+                                "paid": 40, "status": "OK"}],
+                    "suppliers": [{"id": 4, "name": "Demo"}],
+                }
+
+        reader = DemoPurchaseReader()
+        page = PurchasingPage(reader, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(reader.calls, 0)
+            self.assertEqual(page.table.rowCount(), 0)
+            self.window.identity = PreviewIdentity("cashier", "Cashier")
+            page.refresh()
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(reader.calls, 1)
+            self.assertEqual(page.table.rowCount(), 1)
+            self.assertEqual(page.suppliers.rowCount(), 1)
+            self.assertIn("210.00", page.summary.text())
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("purchasing"))
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.summary.text(), "—")
+            self.assertEqual(page.table.rowCount(), 0)
+            self.assertEqual(page.suppliers.rowCount(), 0)
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_customer_loyalty_selection_is_login_gated_and_held_safely(self):
         from velopos_qt.billing_page import BillingPage
         from velopos_qt.auth_model import PreviewIdentity
@@ -461,7 +505,7 @@ class PreviewSmokeTests(unittest.TestCase):
             page.deleteLater()
 
     def test_dashboard_then_shop_settings(self):
-        self.assertEqual(self.window.nav.count(), 11)
+        self.assertEqual(self.window.nav.count(), 12)
         self.assertEqual(self.window.nav.currentRow(), 0)
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")

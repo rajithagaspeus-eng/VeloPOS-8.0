@@ -251,8 +251,10 @@ class PreviewSmokeTests(unittest.TestCase):
         class DemoPurchaseReader:
             def __init__(self):
                 self.calls = 0
-            def snapshot(self):
+            def snapshot(self, **date_filters):
                 self.calls += 1
+                if date_filters.get("start") == "invalid":
+                    raise ValueError("Invalid date")
                 return {
                     "purchase_count": 1, "total": 210,
                     "paid": 40, "unpaid_estimate": 170,
@@ -280,6 +282,14 @@ class PreviewSmokeTests(unittest.TestCase):
             self.assertEqual(page.suppliers.rowCount(), 1)
             self.assertEqual(page.balances.rowCount(), 1)
             self.assertIn("125.00", page.liabilities.text())
+            page.start_input.setText("invalid")
+            page.refresh()
+            self.assertEqual(page.balances.rowCount(), 0)
+            self.assertEqual(page.liabilities.text(), "—")
+            self.assertIn("Invalid date", page.warning.text())
+            page.start_input.setText("2026-11-01")
+            page.refresh()
+            self.assertEqual(page.balances.rowCount(), 1)
             self.assertIn("210.00", page.summary.text())
             self.window.locale_combo.setCurrentIndex(1)
             page.retranslate()

@@ -257,6 +257,23 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")
 
+    def test_billing_discount_cash_estimate_and_no_checkout(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("D001")
+        page.scan_or_add()
+        page.discount_input.setText("25")
+        page.tender_input.setText("300")
+        self.assertIn("225.00", page.net_total.text())
+        self.assertIn("75.00", page.cash_status.text())
+        self.assertFalse(hasattr(page, "checkout_button"))
+        page.discount_input.setText("300")
+        self.assertIn(self.window.t("preview_error"), page.net_total.text())
+        page.discount_input.setText("25")
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(page.discount_label.text(), "වට්ටම")
+        self.assertIn("75.00", page.cash_status.text())
+
     def test_billing_barcode_scan_quantity_and_localization(self):
         from PySide6.QtWidgets import QHeaderView
         self.window.nav.setCurrentRow(2)

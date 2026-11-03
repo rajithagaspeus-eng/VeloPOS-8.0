@@ -6,6 +6,9 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "open_inventory": "Browse Inventory",
+        "open_billing": "Start Draft Bill",
+        "open_customers": "View Customers",
         "test_mode_badge": "● TEST MODE",
         "new_product": "New product",
         "edit_product": "Edit selected",
@@ -74,6 +77,9 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "open_inventory": "තොගය බලන්න",
+        "open_billing": "බිල් කෙටුම්පතක්",
+        "open_customers": "පාරිභෝගිකයන් බලන්න",
         "test_mode_badge": "● පරීක්ෂණ මාදිලිය",
         "new_product": "අලුත් භාණ්ඩයක්",
         "edit_product": "තෝරාගත් භාණ්ඩය වෙනස් කරන්න",
@@ -142,6 +148,9 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "open_inventory": "சரக்கைப் பார்க்க",
+        "open_billing": "பில் வரைவைத் தொடங்கு",
+        "open_customers": "வாடிக்கையாளர்களைப் பார்க்க",
         "test_mode_badge": "● சோதனை முறை",
         "new_product": "புதிய பொருள்",
         "edit_product": "தேர்ந்த பொருளைத் திருத்து",

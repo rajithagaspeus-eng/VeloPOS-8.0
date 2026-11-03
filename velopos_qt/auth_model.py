@@ -5,6 +5,8 @@ licensing mutations. Protected POS operations must later enforce server/service
 authorization; this is not a production authentication gateway.
 """
 from dataclasses import dataclass
+from hashlib import sha256
+from hmac import compare_digest
 from .product_editor import _guard
 
 
@@ -12,6 +14,7 @@ from .product_editor import _guard
 class PreviewIdentity:
     username: str
     role: str
+    credential_tag: str = ""  # runtime-only fingerprint; never the password/hash
 
     @property
     def can_manage_staff(self):
@@ -46,13 +49,21 @@ class PreviewAuthenticator:
         try:
             with self.database.db() as connection:
                 row = connection.execute(
-                    "SELECT role FROM users WHERE username=?",
+                    "SELECT role, pw_hash FROM users WHERE username=?",
                     (identity.username,),
                 ).fetchone()
         except (OSError, RuntimeError):
             return None
         role = row["role"] if row else None
         if role not in ("Admin", "Cashier"):
+            return None
+        # Credential rotation/deletion invalidates previously signed-in UI
+        # identities. A role promotion also requires a fresh login.
+        tag = sha256(str(row["pw_hash"]).encode("utf-8")).hexdigest()
+        if (not identity.credential_tag
+                or not compare_digest(identity.credential_tag, tag)):
+            return None
+        if role == "Admin" and identity.role != "Admin":
             return None
         return role
 
@@ -97,4 +108,5 @@ class PreviewAuthenticator:
             self.services.login_failed(name)
             raise ValueError("Invalid username or password")
         self.services.login_ok(name)
-        return PreviewIdentity(row["username"], row["role"])
+        tag = sha256(str(row["pw_hash"]).encode("utf-8")).hexdigest()
+        return PreviewIdentity(row["username"], row["role"], tag)

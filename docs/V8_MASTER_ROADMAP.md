@@ -24,7 +24,7 @@
 
 | Stage | Scope | Gate |
 |---|---|---|
-| Foundation (current) | Qt navigation, isolated test database, demo records, billing draft, directories, stock preview and dashboard | 67 prior combined tests passed; later security changes need a new run |
+| Foundation (current) | Qt navigation, isolated test database, demo records, billing draft, directories, stock preview and dashboard | 97 Windows combined tests passed at prior milestone; newer changes await a new run |
 | Security foundation | preview auth, role controls, trusted transaction authorization boundary; license/trial threat model | No real checkout until authorization integrated & proven |
 | Cashier operations | complete billing, receipts, returns, purchases, stock/expiry, shift controls | Reuse original transaction engine, rollback/audit tests |
 | Analytics & loyalty | advanced dashboard, P&L, BI, local forecasting, customer points | Validate figures against source-of-truth transactions |
@@ -41,3 +41,9 @@
 - Protect test-only previews; keep paid customer data, secret keys and passwords out of public GitHub, logs and chatbot output.
 
 See also: [Next-generation UX contract](V8_DESIGN_SYSTEM.md), [Security & Recovery](V8_SECURITY_TRIAL_RECOVERY.md), and [Qt Preview](V8_QT_PREVIEW.md).
+
+## Current Phase 1 delivery note — November 2026
+
+Additional preview-only modules are now committed on `develop-v8`: Admin purchasing GRN and active-supplier overview, original-engine purchasing regression tests, read-only estimated full-payment loyalty earning points, and a fail-closed preview transaction gate that explicitly rejects checkout, purchase, payment, loyalty redemption and shift changes. Tests for direct role revocation, purchase ledger accuracy and loyalty rollback were added. They are **not yet confirmed by a new Windows test run**; earlier milestone results must not be misrepresented as proof that these later commits passed.
+
+The Admin purchasing page intentionally reports **initial** payment estimates only; the original `supplier_payments` ledger and `supplier_balances()` must be used for real outstanding liabilities. A commercially writable transaction gateway with validated role, session, license, shift and per-action service authorization remains future work. This delivery did not enable any Qt checkout or edit the production database.

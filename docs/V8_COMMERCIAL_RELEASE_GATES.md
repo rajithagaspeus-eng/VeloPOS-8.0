@@ -258,3 +258,25 @@ invalid data, denied sessions/shifts, idempotency and full state rollback.
 It does **not** implement actual revenue, taxes, loyalty, purchase posting,
 returns, real idempotent replay, stock batches or commercial licensing.
 Release Gate A remains BLOCKED; these are engineering test scaffolds only.
+
+## Gate A — rollback-only partial-return rehearsal
+
+`RollbackOnlyReturnRehearsal` is a **test-only** counterpart to the sale
+rehearsal and has **no** UI, refund or production-service entry point. It
+opens a canonical preview `BEGIN IMMEDIATE` transaction, inspects current
+session and cashier shift, claims a scoped idempotency key, validates an
+existing `OK` invoice and original sale-item IDs, and calculates each
+remaining return allowance as sold quantity minus all earlier recorded
+returned quantities. Repeated items in the new request are combined, so
+multiple lines cannot conceal an over-return. It stages stock restoration,
+synthetic `returns` and `return_items` rows and completion of the request
+claim only within that same transaction. Its `finally` block **always rolls
+everything back, including on apparent success**.
+
+Automated disposable-DB tests cover partial prior returns, repeated lines,
+over-return and cross-invoice rejection, invalid quantities, missing/void
+invoices, closed shifts, injected failures after stock and return rows, and
+the absence of lasting refund, stock or idempotency changes. The simulated
+refund is based on original sale-item price and is NOT valid tax/discount,
+loyalty, credit or COGS accounting. No real return, payment or stock posting
+is enabled. Gate A and Gate B remain blocked for commercial operations.

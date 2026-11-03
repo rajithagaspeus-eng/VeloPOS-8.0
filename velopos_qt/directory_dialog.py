@@ -59,7 +59,7 @@ class DirectoryDialog(QDialog):
             payload["active"] = self.active.isChecked()
         try:
             self.editor.save(self.kind, identifier=self.identifier, **payload)
-        except (ValueError, RuntimeError, OSError) as exc:
+        except (ValueError, RuntimeError, OSError, PermissionError) as exc:
             self.error.setText(str(exc))
             return
         super().accept()

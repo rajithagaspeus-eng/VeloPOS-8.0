@@ -12,7 +12,7 @@
 - Each Settings page saves only its own fields, reducing accidental overwrites of unsaved changes on other pages.
 - Input validation and a whitelist that excludes secrets and license-related settings.
 - Existing UI, `run.py`, licensing, billing, stock and schema untouched.
-- The preview launcher creates a **new temporary database** each run, sets `VELOPOS_HOME` *before importing the database*, and cleans up when it closes. Saved preview data is intentionally discarded.
+- The preview launcher now stores a **persistent test-only database** under `%LOCALAPPDATA%\\VeloPOS8PreviewData\\velopos.db` (or the user's home directory if LOCALAPPDATA is absent). It forces `VELOPOS_HOME` to this location *before importing the database*. It never uses `%LOCALAPPDATA%\\VeloPOS\\velopos.db`. Preview settings, including printer paper size, now survive closing and reopening. Data from older temporary previews cannot be recovered.
 - No printer discovery on UI startup.
 
 ## Run on Windows
@@ -39,7 +39,7 @@ If your `.venv` is one directory higher than the cloned repo:
 
 ```powershell
 python -m unittest tests.test_v8_settings_model tests.test_v8_i18n -v
-python -m unittest tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_qt_ui tests.test_v8_preview_storage -v
 ```
 
 These are headless adapter tests only. A successful test run is **not** evidence that the full Windows GUI or existing POS works.
@@ -52,8 +52,8 @@ These are headless adapter tests only. A successful test run is **not** evidence
 4. Change a test shop name and Save; see a translated confirmation.
 5. Switch to Appearance, choose dark/light, Save and verify theme changes.
 6. Open Printer & receipts, edit paper size, brand, mode, copies and footer, then Save. This must **not** attempt to connect to or enumerate a real printer.
-7. Exit, rerun and verify the shop name resets to sample defaults (proof of isolated temp database) while **language preference persists**.
-8. Confirm the existing production VeloPOS database and old desktop application are unaffected.
+7. Change paper size to A5 and Save, close the window, reopen and confirm **A5 remains selected**. Verify shop name and language preferences also persist as expected.
+8. Confirm the existing production VeloPOS database and old desktop application are unaffected. A separate test database must exist under `%LOCALAPPDATA%\\VeloPOS8PreviewData`.
 
 ## Pending before VeloPOS 8 can be released
 
@@ -72,3 +72,9 @@ The preview has been committed to GitHub. **Unit and GUI tests have not been exe
 ## Recent Phase 1 change
 
 The Printer & Receipts page is a limited configuration preview only. Supported fields: printer brand, connection mode, paper size, receipt copies (1–5), and receipt footer (up to 250 characters). The actual Windows printer selector, hardware test, full receipt functionality, and roles/permissions are **not yet migrated**. The added tests have not been executed in this session; run them on Windows before assessing readiness.
+
+## Preview persistence fix
+
+Previously, the preview database lived in a temporary directory removed on exit; therefore printer paper-size changes disappeared on restart, while the language setting persisted in Qt QSettings. The updated launcher now persists **only test data** in a dedicated `VeloPOS8PreviewData` directory. It does not migrate real shop data or modify the existing app. Before the first launch after this fix, the preview starts with default shop/printer values because earlier temporary data was deleted automatically.
+
+**Never copy a live-shop database into the preview directory.** If you want a clean preview reset, close the preview and manually delete only the dedicated `VeloPOS8PreviewData` directory after verifying its exact path. Do not delete the standard `VeloPOS` data directory.

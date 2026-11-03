@@ -6,6 +6,11 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "new_record": "Add new",
+        "edit_record": "Edit selected",
+        "whatsapp": "WhatsApp",
+        "notes": "Notes",
+        "preview_directory_warning": "TEST DATA ONLY • Changes use the original customer/supplier services and audit records in isolated preview storage.",
         "open_inventory": "Browse Inventory",
         "open_billing": "Start Draft Bill",
         "open_customers": "View Customers",
@@ -77,6 +82,11 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "new_record": "අලුතින් එකතු කරන්න",
+        "edit_record": "තෝරාගත් දත්ත වෙනස් කරන්න",
+        "whatsapp": "වට්ස්ඇප්",
+        "notes": "සටහන්",
+        "preview_directory_warning": "පරීක්ෂණ දත්ත පමණයි • වෙනස්කම් සිදුවන්නේ වෙනම Preview දත්ත ගබඩාවේ පමණයි.",
         "open_inventory": "තොගය බලන්න",
         "open_billing": "බිල් කෙටුම්පතක්",
         "open_customers": "පාරිභෝගිකයන් බලන්න",
@@ -148,6 +158,11 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "new_record": "புதிதாகச் சேர்",
+        "edit_record": "தேர்ந்ததைத் திருத்து",
+        "whatsapp": "வாட்ஸ்அப்",
+        "notes": "குறிப்புகள்",
+        "preview_directory_warning": "சோதனைத் தரவு மட்டும் • மாற்றங்கள் தனி முன்னோட்டத் தரவுத்தளத்தில் மட்டுமே.",
         "open_inventory": "சரக்கைப் பார்க்க",
         "open_billing": "பில் வரைவைத் தொடங்கு",
         "open_customers": "வாடிக்கையாளர்களைப் பார்க்க",

@@ -13,6 +13,7 @@ from .i18n import LANGUAGES, translate
 from .preview_models import InventoryReader, DirectoryReader
 from .directory_pages import DirectoryPage
 from .core_pages import InventoryPage, BillingPage
+from .product_editor import PreviewProductEditor
 
 DARK = """
 QWidget { background:#0b1220; color:#e8edf8; font: 10pt 'Segoe UI'; }
@@ -50,13 +51,16 @@ class SettingsPreview(QMainWindow):
         self.inventory = inventory
         db = getattr(inventory, "database", None)
         self.directory = DirectoryReader(db) if db is not None else None
+        # The guarded editor refuses production DB paths. No authentication
+        # or production product mutations are enabled in V8 yet.
+        self.product_editor = PreviewProductEditor(db) if db is not None else None
         self.saved = adapter.read()
         self.controls = {}
         stored_locale = str(self.preferences.value("language", "en"))
         self.locale = stored_locale if stored_locale in LANGUAGES else "en"
         self.translatable_labels = []
         self.save_buttons = []
-        self.setWindowTitle("VeloPOS 8.0 | Settings Preview — TEST DATA")
+        self.setWindowTitle("VeloPOS 8.0 | Modern Preview — TEST DATA")
         self.resize(1020, 680)
         self.setMinimumSize(760, 520)
 
@@ -158,7 +162,7 @@ class SettingsPreview(QMainWindow):
 
     def _create_page(self, index):
         if index == 1 and self.inventory is not None:
-            return InventoryPage(self.inventory, self.t)
+            return InventoryPage(self.inventory, self.t, editor=self.product_editor)
         if index == 2 and self.inventory is not None:
             # Only use the original billing preview engine in our test-only DB.
             preview_fn = None

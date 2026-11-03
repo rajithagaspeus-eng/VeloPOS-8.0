@@ -49,6 +49,25 @@ class InventoryEditIntegrationTests(unittest.TestCase):
                 home,
             )
 
+    def test_new_demo_stock_seeding_creates_ledger_once(self):
+        with tempfile.TemporaryDirectory(prefix="velopos8_seed_") as folder:
+            home = Path(folder) / "VeloPOS8PreviewData"
+            self._child(
+                """
+                from velopos import database
+                from velopos_qt.demo_data import ensure_preview_products
+                database.init_db()
+                assert ensure_preview_products(database) == 5
+                assert ensure_preview_products(database) == 0
+                with database.db() as c:
+                    assert c.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 5
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM stock_moves WHERE reason='OPENING'"
+                    ).fetchone()[0] >= 5
+                """,
+                home,
+            )
+
     def test_invalid_values_do_not_change_stock(self):
         with tempfile.TemporaryDirectory(prefix="velopos8_editor_") as folder:
             home = Path(folder) / "VeloPOS8PreviewData"

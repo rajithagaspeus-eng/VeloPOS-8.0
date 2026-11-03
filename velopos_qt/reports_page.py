@@ -66,7 +66,6 @@ class ReportsPage(QWidget):
             title.setWordWrap(True)
             value = QLabel("—")
             value.setObjectName("reportMetricValue")
-            value.setTextInteractionFlags(value.textInteractionFlags())
             tile_layout.addWidget(title)
             tile_layout.addWidget(value)
             metric_layout.addWidget(tile, position // 3, position % 3)
@@ -78,7 +77,8 @@ class ReportsPage(QWidget):
         self.sales.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.sales.verticalHeader().setVisible(False)
         self.sales.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        outer.addWidget(self.sales)
+        self.sales.setMinimumHeight(125)
+        outer.addWidget(self.sales, 1)
         self.audit_title = QLabel()
         self.audit_title.setStyleSheet("font-size:12pt; font-weight:650;")
         outer.addWidget(self.audit_title)
@@ -86,7 +86,8 @@ class ReportsPage(QWidget):
         self.audit.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.audit.verticalHeader().setVisible(False)
         self.audit.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.audit.setMaximumHeight(170)
+        self.audit.setMaximumHeight(160)
+        self.audit.setMinimumHeight(100)
         outer.addWidget(self.audit)
         self.retranslate()
         self.refresh()
@@ -122,7 +123,8 @@ class ReportsPage(QWidget):
             audit = self.reader.staff_activity()
         except (ValueError, RuntimeError, OSError, PermissionError) as exc:
             self.warning.setText(str(exc))
-            self.metrics_text.setText("—")
+            for _title, value in self.metric_cards:
+                value.setText("—")
             self.sales.setRowCount(0)
             self.audit.setRowCount(0)
             return

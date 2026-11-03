@@ -288,6 +288,37 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_customer_privacy_clears_selector_if_access_revoked(self):
+        from decimal import Decimal
+        from velopos_qt.auth_model import PreviewIdentity
+        from velopos_qt.billing_page import BillingPage
+
+        state = {"person": PreviewIdentity("cashier", "Cashier")}
+        class Reader:
+            def search(self, term):
+                return [{"id": 4, "name": "Private Buyer", "phone": "0700012345"}]
+            def get(self, customer_id):
+                return {"name": "Private Buyer", "loyalty_points": Decimal("8"),
+                        "credit_balance": Decimal("25"), "credit_limit": Decimal("100")}
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=Reader(),
+            identity=lambda: state["person"],
+        )
+        try:
+            page.refresh_customers()
+            page.customer_choice.setCurrentIndex(1)
+            self.assertEqual(page.customer_id, 4)
+            self.assertIn("Private Buyer", page.customer_choice.currentText())
+            state["person"] = None
+            page.refresh_customer_summary()
+            self.assertIsNone(page.customer_id)
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertEqual(page.customer_search.text(), "")
+            self.assertNotIn("Private Buyer", page.customer_summary.text())
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_customer_loyalty_selection_is_login_gated_and_held_safely(self):
         from velopos_qt.billing_page import BillingPage
         from velopos_qt.auth_model import PreviewIdentity

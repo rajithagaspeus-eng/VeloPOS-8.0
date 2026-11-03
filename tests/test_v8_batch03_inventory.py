@@ -68,6 +68,43 @@ class InventoryEditIntegrationTests(unittest.TestCase):
                 home,
             )
 
+    def test_edit_preserves_hidden_product_metadata(self):
+        with tempfile.TemporaryDirectory(prefix="velopos8_metadata_") as folder:
+            home = Path(folder) / "VeloPOS8PreviewData"
+            self._child(
+                """
+                from velopos import database, services
+                from velopos_qt.product_editor import PreviewProductEditor
+                database.init_db()
+                services.save_product(
+                    "METADATA-1", "Original Item", "test",
+                    name_local="පරණ", keywords="premium scanner",
+                    cost=30, sell=80, wholesale=60, stock=6,
+                    expiry="2027-12-31", warranty="12 months",
+                    category="Electronics", taxable=False,
+                )
+                editor = PreviewProductEditor(database)
+                editor.save(
+                    "METADATA-1", "Renamed Item",
+                    name_local="අලුත්", sell="99", stock="8",
+                )
+                with database.db() as c:
+                    item = dict(c.execute(
+                        "SELECT * FROM products WHERE barcode='METADATA-1'"
+                    ).fetchone())
+                    assert item["keywords"] == "premium scanner", item
+                    assert item["wholesale_price"] == 60, item
+                    assert item["expiry_date"] == "2027-12-31", item
+                    assert item["warranty"] == "12 months", item
+                    assert item["cost_price"] == 30, item
+                    assert item["taxable"] == 0, item
+                    assert item["category"] == "Electronics", item
+                    assert item["selling_price"] == 99, item
+                    assert item["stock_qty"] == 8, item
+                """,
+                home,
+            )
+
     def test_invalid_values_do_not_change_stock(self):
         with tempfile.TemporaryDirectory(prefix="velopos8_editor_") as folder:
             home = Path(folder) / "VeloPOS8PreviewData"

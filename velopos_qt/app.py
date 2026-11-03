@@ -17,6 +17,7 @@ from .product_editor import PreviewProductEditor
 
 DARK = """
 QWidget { background:#0a1120; color:#e8eef8; font: 10pt 'Segoe UI'; }
+QLabel { background:transparent; }
 QFrame#panel { background:#121e31; border:1px solid #283750; border-radius:16px; }
 QFrame#brandBar { background:#131e30; border:1px solid #283750; border-radius:14px; }
 QLabel#appTitle { font-size:22pt; font-weight:750; color:#f5f9ff; }
@@ -43,6 +44,7 @@ QHeaderView::section { background:#1c2d44; color:#c6d5e9; padding:9px;
 """
 LIGHT = """
 QWidget { background:#f1f5fb; color:#192b42; font: 10pt 'Segoe UI'; }
+QLabel { background:transparent; }
 QFrame#panel { background:white; border:1px solid #dce5f1; border-radius:16px; }
 QFrame#brandBar { background:white; border:1px solid #dce5f1; border-radius:14px; }
 QLabel#appTitle { font-size:22pt; font-weight:750; color:#162d40; }

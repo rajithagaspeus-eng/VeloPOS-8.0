@@ -97,7 +97,11 @@ class ReportsPage(QWidget):
         fields = (
             ("report_sales_count", result["sale_count"]),
             ("report_sales_total", result["sales_total"]),
-            ("report_gross", result["recorded_gross_profit"]),
+            ("report_returns", result["returns_total"]),
+            ("report_net_revenue", result["net_revenue"]),
+            ("report_gross", result["adjusted_gross_profit"]),
+            ("report_vat", result["vat_net"]),
+            ("report_service", result["service_net"]),
             ("report_expenses", result["expenses"]),
             ("report_net", result["indicative_net"]),
         )

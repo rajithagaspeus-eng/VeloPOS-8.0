@@ -135,3 +135,11 @@ Additional tests use isolated subprocess databases for successful Admin/Cashier 
 **Important audit:** the current offline trial HMAC is derived from public device information and does not prevent a knowledgeable local user from rewriting their own files. The existing remote first-seen Worker integration is a useful building block but must be independently deployed/audited. Email recovery requires a previously verified address, trusted email backend and expiring single-use token verification before any password update.
 
 Run the single combined test command above once. The new Batch 07 tests are committed but not yet executed in the user's Windows environment.
+
+### Batch 07 addendum — Preview sign-in and Admin setup
+
+The preview top bar includes Sign in for the isolated demo database. An empty demo users table triggers first-run setup, where the developer chooses a new Admin username and password of 12+ characters. No shared password is created. Later logins use existing PBKDF2 password checks and persistent lockout. Sign out clears the Qt identity.
+
+Inventory/Customer/Supplier Add/Edit controls are visible only to an Admin identity. **This is a preview UI gate only, NOT a production authorization boundary.** Legacy service APIs do not yet uniformly require an authenticated Qt session, so actual checkout and commercial write access remain disabled. The real release must check service permissions independent of UI visibility.
+
+The global product feature scope is recorded in [V8_MASTER_ROADMAP.md](V8_MASTER_ROADMAP.md). It includes advanced dashboards, stock, billing, multi-branch, local-first BI, optional cloud sync, phone owner dashboard, loyalty, P&L, staff security, online/offline commercial licensing, trial continuity and verified-email recovery. These are roadmap requirements, not promises of completed features.

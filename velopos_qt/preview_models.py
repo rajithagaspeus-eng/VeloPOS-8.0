@@ -60,6 +60,19 @@ class Cart:
             "price": price,
         }
 
+    def set_quantity(self, barcode, quantity):
+        """Change a draft line without writing stock or creating an invoice."""
+        barcode = str(barcode)
+        if barcode not in self.lines:
+            raise ValueError("Product is not in the draft cart")
+        try:
+            qty = Decimal(str(quantity).strip())
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError("Enter a valid quantity") from exc
+        if not qty.is_finite() or qty <= 0 or qty > Decimal("1000000"):
+            raise ValueError("Quantity must be greater than zero and at most 1,000,000")
+        self.lines[barcode]["qty"] = qty
+
     def remove(self, barcode):
         self.lines.pop(str(barcode), None)
 

@@ -42,7 +42,10 @@ def verify_preview_session(database, identity, persisted):
     The caller MUST have independently enforced _guard(database) and opened
     the canonical preview connection. Never a commercial transaction license.
     """
-    if identity is None or persisted is None:
+    if identity is None:
+        return False
+    if persisted is None:
+        revoke_preview_session(identity)
         return False
     username = getattr(identity, "username", None)
     role = getattr(identity, "role", None)
@@ -114,6 +117,7 @@ class PreviewAuthenticator:
             return None
         role = row["role"] if row else None
         if role not in ("Admin", "Cashier"):
+            revoke_preview_session(identity)
             return None
         # An HMAC-authenticated, process-local token binds DB, user, role,
         # password hash and a random nonce; invalidation is irreversible.

@@ -42,7 +42,7 @@ If your `.venv` is one directory higher than the cloned repo:
 ## Unit tests
 
 ```powershell
-python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_batch05_billing tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_batch05_billing tests.test_v8_batch05_engine tests.test_v8_qt_ui -v
 ```
 
 These include headless model and isolated offscreen Qt smoke tests. A successful run is **not** evidence that the full Windows GUI, live POS, or hardware works.

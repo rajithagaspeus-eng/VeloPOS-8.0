@@ -55,6 +55,32 @@ class PreviewAuthIntegrationTests(unittest.TestCase):
             """,
         )
 
+    def test_first_run_admin_requires_owner_password_and_is_single_use(self):
+        self.run_isolated(
+            """
+            from velopos import database
+            from velopos_qt.auth_model import PreviewAuthenticator
+            database.init_db()
+            auth = PreviewAuthenticator(database)
+            assert auth.needs_setup()
+            try:
+                auth.bootstrap_admin("owner7", "weak")
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Weak setup password was accepted")
+            owner = auth.bootstrap_admin("owner7", "OwnerChosenStrong!2026")
+            assert owner.can_manage_staff and not auth.needs_setup()
+            try:
+                auth.bootstrap_admin("intruder7", "AnotherStrongPassword!")
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Repeated bootstrap was accepted")
+            assert auth.authenticate("owner7", "OwnerChosenStrong!2026").role == "Admin"
+            """,
+        )
+
     def test_persistent_wrong_password_lockout(self):
         self.run_isolated(
             """

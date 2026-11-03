@@ -93,6 +93,46 @@ class PreviewSmokeTests(unittest.TestCase):
         )
         self.assertEqual(page.table.item(0, 1).toolTip(), "Sample Rice")
 
+    def test_dashboard_preview_kpi_cards_and_refresh(self):
+        from velopos_qt.dashboard_page import DashboardOverview
+
+        class FakeStats:
+            def __init__(self):
+                self.count = 0
+            def snapshot(self):
+                self.count += 1
+                return {
+                    "products": 8 + self.count,
+                    "customers": 3, "suppliers": 2,
+                    "low_stock": 1,
+                    "alerts": [{"name_en": "Notebook", "barcode": "X1",
+                                "stock_qty": 2}],
+                }
+
+        fake = FakeStats()
+        opened = []
+        page = DashboardOverview(
+            fake, self.window.t, open_inventory=lambda: opened.append(True)
+        )
+        try:
+            self.assertEqual(page.cards[0].value.text(), "9")
+            self.assertIn("Notebook", page.alert_body.text())
+            page.refresh_button.click()
+            self.assertEqual(page.cards[0].value.text(), "10")
+            page.open_stock_button.click()
+            self.assertEqual(opened, [True])
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.cards[0].label.text(), "භාණ්ඩ")
+            self.assertEqual(page.cards[0].value.text(), "10")
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_dashboard_fallback_has_no_fabricated_counts(self):
+        self.assertEqual(self.window.dashboard_overview.cards[0].value.text(), "—")
+        self.assertIn("No demo statistics", self.window.dashboard_overview.alert_body.text())
+
     def test_dashboard_quick_navigation_and_translation(self):
         self.assertEqual(len(self.window.quick_buttons), 3)
         self.window.quick_buttons[0][0].click()

@@ -46,6 +46,11 @@ class SmartInventoryIntegrationTests(unittest.TestCase):
             reader = InventoryInsightsReader(database, authorize=lambda: True)
             snap = reader.snapshot(low_level=5, expiry_days=30, today="2026-11-04")
             assert snap["low_count"] == 2, snap
+            suggested = {
+                row["barcode"]: row["suggested_topup"]
+                for row in snap["low_rows"]
+            }
+            assert suggested == {"LOW-01": 4, "OLD-01": 2}, suggested
             assert snap["expired_count"] == 1, snap
             assert snap["expiring_count"] == 1, snap
             assert [x["barcode"] for x in snap["expiry_rows"]] == [

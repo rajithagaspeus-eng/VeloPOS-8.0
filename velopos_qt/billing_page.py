@@ -458,7 +458,12 @@ class BillingPage(QWidget):
         self.discount_input.setText(discount)
         self.tender_input.setText(tender)
         self.customer_id = held_customer_id
-        self.refresh_customer_summary()
+        # Revalidate the saved ID and restore the visible choice, without
+        # trusting a stale customer name/phone from the held draft.
+        if held_customer_id is not None and self.customer_reader is not None:
+            self.refresh_customers()
+        else:
+            self.refresh_customer_summary()
         self.refresh_cart()
         self._refresh_hold_controls()
 

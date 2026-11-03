@@ -14,7 +14,7 @@ from .preview_models import InventoryReader, DirectoryReader
 from .directory_pages import DirectoryPage
 from .core_pages import InventoryPage, BillingPage
 from .product_editor import PreviewProductEditor
-from .auth_model import PreviewAuthenticator
+from .auth_model import PreviewAuthenticator, revoke_preview_session
 from .login_dialog import PreviewLoginDialog
 from .dashboard_model import DashboardReader
 from .reports_model import PreviewReportsReader
@@ -313,6 +313,8 @@ class SettingsPreview(QMainWindow):
             self._update_auth_ui()
 
     def preview_logout(self):
+        if self.identity is not None:
+            revoke_preview_session(self.identity)
         self.identity = None
         # A new cashier must never inherit the previous cashier\'s draft.
         bill = self._pages.get(2)

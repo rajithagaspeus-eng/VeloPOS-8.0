@@ -14,6 +14,8 @@ from .preview_models import InventoryReader, DirectoryReader
 from .directory_pages import DirectoryPage
 from .core_pages import InventoryPage, BillingPage
 from .product_editor import PreviewProductEditor
+from .auth_model import PreviewAuthenticator
+from .login_dialog import PreviewLoginDialog
 from .dashboard_model import DashboardReader
 from .dashboard_page import DashboardOverview
 from .directory_editor import PreviewDirectoryEditor
@@ -98,6 +100,8 @@ class SettingsPreview(QMainWindow):
         # or production product mutations are enabled in V8 yet.
         self.product_editor = PreviewProductEditor(db) if db is not None else None
         self.directory_editor = PreviewDirectoryEditor(db) if db is not None else None
+        self.authenticator = PreviewAuthenticator(db) if db is not None else None
+        self.identity = None
         self.saved = adapter.read()
         self.controls = {}
         stored_locale = str(self.preferences.value("language", "en"))
@@ -120,6 +124,19 @@ class SettingsPreview(QMainWindow):
         title.setObjectName("appTitle")
         brand_row.addWidget(title)
         brand_row.addStretch()
+        self.user_label = QLabel()
+        self.user_label.setObjectName("hint")
+        brand_row.addWidget(self.user_label)
+        self.login_button = QPushButton(self.t("preview_sign_in"))
+        self.login_button.setObjectName("secondaryAction")
+        self.login_button.setVisible(self.authenticator is not None)
+        self.login_button.clicked.connect(self.preview_login)
+        brand_row.addWidget(self.login_button)
+        self.logout_button = QPushButton(self.t("preview_sign_out"))
+        self.logout_button.setObjectName("secondaryAction")
+        self.logout_button.setVisible(False)
+        self.logout_button.clicked.connect(self.preview_logout)
+        brand_row.addWidget(self.logout_button)
         self.preview_badge = QLabel(self.t("test_mode_badge"))
         self.preview_badge.setObjectName("previewPill")
         brand_row.addWidget(self.preview_badge)
@@ -181,6 +198,8 @@ class SettingsPreview(QMainWindow):
         self.preferences.setValue("language", self.locale)
         self.subtitle.setText(self.t("subtitle"))
         self.preview_badge.setText(self.t("test_mode_badge"))
+        self.login_button.setText(self.t("preview_sign_in"))
+        self.logout_button.setText(self.t("preview_sign_out"))
         self.locale_label.setText(self.t("language"))
         for index, key in enumerate(self.nav_keys):
             self.nav.item(index).setText(self.t(key))
@@ -224,9 +243,48 @@ class SettingsPreview(QMainWindow):
         self.controls[key] = widget
         return widget
 
+    def _is_preview_admin(self):
+        return bool(self.identity is not None and self.identity.role == "Admin")
+
+    def preview_login(self):
+        if self.authenticator is None:
+            return
+        dialog = PreviewLoginDialog(self.authenticator, self.t, parent=self)
+        from PySide6.QtWidgets import QDialog
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.identity:
+            self.identity = dialog.identity
+            self._update_auth_ui()
+
+    def preview_logout(self):
+        self.identity = None
+        self._update_auth_ui()
+
+    def _update_auth_ui(self):
+        permitted = self._is_preview_admin()
+        self.user_label.setText(
+            f"{self.identity.username} ({self.identity.role})"
+            if self.identity is not None else ""
+        )
+        self.login_button.setVisible(self.authenticator is not None and self.identity is None)
+        self.logout_button.setVisible(self.identity is not None)
+        # This gates only the visible test-data editors; commercial writes
+        # still require service-layer session validation before release.
+        for page in self._pages.values():
+            if isinstance(page, InventoryPage):
+                page.editor = self.product_editor if permitted else None
+                page.add_product_button.setVisible(permitted)
+                page.edit_product_button.setVisible(permitted)
+                page.retranslate()
+            elif isinstance(page, DirectoryPage):
+                page.editor = self.directory_editor if permitted else None
+                page.new_button.setVisible(permitted)
+                page.edit_button.setVisible(permitted)
+                page.retranslate()
+
     def _create_page(self, index):
         if index == 1 and self.inventory is not None:
-            return InventoryPage(self.inventory, self.t, editor=self.product_editor)
+            return InventoryPage(self.inventory, self.t,
+                                 editor=self.product_editor if self._is_preview_admin() else None)
         if index == 2 and self.inventory is not None:
             # Only use the original billing preview engine in our test-only DB.
             preview_fn = None
@@ -239,7 +297,7 @@ class SettingsPreview(QMainWindow):
             return BillingPage(self.inventory, self.t, bill_preview=preview_fn)
         if index in (3, 4) and self.directory is not None:
             return DirectoryPage(self.directory, self.nav_keys[index], self.t,
-                                 editor=self.directory_editor)
+                                 editor=self.directory_editor if self._is_preview_admin() else None)
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setSpacing(14)

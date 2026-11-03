@@ -87,7 +87,7 @@ class ReportsPage(QWidget):
         try:
             result = self.reader.snapshot(self.start.text(), self.end.text())
             audit = self.reader.staff_activity()
-        except (ValueError, RuntimeError, OSError) as exc:
+        except (ValueError, RuntimeError, OSError, PermissionError) as exc:
             self.warning.setText(str(exc))
             self.metrics_text.setText("—")
             self.sales.setRowCount(0)

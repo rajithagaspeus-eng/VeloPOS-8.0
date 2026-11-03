@@ -73,6 +73,26 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.deleteLater()
         self.sandbox.cleanup()
 
+    def test_sidebar_and_inventory_layout_are_readable(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QHeaderView
+        self.assertEqual(
+            self.window.nav.horizontalScrollBarPolicy(),
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(
+            self.window.nav.item(1).toolTip(),
+            self.window.nav.item(1).text(),
+        )
+        self.window.nav.setCurrentRow(1)
+        page = self.window._pages[1]
+        self.assertEqual(
+            page.table.horizontalHeader().sectionResizeMode(1),
+            QHeaderView.ResizeMode.Stretch,
+        )
+        self.assertEqual(page.table.item(0, 1).toolTip(), "Sample Rice")
+
     def test_dashboard_quick_navigation_and_translation(self):
         self.assertEqual(len(self.window.quick_buttons), 3)
         self.window.quick_buttons[0][0].click()

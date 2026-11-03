@@ -60,8 +60,9 @@ class BillingPage(QWidget):
         self.results.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.results.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.results.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.results.setMaximumHeight(180)
-        self.results.setMinimumHeight(105)
+        self.results.setMaximumHeight(205)
+        self.results.setMinimumHeight(120)
+        self.results.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerItem)
         self.results.verticalHeader().setVisible(False)
         self.results.setAlternatingRowColors(True)
         header = self.results.horizontalHeader()
@@ -152,6 +153,10 @@ class BillingPage(QWidget):
         self.barcode_shortcut.activated.connect(self.query.setFocus)
         self.quantity_shortcut = QShortcut(QKeySequence("F3"), self)
         self.quantity_shortcut.activated.connect(self.quantity_input.setFocus)
+        self.discount_shortcut = QShortcut(QKeySequence("F4"), self)
+        self.discount_shortcut.activated.connect(self.discount_input.setFocus)
+        self.tender_shortcut = QShortcut(QKeySequence("F5"), self)
+        self.tender_shortcut.activated.connect(self.tender_input.setFocus)
 
         self.retranslate()
         self.refresh_products()
@@ -271,6 +276,15 @@ class BillingPage(QWidget):
 
     def clear_cart(self):
         self.cart.clear()
+        self.refresh_cart()
+
+    def clear_session_draft(self):
+        """Discard sensitive unsaved draft state on sign-out; no DB calls."""
+        self.cart.clear()
+        self.discount_input.setText("0")
+        self.tender_input.setText("0")
+        self.quantity_input.setText("1")
+        self.query.clear()
         self.refresh_cart()
 
     def refresh_cart(self, selected_barcode=None):

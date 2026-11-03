@@ -119,9 +119,7 @@ class SettingsPreview(QMainWindow):
         self.shift_reader = PreviewShiftReader(db) if db is not None else None
         self.stock_reader = DraftStockReader(db) if db is not None else None
         self.customer_reader = DraftCustomerReader(
-            db, authorize=lambda: bool(
-                self.identity is not None and self.identity.role in ("Admin", "Cashier")
-            ),
+            db, authorize=lambda: self._is_preview_cashier(),
         ) if db is not None else None
         self.insights_reader = InventoryInsightsReader(db, authorize=self._is_preview_admin) if db is not None else None
         self.purchasing_reader = PurchaseOverviewReader(db, authorize=self._is_preview_admin) if db is not None else None
@@ -274,8 +272,29 @@ class SettingsPreview(QMainWindow):
         self.controls[key] = widget
         return widget
 
+    def _current_preview_role(self):
+        """Role decisions are rechecked against TEST users for real preview DBs.
+
+        The no-database component demo keeps its synthetic identity for
+        offscreen UI tests only; it cannot open a live service/editor.
+        """
+        if self.identity is None:
+            return None
+        if self.authenticator is not None and hasattr(self.authenticator, "current_role"):
+            try:
+                role = self.authenticator.current_role(self.identity)
+            except (RuntimeError, OSError):
+                return None
+            # Demotion immediately removes Admin access without requiring
+            # the cashier to explicitly sign out.
+            return role
+        return self.identity.role if self.authenticator is None else None
+
     def _is_preview_admin(self):
-        return bool(self.identity is not None and self.identity.role == "Admin")
+        return self._current_preview_role() == "Admin"
+
+    def _is_preview_cashier(self):
+        return self._current_preview_role() in ("Admin", "Cashier")
 
     def preview_login(self):
         if self.authenticator is None:

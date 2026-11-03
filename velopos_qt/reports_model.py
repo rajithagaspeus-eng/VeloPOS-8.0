@@ -2,7 +2,7 @@
 
 Reports do not calculate financial figures from displayed cart state; they
 query persisted original sales/expense records. No financial data is cached.
-Never use for commercial decisions until voids, refunds and COGS are reconciled.
+Returns and tax adjustments follow the legacy report rules; this remains\nan indicative rather than independently audited business P&L.
 """
 from datetime import date
 from decimal import Decimal
@@ -40,6 +40,19 @@ class PreviewReportsReader:
                 "FROM sales WHERE date BETWEEN ? AND ? AND status='OK'",
                 (start, end),
             ).fetchone()
+            refunds = connection.execute(
+                "SELECT COUNT(*) AS count, COALESCE(SUM(amount),0) AS total, "
+                "COALESCE(SUM(profit_adj),0) AS profit_adj, "
+                "COALESCE(SUM(vat_adj),0) AS vat_adj, "
+                "COALESCE(SUM(service_adj),0) AS service_adj "
+                "FROM returns WHERE date BETWEEN ? AND ?", (start, end),
+            ).fetchone()
+            taxes = connection.execute(
+                "SELECT COALESCE(SUM(vat_amount),0) AS vat, "
+                "COALESCE(SUM(service_amount),0) AS service "
+                "FROM sales WHERE date BETWEEN ? AND ? AND status='OK'",
+                (start, end),
+            ).fetchone()
             expenses = connection.execute(
                 "SELECT COALESCE(SUM(amount),0) AS total FROM expenses "
                 "WHERE date BETWEEN ? AND ?", (start, end),
@@ -53,12 +66,21 @@ class PreviewReportsReader:
         sales_total = _currency(sales["total"])
         gross = _currency(sales["profit"])
         spent = _currency(expenses["total"])
+        refunded = _currency(refunds["total"])
+        # Original report_data uses profit + returns.profit_adj - expenses.
+        adjusted_profit = gross + _currency(refunds["profit_adj"])
         return {
             "sale_count": sales["count"],
             "sales_total": sales_total,
+            "return_count": refunds["count"],
+            "returns_total": refunded,
+            "net_revenue": sales_total - refunded,
             "recorded_gross_profit": gross,
+            "adjusted_gross_profit": adjusted_profit,
+            "vat_net": _currency(taxes["vat"]) - _currency(refunds["vat_adj"]),
+            "service_net": _currency(taxes["service"]) - _currency(refunds["service_adj"]),
             "expenses": spent,
-            "indicative_net": gross - spent,
+            "indicative_net": adjusted_profit - spent,
             "recent_sales": [dict(row) for row in recent],
         }
 

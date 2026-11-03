@@ -8,7 +8,7 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
-from velopos_qt.forecast_model import demand_baseline
+from velopos_qt.forecast_model import demand_baseline, walk_forward_backtest
 
 
 class DemandBaselineTests(unittest.TestCase):
@@ -21,6 +21,22 @@ class DemandBaselineTests(unittest.TestCase):
         self.assertEqual(result["units_7d"], Decimal("21"))
         self.assertEqual(result["units_expected"], Decimal("15.75"))
         self.assertEqual(result["stock_coverage_days"], Decimal("9.3"))
+
+    def test_backtest_uses_three_prior_only_windows(self):
+        regular = walk_forward_backtest([1] * 49)
+        self.assertEqual(regular["evaluated_windows"], 3)
+        self.assertEqual(regular["mean_absolute_error"], Decimal("0.00"))
+        # The final seven held-out days must not influence any training
+        # window that evaluates an earlier period.
+        surprise = walk_forward_backtest([1] * 42 + [8] * 7)
+        self.assertEqual(surprise["evaluated_windows"], 3)
+        self.assertEqual(surprise["mean_absolute_error"], Decimal("16.33"))
+        sparse = walk_forward_backtest([0] * 44 + [1] * 5)
+        self.assertEqual(sparse["evaluated_windows"], 0)
+        self.assertIsNone(sparse["mean_absolute_error"])
+        for history in ([1]*48, [1]*48+[float("nan")], [1]*48+[-1]):
+            with self.subTest(last=history[-1]), self.assertRaises(ValueError):
+                walk_forward_backtest(history)
 
     def test_sparse_or_invalid_data_does_not_make_up_predictions(self):
         result = demand_baseline([0]*25+[1,2,3], horizon=7)
@@ -120,6 +136,47 @@ class DemandLedgerTests(unittest.TestCase):
                 pass
             else:
                 raise AssertionError("Logout did not revoke demand access")
+            """
+        )
+
+    def test_historical_backtest_respects_voids_and_incomplete_day(self):
+        self.isolated(
+            """
+            from datetime import date, timedelta
+            from decimal import Decimal
+            from velopos import database
+            from velopos_qt.forecast_model import DemandForecastReader
+            database.init_db()
+            as_of = date(2026,11,4)
+            with database.db() as c:
+                c.execute("INSERT INTO products(barcode,name_en,stock_qty) "
+                          "VALUES('BT-1','Backtest',30)")
+                for n in range(49):
+                    day = (as_of-timedelta(days=49-n)).isoformat()
+                    c.execute(
+                        "INSERT INTO sales(invoice_no,date,status) VALUES(?,?,'OK')",
+                        (f"BT{n}",day)
+                    )
+                    c.execute(
+                        "INSERT INTO sale_items(invoice_no,barcode,qty,total) "
+                        "VALUES(?,'BT-1',1,10)", (f"BT{n}",)
+                    )
+                c.execute("INSERT INTO sales(invoice_no,date,status) "
+                          "VALUES('BT-VOID','2026-11-02','VOID')")
+                c.execute("INSERT INTO sale_items(invoice_no,barcode,qty,total) "
+                          "VALUES('BT-VOID','BT-1',500,5000)")
+                c.execute("INSERT INTO sales(invoice_no,date,status) "
+                          "VALUES('BT-TODAY','2026-11-04','OK')")
+                c.execute("INSERT INTO sale_items(invoice_no,barcode,qty,total) "
+                          "VALUES('BT-TODAY','BT-1',500,5000)")
+            reader = DemandForecastReader(database, authorize=lambda: True)
+            snap = reader.snapshot(as_of="2026-11-04")
+            record = snap["products"][0]
+            assert record["units_28d"] == Decimal("28"), record
+            assert record["backtest"]["evaluated_windows"] == 3
+            assert record["backtest"]["mean_absolute_error"] == Decimal("0.00")
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 51
             """
         )
 

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
-from .preview_models import Cart
+from .preview_models import Cart, preview_existing_bill
 
 
 class InventoryPage(QWidget):
@@ -66,10 +66,11 @@ class InventoryPage(QWidget):
 
 
 class BillingPage(QWidget):
-    def __init__(self, inventory, text):
+    def __init__(self, inventory, text, bill_preview=None):
         super().__init__()
         self.inventory = inventory
         self.text = text
+        self.bill_preview = bill_preview
         self.cart = Cart()
         self.products = []
         layout = QVBoxLayout(self)
@@ -102,6 +103,8 @@ class BillingPage(QWidget):
         bottom = QHBoxLayout()
         self.total = QLabel()
         bottom.addWidget(self.total)
+        self.net_total = QLabel()
+        bottom.addWidget(self.net_total)
         bottom.addStretch()
         self.remove_button = QPushButton()
         self.remove_button.clicked.connect(self.remove_selected)
@@ -170,3 +173,11 @@ class BillingPage(QWidget):
             )):
                 self.cart_table.setItem(row, col, QTableWidgetItem(str(value)))
         self.total.setText(f'{self.text("subtotal")}: {self.cart.subtotal():,.2f}')
+        if self.bill_preview is not None and lines:
+            try:
+                result = preview_existing_bill(self.cart, self.bill_preview)
+                self.net_total.setText(f'{self.text("estimated_net")}: {float(result["net"]):,.2f}')
+            except (ValueError, KeyError, TypeError, OSError) as exc:
+                self.net_total.setText(f'{self.text("preview_error")}: {exc}')
+        else:
+            self.net_total.setText("")

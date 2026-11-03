@@ -244,6 +244,66 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_customer_loyalty_selection_is_login_gated_and_held_safely(self):
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+        from decimal import Decimal
+
+        identity = {"current": None}
+        class FakeCustomerReader:
+            def __init__(self):
+                self.searches = 0
+            def search(self, term):
+                assert identity["current"] is not None
+                self.searches += 1
+                return [{"id": 7, "name": "Preview Buyer", "phone": "0700000000"}]
+            def get(self, customer_id):
+                assert identity["current"] is not None
+                assert customer_id == 7
+                return {
+                    "id": 7, "name": "Preview Buyer",
+                    "loyalty_points": Decimal("13.50"),
+                    "credit_balance": Decimal("40.00"),
+                    "credit_limit": Decimal("200.00"),
+                }
+
+        reader = FakeCustomerReader()
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=reader,
+            identity=lambda: identity["current"],
+        )
+        try:
+            self.assertFalse(page.customer_search.isEnabled())
+            self.assertEqual(reader.searches, 0)
+            identity["current"] = PreviewIdentity("owner", "Admin")
+            page.refresh_customer_summary()
+            self.assertTrue(page.customer_search.isEnabled())
+            page.customer_search.setText("Preview")
+            page.refresh_customers()
+            self.assertEqual(reader.searches, 1)
+            page.customer_choice.setCurrentIndex(1)
+            self.assertEqual(page.customer_id, 7)
+            self.assertIn("13.50", page.customer_summary.text())
+            page.query.setText("D001")
+            page.scan_or_add()
+            page.hold_draft()
+            self.assertIsNone(page.customer_id)
+            self.assertEqual(page._held_draft[3], 7)
+            page.resume_draft()
+            self.assertEqual(page.customer_id, 7)
+            self.assertEqual(page.customer_choice.currentData(), 7)
+            self.assertEqual(page.cart_table.rowCount(), 1)
+            page.clear_session_draft()
+            identity["current"] = None
+            page.refresh_customer_summary()
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertEqual(page.customer_id, None)
+            self.assertFalse(page.customer_search.isEnabled())
+            self.assertNotIn("Preview Buyer", page.customer_summary.text())
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_held_draft_resume_preserves_lines_and_tender(self):
         self.window.nav.setCurrentRow(2)
         page = self.window._pages[2]

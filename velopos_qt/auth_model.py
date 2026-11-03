@@ -63,7 +63,10 @@ class PreviewAuthenticator:
         if (not identity.credential_tag
                 or not compare_digest(identity.credential_tag, tag)):
             return None
-        if role == "Admin" and identity.role != "Admin":
+        # Any role change invalidates the original login rather than
+        # silently converting an Admin session into a Cashier session, or
+        # restoring stale Admin access after a demote/re-promote cycle.
+        if role != identity.role:
             return None
         return role
 

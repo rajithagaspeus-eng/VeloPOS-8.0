@@ -299,6 +299,13 @@ class BillingPage(QWidget):
         self.customer_choice.setEnabled(allowed and self.customer_reader is not None)
         self.customer_clear_button.setEnabled(allowed and self.customer_reader is not None)
         if not allowed or self.customer_reader is None:
+            # Do not leave customer names/phone numbers visible in a disabled
+            # selector when a session expires or role access is revoked.
+            self.customer_choice.blockSignals(True)
+            self.customer_choice.clear()
+            self.customer_choice.blockSignals(False)
+            self.customer_search.clear()
+            self.customer_id = None
             self.customer_summary.setText(self.text("billing_customer_login_needed"))
             self.loyalty_projection.setText("")
             return
@@ -311,6 +318,10 @@ class BillingPage(QWidget):
         except (ValueError, RuntimeError, OSError, PermissionError):
             customer = None
         if customer is None:
+            self.customer_id = None
+            self.customer_choice.blockSignals(True)
+            self.customer_choice.setCurrentIndex(0 if self.customer_choice.count() else -1)
+            self.customer_choice.blockSignals(False)
             self.customer_summary.setText(self.text("billing_customer_unavailable"))
             self.loyalty_projection.setText("")
             return

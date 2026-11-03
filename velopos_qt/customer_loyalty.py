@@ -4,7 +4,7 @@ Customer details are accessible to an authenticated preview Admin/Cashier
 only. Existing legacy loyalty points and credit balances are shown exactly as
 stored: selecting a customer never redeems/earns points or extends credit.
 """
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from .product_editor import _guard
 
 
@@ -58,3 +58,19 @@ class DraftCustomerReader:
         for field in ("loyalty_points", "credit_balance", "credit_limit"):
             data[field] = Decimal(str(data[field]))
         return data
+
+
+def projected_points_for_paid_bill(net_amount):
+    """Read-only illustration of the ORIGINAL legacy earnings rule.
+
+    Legacy create_sale awards round((net - credit_due) / 100, 2) points.
+    This projection assumes payment in full, no credit_due, and never mutates
+    points. Actual checkout/returns must recompute after all final rules.
+    """
+    try:
+        net = Decimal(str(net_amount))
+    except (ValueError, InvalidOperation, TypeError) as exc:
+        raise ValueError("Invalid bill amount") from exc
+    if not net.is_finite() or net < 0 or net > 1000000000:
+        raise ValueError("Invalid bill amount")
+    return (net / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN)

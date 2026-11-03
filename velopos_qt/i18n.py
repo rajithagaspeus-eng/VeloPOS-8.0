@@ -6,6 +6,7 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "insight_suggested_topup": "Suggested top-up",
         "billing_customer": "Customer",
         "billing_customer_lookup": "Search name or phone",
         "billing_find_customer": "Find",
@@ -173,6 +174,7 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "insight_suggested_topup": "යෝජිත නැවත තොග ප්‍රමාණය",
         "billing_customer": "පාරිභෝගිකයා",
         "billing_customer_lookup": "නම හෝ දුරකථනය සොයන්න",
         "billing_find_customer": "සොයන්න",
@@ -340,6 +342,7 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "insight_suggested_topup": "பரிந்துரைக்கப்பட்ட நிரப்பு அளவு",
         "billing_customer": "வாடிக்கையாளர்",
         "billing_customer_lookup": "பெயர் அல்லது தொலைபேசி தேடுக",
         "billing_find_customer": "தேடு",

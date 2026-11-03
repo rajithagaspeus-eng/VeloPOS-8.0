@@ -42,7 +42,7 @@ If your `.venv` is one directory higher than the cloned repo:
 ## Unit tests
 
 ```powershell
-python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_batch03_inventory tests.test_v8_batch04_directories tests.test_v8_batch05_billing tests.test_v8_qt_ui -v
 ```
 
 These include headless model and isolated offscreen Qt smoke tests. A successful run is **not** evidence that the full Windows GUI, live POS, or hardware works.
@@ -107,3 +107,11 @@ Customer and supplier directories now provide **Add new** and **Edit selected** 
 The adapter checks the canonical preview database path before every operation and never enables editing on the production POS database. No commercial login or role-based security is implemented in this preview, so these actions must not be enabled for real shop use.
 
 Run the combined command above once after pulling `develop-v8`. New tests have not yet been executed in the user's Windows environment.
+
+## Batch 05 — modern billing draft, no checkout
+
+The isolated Qt **Billing draft** now has a barcode-first search field, Enter-to-add for exact barcode or a unique result, F2 to focus search, F3 to focus the draft quantity field, double-click-to-add product results, and editable positive cart quantities. Ambiguous searches cannot auto-add an arbitrary item. Product and cart tables expand product names; hover reveals full cell text. A clearly separated totals panel presents rounded draft subtotals and the existing engine's **read-only** estimated payable amount when available.
+
+All changes are **in-memory draft state**. No checkout, payment, receipt, invoice, stock deduction, or customer credit operation is accessible. For tax/service charge estimates the preview uses the original `services.preview_bill` only against test data. Updated models reject negative/zero, overlarge and nonfinite quantities. Tests in `tests/test_v8_batch05_billing.py` and offscreen Qt smoke cases verify model rules and scanner workflow.
+
+Run the single combined command above. The new Batch 05 tests have been committed, but **not yet executed on the user's Windows machine**.

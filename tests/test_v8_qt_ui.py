@@ -545,6 +545,31 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")
 
+    def test_billing_draft_heading_does_not_overlap_results_at_small_height(self):
+        from velopos_qt.billing_page import BillingPage
+        from PySide6.QtWidgets import QScrollArea
+
+        page = BillingPage(FakeInventory(), self.window.t)
+        try:
+            page.resize(880, 420)
+            page.show()
+            self.qt_app.processEvents()
+            self.assertIsInstance(page.scroll_area, QScrollArea)
+            self.assertGreaterEqual(page.results.height(), 155)
+            self.assertGreaterEqual(page.cart_table.height(), 135)
+            self.assertGreaterEqual(
+                page.cart_title.geometry().top(),
+                page.results.geometry().bottom() + 1,
+                "Draft items must be below, not drawn on top of, search rows",
+            )
+            self.assertGreater(
+                page.scroll_area.verticalScrollBar().maximum(), 0,
+                "Small screens must scroll instead of compressing billing tables",
+            )
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_tender_typing_does_not_requery_stock(self):
         from velopos_qt.billing_page import BillingPage
 

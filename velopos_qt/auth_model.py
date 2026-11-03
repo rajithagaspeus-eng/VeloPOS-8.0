@@ -33,6 +33,29 @@ class PreviewAuthenticator:
         self.services = services
         self.security = security
 
+    def current_role(self, identity):
+        """Revalidate a preview identity against the persisted user role.
+
+        Fail closed if the account was removed, demoted or storage fails.
+        This does NOT replace a cryptographic session or a production
+        transaction authorization boundary.
+        """
+        _guard(self.database)
+        if identity is None or not getattr(identity, "username", None):
+            return None
+        try:
+            with self.database.db() as connection:
+                row = connection.execute(
+                    "SELECT role FROM users WHERE username=?",
+                    (identity.username,),
+                ).fetchone()
+        except (OSError, RuntimeError):
+            return None
+        role = row["role"] if row else None
+        if role not in ("Admin", "Cashier"):
+            return None
+        return role
+
     def needs_setup(self):
         _guard(self.database)
         with self.database.db() as connection:

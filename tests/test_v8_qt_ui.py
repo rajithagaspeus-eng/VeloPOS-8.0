@@ -109,6 +109,43 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")
 
+    def test_billing_barcode_scan_quantity_and_localization(self):
+        from PySide6.QtWidgets import QHeaderView
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        self.assertEqual(
+            page.results.horizontalHeader().sectionResizeMode(1),
+            QHeaderView.ResizeMode.Stretch,
+        )
+        self.assertEqual(
+            page.cart_table.horizontalHeader().sectionResizeMode(0),
+            QHeaderView.ResizeMode.Stretch,
+        )
+        page.query.setText("D001")
+        page.scan_or_add()
+        self.assertEqual(str(page.cart.subtotal()), "250.00")
+        self.assertEqual(page.query.text(), "")
+        self.assertEqual(page.cart_table.item(0, 0).toolTip(), "Sample Rice")
+        page.cart_table.selectRow(0)
+        page.quantity_input.setText("3")
+        page.edit_quantity()
+        self.assertEqual(str(page.cart.subtotal()), "750.00")
+        self.assertIn("750.00", page.total.text())
+        self.assertIn("1", page.line_count.text())
+        self.window.locale_combo.setCurrentIndex(2)
+        self.assertEqual(page.quantity_button.text(), "அளவை மாற்று")
+        page.remove_selected()
+        self.assertEqual(page.cart_table.rowCount(), 0)
+        self.assertFalse(hasattr(page, "checkout_button"))
+
+    def test_scan_ambiguous_search_requires_selection(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("Sample")
+        self.assertGreater(page.results.rowCount(), 1)
+        page.scan_or_add()
+        self.assertEqual(len(page.cart.lines), 0)
+
     def test_inventory_and_billing_draft_without_checkout(self):
         self.window.nav.setCurrentRow(1)
         inventory = self.window._pages[1]

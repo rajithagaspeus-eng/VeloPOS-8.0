@@ -49,10 +49,10 @@ class BillingPage(QWidget):
         )
         root_layout.addWidget(self.scroll_area)
         canvas = QWidget()
-        self.scroll_area.setWidget(canvas)
         layout = QVBoxLayout(canvas)
         layout.setContentsMargins(4, 4, 12, 4)
         layout.setSpacing(12)
+        self.scroll_area.setWidget(canvas)
 
         self.heading = QLabel()
         self.heading.setStyleSheet("font-size:19pt; font-weight:650;")

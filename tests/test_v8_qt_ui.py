@@ -347,6 +347,8 @@ class PreviewSmokeTests(unittest.TestCase):
         bill = self.window._pages[2]
         self.assertEqual(bill.discount_shortcut.key().toString(), QKeySequence("F4").toString())
         self.assertEqual(bill.tender_shortcut.key().toString(), QKeySequence("F5").toString())
+        self.assertEqual(bill.hold_shortcut.key().toString(), QKeySequence("F6").toString())
+        self.assertEqual(bill.resume_shortcut.key().toString(), QKeySequence("F7").toString())
 
     def test_admin_reports_are_hidden_until_login(self):
         from velopos_qt.auth_model import PreviewIdentity

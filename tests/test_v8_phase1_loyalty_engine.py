@@ -53,7 +53,7 @@ class LegacyLoyaltyCompatibilityTests(unittest.TestCase):
                     moves_before = c.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0]
                 try:
                     services.create_sale(
-                        cart, 0, 9999, preview["net"], "Cash", "",
+                        cart, 0, float(before + Decimal("5.00")), preview["net"], "Cash", "",
                         cid, "preview-cashier", shift_id=None,
                     )
                 except ValueError:

@@ -6,6 +6,10 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "report_returns": "Refunds / returns",
+        "report_net_revenue": "Revenue after returns",
+        "report_vat": "VAT after returns",
+        "report_service": "Service charge after returns",
         "preview_cashier": "Draft cashier",
         "not_signed_in": "Not signed in",
         "open_shift_label": "Open shift",
@@ -124,6 +128,10 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "report_returns": "ආපසු ගෙවීම් / ප්‍රතිලාභ",
+        "report_net_revenue": "ආපසු ගෙවීම් පසු ආදායම",
+        "report_vat": "ප්‍රතිලාභ පසු VAT",
+        "report_service": "ප්‍රතිලාභ පසු සේවා ගාස්තු",
         "preview_cashier": "බිල් කෙටුම්පත් මුදල් අයකැමි",
         "not_signed_in": "පිවිසී නැත",
         "open_shift_label": "විවෘත සේවා වාරය",
@@ -242,6 +250,10 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "report_returns": "திரும்பப் பணம் / திருப்பல்கள்",
+        "report_net_revenue": "திருப்பலுக்குப் பின் வருவாய்",
+        "report_vat": "திருப்பலுக்குப் பின் VAT",
+        "report_service": "திருப்பலுக்குப் பின் சேவை கட்டணம்",
         "preview_cashier": "வரைவு காசாளர்",
         "not_signed_in": "உள்நுழையவில்லை",
         "open_shift_label": "திறந்த பணி நேரம்",

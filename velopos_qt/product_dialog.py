@@ -63,7 +63,7 @@ class ProductDialog(QDialog):
                 sell=self.price.text(),
                 stock=self.stock.text(),
             )
-        except (RuntimeError, OSError, ValueError) as exc:
+        except (RuntimeError, OSError, ValueError, PermissionError) as exc:
             self.error.setText(str(exc))
             return
         super().accept()

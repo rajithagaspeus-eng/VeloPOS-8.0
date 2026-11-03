@@ -6,6 +6,13 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "preview_sign_in": "Sign in",
+        "preview_sign_out": "Sign out",
+        "setup_preview_admin": "Set up preview administrator",
+        "preview_sign_in_notice": "Sign in with an existing preview test account. No live shop accounts are accessed.",
+        "setup_preview_notice": "Choose your own test Admin username and strong password (12+ characters). There are no preset credentials.",
+        "username_label": "Username",
+        "password_label": "Password",
         "dashboard_overview": "Store overview",
         "refresh_stats": "Refresh",
         "metric_products": "Products",
@@ -96,6 +103,13 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "preview_sign_in": "පිවිසෙන්න",
+        "preview_sign_out": "ඉවත් වන්න",
+        "setup_preview_admin": "Preview පරිපාලක සකසන්න",
+        "preview_sign_in_notice": "Preview පරීක්ෂණ ගිණුමකින් පිවිසෙන්න. සැබෑ වෙළඳසැල් ගිණුම් භාවිත නොවේ.",
+        "setup_preview_notice": "ඔබ කැමති පරිපාලක නමක් සහ අක්ෂර 12කට වැඩි ශක්තිමත් මුරපදයක් තෝරන්න.",
+        "username_label": "පරිශීලක නම",
+        "password_label": "මුරපදය",
         "dashboard_overview": "වෙළඳසැල් සාරාංශය",
         "refresh_stats": "නැවත යාවත්කාලීන කරන්න",
         "metric_products": "භාණ්ඩ",
@@ -186,6 +200,13 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "preview_sign_in": "உள்நுழை",
+        "preview_sign_out": "வெளியேறு",
+        "setup_preview_admin": "முன்னோட்ட நிர்வாகியை அமைக்கவும்",
+        "preview_sign_in_notice": "சோதனைக் கணக்கால் உள்நுழையவும். உண்மையான கடைக் கணக்குகள் பயன்படுத்தப்படுவதில்லை.",
+        "setup_preview_notice": "உங்கள் சொந்த நிர்வாகிப் பெயரும் 12 எழுத்துகள் கொண்ட வலுவான கடவுச்சொல்லும் தேர்வு செய்யவும்.",
+        "username_label": "பயனர் பெயர்",
+        "password_label": "கடவுச்சொல்",
         "dashboard_overview": "கடை சுருக்கம்",
         "refresh_stats": "புதுப்பி",
         "metric_products": "பொருட்கள்",

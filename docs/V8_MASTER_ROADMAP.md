@@ -59,3 +59,15 @@ Next dependencies for a responsible commercial analytics release: transaction/se
 The preview now includes an explainable **28-day demand baseline** with a 7-day recent-rate component, adjustable planning horizons of 1–30 days and sparse-history refusal. It is deliberately labeled **Demand planning**, not statistically validated AI forecasting; returns, seasonality, promotions, lost sales from stockouts, confidence intervals, backtesting and multi-branch demand remain future dependencies. The screen is read-only, Admin-gated, trilingual and limited to isolated TEST data.
 
 Preview account authorization now rechecks the current persisted user role plus a runtime password-hash fingerprint at protected access time. Demotion, account deletion and password rotation revoke stale Admin permissions; an old Cashier identity cannot gain Admin access simply through a persisted role promotion. This is a stronger preview authorization layer, **not a production-grade session service or commercial licensing gate**. No Real Checkout, payments or stock mutations were enabled. New integration and offscreen UI tests are committed, awaiting the next combined Windows regression run.
+
+## Integrated delivery and commercial acceptance gates
+
+For large successive development batches, use
+[Commercial release gates](V8_COMMERCIAL_RELEASE_GATES.md) as the explicit
+go/no-go checklist. A test-only preview can pass regression tests without being
+a safe shop-ready POS. **Gate A service transaction authorization remains
+blocking**, followed by accounting, real optional cloud/multi-branch, commercial
+licensing/recovery and full Windows QA. Latest Billing security tightening
+rechecks the current cashier permission for customer search and loyalty
+projections, and clears stale customer details on failed lookups. These new
+changes are committed on `develop-v8` but await the next Windows combined run.

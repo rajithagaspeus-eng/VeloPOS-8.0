@@ -122,6 +122,9 @@ class PreviewAuthenticator:
         # An HMAC-authenticated, process-local token binds DB, user, role,
         # password hash and a random nonce; invalidation is irreversible.
         # A role restore after revocation cannot revive this session.
+        if role != getattr(identity, "role", None):
+            revoke_preview_session(identity)
+            return None
         if not verify_preview_session(self.database, identity, row):
             return None
         return role

@@ -2,7 +2,8 @@
 
 Reports do not calculate financial figures from displayed cart state; they
 query persisted original sales/expense records. No financial data is cached.
-Returns and tax adjustments follow the legacy report rules; this remains\nan indicative rather than independently audited business P&L.
+Returns and tax adjustments follow the legacy report rules; this remains
+an indicative rather than independently audited business P&L.
 """
 from datetime import date
 from decimal import Decimal

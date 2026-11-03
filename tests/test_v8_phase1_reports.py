@@ -81,6 +81,29 @@ class ReportingIntegrationTests(unittest.TestCase):
             """
         )
 
+    def test_shift_status_is_read_only_and_matches_original_schema(self):
+        self.isolated(
+            """
+            from velopos import database
+            from velopos_qt.shift_model import PreviewShiftReader
+            database.init_db()
+            reader = PreviewShiftReader(database)
+            assert reader.current() is None
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO shifts(cashier,opened_at,status) "
+                    "VALUES('cashier1','2026-11-04T10:00:00','OPEN')"
+                )
+            shift = reader.current()
+            assert shift['cashier'] == 'cashier1' and shift['id'] > 0
+            assert shift['opened_at'].startswith('2026-11-04')
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM shifts WHERE status='OPEN'"
+                ).fetchone()[0] == 1
+            """
+        )
+
     def test_refuses_production_directory(self):
         self.isolated(
             """

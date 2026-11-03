@@ -81,7 +81,17 @@ class InventoryInsightsReader:
             ).fetchall()]
         return {
             "low_count": low_count,
-            "low_rows": [dict(row) for row in low_rows],
+            # Reorder hint is deliberately simple: raise stock ABOVE the
+            # chosen alert threshold. It is not a forecast or purchase order.
+            "low_rows": [
+                {
+                    **dict(row),
+                    "suggested_topup": round(
+                        max(0.0, low_level + 1 - float(row["stock_qty"])), 3
+                    ),
+                }
+                for row in low_rows
+            ],
             "expired_count": expired_count,
             "expiring_count": expiring_count,
             "expiry_rows": expiring,

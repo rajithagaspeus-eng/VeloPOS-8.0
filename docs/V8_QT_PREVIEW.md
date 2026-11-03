@@ -200,3 +200,12 @@ The Admin-only Reports Reader also checks the Qt-owned Admin gate at the data-ad
 
 New automatic tests cover model validation, cash estimates, read-only stock/price signals, VAT/tax parity with the original service, display localization, query caching and report access after sign-out. They are discovered automatically by `python run_v8_checks.py` alongside prior tests. The previous confirmed milestone was **84/84 Windows checks passed**; newly committed tests have not yet been run on Windows.
 
+
+## Premium Reports & Cashier Session UX — integrated visual/security batch
+
+After the November Windows screenshot review, the Reports & activity screen has **nine localized KPI cards** instead of a single compressed text line. Tiles distinguish bill count, recorded sales, returns, revenue after returns, adjusted gross, expenses, indicative net, VAT and service charge. Read-only sales and audit tables remain below. Financial fields are **indicative**, not finalized accounting, and use the existing guarded summary logic. With no authenticated Admin, or after an invalid date/reader error, the KPI cards and report tables are cleared to placeholders instead of leaving stale sensitive values onscreen. Card colors support both light and dark themes.
+
+The Billing draft adds cashier-oriented **F4 Discount** and **F5 Cash Given** focus shortcuts, a per-item-scrolling product results table and improved compact summary layout. **Sign out discards the in-memory draft cart, discount, tender and quantity**, so a second cashier cannot inherit the prior user's unsaved work. There is still no real checkout or receipt/payment operation. The dashboard remains separate and operational metrics are always test-only.
+
+New offscreen Qt tests cover KPI contents, invalid-read/error clearing, Sinhala translation, keyboard shortcuts and sign-out draft reset. Continue to run the single combined `python run_v8_checks.py` at the next Windows milestone; these newest tests have not yet been verified in the user's Windows environment.
+

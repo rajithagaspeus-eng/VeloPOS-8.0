@@ -76,7 +76,7 @@ class PreviewSmokeTests(unittest.TestCase):
         self.assertEqual(self.window.printer_notice.text()[:4], "මෙහි")
 
     def test_sinhala_switch_updates_visible_labels(self):
-        self.window.nav.setCurrentRow(1)
+        self.window.nav.setCurrentRow(3)
         self.window.locale_combo.setCurrentIndex(1)
         self.assertEqual(self.window.nav.item(3).text(), "වෙළඳසැල් තොරතුරු")
         self.assertTrue(any(label.text() == "වෙළඳසැලේ නම"
@@ -104,7 +104,7 @@ class PreviewSmokeTests(unittest.TestCase):
             other.deleteLater()
 
     def test_tamil_then_english_does_not_destroy_inputs(self):
-        self.window.nav.setCurrentRow(1)
+        self.window.nav.setCurrentRow(3)
         self.window.controls["shop_name"].setText("Unsaved demo")
         self.window.locale_combo.setCurrentIndex(2)
         self.window.locale_combo.setCurrentIndex(0)

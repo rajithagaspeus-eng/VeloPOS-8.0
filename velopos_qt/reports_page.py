@@ -1,7 +1,7 @@
 """Read-only reporting and staff activity preview, with Admin-role gate."""
 from datetime import date, timedelta
 from PySide6.QtWidgets import (
-    QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel,
+    QAbstractItemView, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
     QVBoxLayout, QWidget,
 )
@@ -25,6 +25,7 @@ class ReportsPage(QWidget):
         self.end.setMaximumWidth(130)
         self.start_label = QLabel()
         self.end_label = QLabel()
+        controls.addStretch(1)
         controls.addWidget(self.start_label)
         controls.addWidget(self.start)
         controls.addWidget(self.end_label)
@@ -35,12 +36,41 @@ class ReportsPage(QWidget):
         controls.addWidget(self.refresh_button)
         outer.addLayout(controls)
 
+        # Screenshot-driven redesign: concise 3x3 KPI tiles rather than one
+        # long, hard-to-scan text strip. All figures are original DB summaries.
+        self.metric_keys = (
+            ("report_sales_count", "sale_count"),
+            ("report_sales_total", "sales_total"),
+            ("report_returns", "returns_total"),
+            ("report_net_revenue", "net_revenue"),
+            ("report_gross", "adjusted_gross_profit"),
+            ("report_expenses", "expenses"),
+            ("report_net", "indicative_net"),
+            ("report_vat", "vat_net"),
+            ("report_service", "service_net"),
+        )
         self.metrics = QFrame()
-        self.metrics.setObjectName("billingTotals")
-        metric_layout = QVBoxLayout(self.metrics)
-        self.metrics_text = QLabel()
-        self.metrics_text.setWordWrap(True)
-        metric_layout.addWidget(self.metrics_text)
+        self.metrics.setObjectName("reportMetrics")
+        metric_layout = QGridLayout(self.metrics)
+        metric_layout.setContentsMargins(0, 0, 0, 0)
+        metric_layout.setHorizontalSpacing(10)
+        metric_layout.setVerticalSpacing(10)
+        self.metric_cards = []
+        for position, (label_key, _value_key) in enumerate(self.metric_keys):
+            tile = QFrame()
+            tile.setObjectName("reportMetricCard")
+            tile_layout = QVBoxLayout(tile)
+            tile_layout.setContentsMargins(14, 11, 14, 11)
+            title = QLabel()
+            title.setObjectName("reportMetricLabel")
+            title.setWordWrap(True)
+            value = QLabel("—")
+            value.setObjectName("reportMetricValue")
+            value.setTextInteractionFlags(value.textInteractionFlags())
+            tile_layout.addWidget(title)
+            tile_layout.addWidget(value)
+            metric_layout.addWidget(tile, position // 3, position % 3)
+            self.metric_cards.append((title, value))
         outer.addWidget(self.metrics)
 
         self.sales = QTableWidget(0, 4)
@@ -67,8 +97,10 @@ class ReportsPage(QWidget):
         self.end_label.setText(self.text("date_to"))
         self.refresh_button.setText(self.text("refresh_stats"))
         self.audit_title.setText(self.text("staff_activity"))
+        for (label_key, _), (title, _) in zip(self.metric_keys, self.metric_cards):
+            title.setText(self.text(label_key))
         self.sales.setHorizontalHeaderLabels([self.text(key) for key in
-                                               ("invoice", "date_to", "amount", "payment_method")])
+                                               ("invoice", "report_date", "amount", "payment_method")])
         self.audit.setHorizontalHeaderLabels([self.text(key) for key in
                                                ("event_time", "username_label", "event_action")])
         if not self.authorized():
@@ -76,7 +108,8 @@ class ReportsPage(QWidget):
 
     def _locked(self):
         self.warning.setText(self.text("admin_report_only"))
-        self.metrics_text.setText("—")
+        for _title, value in self.metric_cards:
+            value.setText("—")
         self.sales.setRowCount(0)
         self.audit.setRowCount(0)
 
@@ -94,20 +127,9 @@ class ReportsPage(QWidget):
             self.audit.setRowCount(0)
             return
         self.warning.setText(self.text("report_preview_caveat"))
-        fields = (
-            ("report_sales_count", result["sale_count"]),
-            ("report_sales_total", result["sales_total"]),
-            ("report_returns", result["returns_total"]),
-            ("report_net_revenue", result["net_revenue"]),
-            ("report_gross", result["adjusted_gross_profit"]),
-            ("report_vat", result["vat_net"]),
-            ("report_service", result["service_net"]),
-            ("report_expenses", result["expenses"]),
-            ("report_net", result["indicative_net"]),
-        )
-        self.metrics_text.setText("   |   ".join(
-            f'{self.text(key)}: {value}' for key, value in fields
-        ))
+        for (_label, field), (_title, value) in zip(self.metric_keys, self.metric_cards):
+            amount = result[field]
+            value.setText(str(amount) if field == "sale_count" else f"{amount:,.2f}")
         self.sales.setRowCount(len(result["recent_sales"]))
         for index, row in enumerate(result["recent_sales"]):
             for col, value in enumerate((row["invoice_no"], row["date"],

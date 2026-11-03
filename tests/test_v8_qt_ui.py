@@ -256,6 +256,9 @@ class PreviewSmokeTests(unittest.TestCase):
                 return {
                     "purchase_count": 1, "total": 210,
                     "paid": 40, "unpaid_estimate": 170,
+                    "supplier_payables": 125, "supplier_advances": 0,
+                    "balances": [{"id": 4, "name": "Demo", "bought": 210,
+                                  "paid": 85, "balance": 125}],
                     "recent": [{"grn_no": "GRN-DEMO", "date": "2026-11-01",
                                 "supplier": "Demo", "total": 210,
                                 "paid": 40, "status": "OK"}],
@@ -275,6 +278,8 @@ class PreviewSmokeTests(unittest.TestCase):
             self.assertEqual(reader.calls, 1)
             self.assertEqual(page.table.rowCount(), 1)
             self.assertEqual(page.suppliers.rowCount(), 1)
+            self.assertEqual(page.balances.rowCount(), 1)
+            self.assertIn("125.00", page.liabilities.text())
             self.assertIn("210.00", page.summary.text())
             self.window.locale_combo.setCurrentIndex(1)
             page.retranslate()
@@ -284,6 +289,8 @@ class PreviewSmokeTests(unittest.TestCase):
             self.assertEqual(page.summary.text(), "—")
             self.assertEqual(page.table.rowCount(), 0)
             self.assertEqual(page.suppliers.rowCount(), 0)
+            self.assertEqual(page.balances.rowCount(), 0)
+            self.assertEqual(page.liabilities.text(), "—")
         finally:
             page.close()
             page.deleteLater()

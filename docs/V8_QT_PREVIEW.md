@@ -162,3 +162,11 @@ python run_v8_checks.py
 ```
 
 The additional `test_v8_batch07_trial.py` suite covers the existing trial decision logic with **mocked server first-seen**, local clock rollback and corrupted-store cases; no real server call, registry mutation, license signing or private key use occurs. It is **not** proof against deliberate offline trial reset or piracy.
+
+## Phase 1 — bigger-batch delivery: financial reports & staff activity foundation
+
+The Qt navigation now has an **Admin-only Reports & activity** preview at the end of the sidebar. The screen accepts a strict date range and reads the existing `sales` and `expenses` tables plus recent (metadata-only) `audit_log` entries. It displays recorded successful-sale counts, recorded sales totals, the existing sale profit field, expenses and an **indicative** net figure, alongside up to 30 invoices and 30 staff activity records. On logout/non-Admin view the screen clears its data; staff audit details are never displayed in the table. All queries are bounded/parameterized and only run against the dedicated preview DB.
+
+**Accuracy warning:** these are preview operational summaries, **not production-ready P&L or tax accounting**. Return/void reconciliation, discounts, partial credit, VAT, adjustments, cost valuation, purchase liabilities, branch reconciliation and accounting-period close require verification before launch. The old transaction engine and production data were not modified. No checkout or payment workflow was enabled.
+
+A new `tests/test_v8_phase1_reports.py` file tests schema integration, date parsing, void exclusion, totals, metadata privacy and production guard. The existing Qt tests cover Admin gating, sign-out clearing and Sinhala labels. Run `python run_v8_checks.py` after pulling to validate the combined changes. At commit time these new tests have not yet been executed on the user's Windows environment.

@@ -20,13 +20,16 @@ def ensure_preview_products(database):
         raise RuntimeError("Refusing to seed outside dedicated VeloPOS8PreviewData")
     with database.db() as connection:
         count = connection.execute("SELECT COUNT(*) FROM products").fetchone()[0]
-        if count:
-            return 0
-        connection.executemany(
-            "INSERT INTO products "
-            "(barcode, name_en, name_local, selling_price, stock_qty) "
-            "VALUES (?, ?, ?, ?, ?)",
-            SAMPLES,
+    if count:
+        return 0
+    # Seeding through the original service keeps inventory ledger and audit
+    # consistent for *new* preview databases. Do not touch existing rows.
+    from velopos import services
+    for barcode, name, local_name, price, quantity in SAMPLES:
+        services.save_product(
+            barcode, name, "v8-preview",
+            name_local=local_name, sell=price, stock=quantity,
+            reason="V8 preview sample item",
         )
     return len(SAMPLES)
 

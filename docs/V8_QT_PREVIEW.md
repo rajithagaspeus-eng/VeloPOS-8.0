@@ -170,3 +170,9 @@ The Qt navigation now has an **Admin-only Reports & activity** preview at the en
 **Accuracy warning:** these are preview operational summaries, **not production-ready P&L or tax accounting**. Return/void reconciliation, discounts, partial credit, VAT, adjustments, cost valuation, purchase liabilities, branch reconciliation and accounting-period close require verification before launch. The old transaction engine and production data were not modified. No checkout or payment workflow was enabled.
 
 A new `tests/test_v8_phase1_reports.py` file tests schema integration, date parsing, void exclusion, totals, metadata privacy and production guard. The existing Qt tests cover Admin gating, sign-out clearing and Sinhala labels. Run `python run_v8_checks.py` after pulling to validate the combined changes. At commit time these new tests have not yet been executed on the user's Windows environment.
+
+### Cashier shift status added in the same Phase 1 batch
+
+The Billing draft now shows the currently signed-in preview username (or a not-signed-in label) and the most recent **OPEN** shift from the isolated database. A missing shift is explicitly shown. This is **informational only**: it does not authorize checkout, open/close a shift, assign a cashier, or bypass the original `services._require_open_shift` transaction rule. The shift reader is separately guarded to preview storage, and tests check real schema compatibility, no writes and multilingual UI. All real commercial operations will need service-enforced permissions, a validated active shift and licensed transaction rights before release.
+
+The combined one-command runner `python run_v8_checks.py` automatically discovers `tests/test_v8_phase1_reports.py`, so there is no long test list to copy. New Phase 1 tests still need a Windows run before this delivery is marked verified.

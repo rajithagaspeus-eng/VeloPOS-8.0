@@ -399,6 +399,7 @@ class SettingsPreview(QMainWindow):
             self._pages[9].refresh()
         if index == 2 and isinstance(self._pages.get(2), BillingPage):
             self._pages[2].refresh_shift()
+            self._pages[2].refresh_stock()
 
     def save_settings(self):
         try:

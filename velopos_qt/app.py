@@ -21,6 +21,8 @@ QWidget { background:#0a1120; color:#e8eef8; font: 10pt 'Segoe UI'; }
 QLabel { background:transparent; }
 QFrame#panel { background:#121e31; border:1px solid #283750; border-radius:16px; }
 QFrame#brandBar { background:#131e30; border:1px solid #283750; border-radius:14px; }
+QFrame#billingTotals { background:#173e42; border:1px solid #316b6d; border-radius:12px; }
+QFrame#billingTotals QLabel { color:#bff7eb; background:transparent; }
 QLabel#appTitle { font-size:22pt; font-weight:750; color:#f5f9ff; }
 QLabel#previewPill { background:#193b35; color:#8cf4d0; border:1px solid #2c7666;
   border-radius:10px; padding:7px 12px; font-weight:650; }
@@ -48,6 +50,8 @@ QWidget { background:#f1f5fb; color:#192b42; font: 10pt 'Segoe UI'; }
 QLabel { background:transparent; }
 QFrame#panel { background:white; border:1px solid #dce5f1; border-radius:16px; }
 QFrame#brandBar { background:white; border:1px solid #dce5f1; border-radius:14px; }
+QFrame#billingTotals { background:#e0f5f0; border:1px solid #b8ded6; border-radius:12px; }
+QFrame#billingTotals QLabel { color:#125749; background:transparent; }
 QLabel#appTitle { font-size:22pt; font-weight:750; color:#162d40; }
 QLabel#previewPill { background:#e2f6ee; color:#137b65; border:1px solid #b4e1d5;
   border-radius:10px; padding:7px 12px; font-weight:650; }

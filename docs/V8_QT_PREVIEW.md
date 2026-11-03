@@ -254,3 +254,14 @@ New isolated database tests cover authenticated lookups, literal wildcard escapi
 The owner confirmed **121/121 automated checks passed** on Windows on the pre-fix `develop-v8` snapshot. Only the Billing screenshot was inspected, not a complete manual acceptance run. It showed **"Draft items" visibly overlapping the product results table** and an unnecessarily tall sidebar navigation.
 
 The follow-up layout fix places the full Billing draft in a scrollable Qt canvas, with minimum product-results and draft-cart table heights, instead of compressing those widgets when customer, loyalty and hold controls exceed the available window height. The sidebar item spacing was reduced for twelve navigation pages in both light and dark themes. A new offscreen regression test checks non-overlap and vertical scrolling at small heights. **This fix has not yet been Windows-tested**; defer full manual testing until the next combined milestone, as requested. Do not present untested Smart Inventory, Purchasing or Customer Loyalty manual workflows as passed.
+
+## Phase 1 accuracy batch — Supplier reconciliation and purchasing date filters
+
+The Purchasing overview now separates **date-scoped GRN totals** from **all-time current supplier balances**. The earlier `unpaid_estimate` field used only `purchases.paid` at receiving time, and did not reflect follow-up `supplier_payments`; it is retained with a precise label rather than represented as a current payable.
+
+For actual outstanding balances, a read-only query separately groups all status=`OK` purchase totals and all later supplier payment amounts by supplier. The page displays each supplier's purchased amount, total paid, and current net balance. It also displays (1) sum of positive supplier balances as **current payables** and (2) absolute value of negative supplier balances as **supplier advances**. Keeping these totals separate prevents an advance to one supplier from silently hiding debt owed to another. These figures reconcile against the legacy `services.supplier_balances()` and `services.payables_total()` semantics in disposable-database regression tests.
+
+Admin can filter the **GRN history and purchasing totals by date** while the real supplier balances remain all-time; the scope is explicitly explained. Invalid date or permission loss clears all financial figures and tables. Date inputs are on a separate row to fit narrower Windows screens. The page remains **read-only**: no GRN creation, supplier payments, or stock movement operations are wired in.
+
+A Windows test milestone **121/121** passed before the current screenshot-driven Billing scroll/overlap fix and this reconciliation batch. Subsequent new code and tests have not yet been verified on Windows; following the owner's preference, defer full manual UI acceptance until a later combined milestone.
+

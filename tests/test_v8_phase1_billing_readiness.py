@@ -48,6 +48,41 @@ class DraftAmountRulesTests(unittest.TestCase):
 
 
 class StockReadinessIntegrationTests(unittest.TestCase):
+    def test_discount_and_tax_preview_matches_original_service(self):
+        with tempfile.TemporaryDirectory(prefix="v8_tax_preview_") as root:
+            env = os.environ.copy()
+            env["VELOPOS_HOME"] = str(Path(root) / "VeloPOS8PreviewData")
+            source = textwrap.dedent(
+                """
+                from velopos import database, services
+                from velopos_qt.preview_models import Cart, preview_existing_bill
+                database.init_db()
+                services.save_product("TX-1", "Taxable", "preview", sell=100, stock=8, taxable=True)
+                services.save_product("TX-2", "Untaxed", "preview", sell=60, stock=8, taxable=False)
+                database.settings.set_many({
+                    "feat_vat": "1", "vat_percent": "10",
+                    "vat_mode": "Exclusive",
+                })
+                cart = Cart()
+                cart.add({"barcode": "TX-1", "name_en": "Taxable", "selling_price": 100})
+                cart.add({"barcode": "TX-2", "name_en": "Untaxed", "selling_price": 60})
+                original = services.preview_bill([
+                    {"barcode": "TX-1", "name": "Taxable", "qty": 1, "price": 100},
+                    {"barcode": "TX-2", "name": "Untaxed", "qty": 1, "price": 60},
+                ], 20, 0)
+                draft = preview_existing_bill(cart, services.preview_bill, discount="20")
+                assert draft == original, (draft, original)
+                assert draft["net"] > 140, draft
+                with database.db() as c:
+                    assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+                """
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", source],
+                env=env, text=True, capture_output=True, timeout=40,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_stock_and_changed_price_warnings_with_no_writes(self):
         with tempfile.TemporaryDirectory(prefix="v8_stock_readiness_") as root:
             env = os.environ.copy()

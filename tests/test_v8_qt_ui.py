@@ -244,6 +244,27 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_session_revocation_navigation_clears_held_draft(self):
+        from velopos_qt.auth_model import PreviewIdentity
+        role = {"current": "Admin"}
+        class StubAuthenticator:
+            def current_role(self, identity):
+                return role["current"]
+        self.window.authenticator = StubAuthenticator()
+        self.window.identity = PreviewIdentity("owner", "Admin", "fake-preview-token")
+        self.window.nav.setCurrentRow(2)
+        bill = self.window._pages[2]
+        bill.query.setText("D001")
+        bill.scan_or_add()
+        bill.hold_draft()
+        self.assertIsNotNone(bill._held_draft)
+        role["current"] = None
+        self.window.nav.setCurrentRow(1)
+        self.assertIsNone(self.window.identity)
+        self.assertIsNone(bill._held_draft)
+        self.assertEqual(bill.cart.lines, {})
+        self.assertEqual(self.window.user_label.text(), "")
+
     def test_demand_view_is_admin_only_and_displays_sparse_data_honestly(self):
         from decimal import Decimal
         from velopos_qt.forecast_page import ForecastPage
@@ -263,7 +284,9 @@ class PreviewSmokeTests(unittest.TestCase):
                         {"barcode": "GOOD", "product": "Rice", "stock": 10,
                          "observed_sale_days": 8, "units_28d": Decimal("42"),
                          "status": "baseline", "units_expected": Decimal("15.75"),
-                         "stock_coverage_days": Decimal("4.4")},
+                         "stock_coverage_days": Decimal("4.4"),
+                         "backtest": {"mean_absolute_error": Decimal("1.25"),
+                                      "evaluated_windows": 3}},
                         {"barcode": "NEW", "product": "Soap", "stock": 5,
                          "observed_sale_days": 1, "units_28d": Decimal("1"),
                          "status": "insufficient", "units_expected": None,
@@ -280,6 +303,9 @@ class PreviewSmokeTests(unittest.TestCase):
             page.refresh()
             self.assertEqual(page.table.rowCount(), 2)
             self.assertEqual(page.table.item(0, 5).text(), "15.75")
+            self.assertEqual(page.table.item(0, 7).text(), "1.25")
+            self.assertEqual(page.table.item(1, 7).text(),
+                             self.window.t("forecast_backtest_unavailable"))
             self.assertEqual(page.table.item(1, 5).text(),
                              self.window.t("forecast_insufficient"))
             self.window.locale_combo.setCurrentIndex(1)

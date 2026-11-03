@@ -244,6 +244,86 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_held_draft_resume_preserves_lines_and_tender(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("D001")
+        page.scan_or_add()
+        page.discount_input.setText("25")
+        page.tender_input.setText("300")
+        page.hold_draft()
+        self.assertEqual(page.cart_table.rowCount(), 0)
+        self.assertIsNotNone(page._held_draft)
+        self.assertFalse(page.hold_button.isEnabled())
+        self.assertTrue(page.resume_button.isEnabled())
+        page.resume_draft()
+        self.assertEqual(page.cart_table.rowCount(), 1)
+        self.assertEqual(page.discount_input.text(), "25")
+        self.assertEqual(page.tender_input.text(), "300")
+        self.assertIsNone(page._held_draft)
+        self.assertFalse(hasattr(page, "checkout_button"))
+
+    def test_held_draft_cannot_overwrite_active_and_signout_destroys_both(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("D001")
+        page.scan_or_add()
+        page.hold_draft()
+        page.query.setText("D002")
+        page.scan_or_add()
+        self.assertEqual(len(page.cart.lines), 1)
+        page.resume_draft()
+        self.assertEqual(list(page.cart.lines), ["D002"])
+        self.assertIsNotNone(page._held_draft)
+        self.window.preview_logout()
+        self.assertEqual(page.cart.lines, {})
+        self.assertIsNone(page._held_draft)
+        self.assertFalse(page.resume_button.isEnabled())
+
+    def test_smart_inventory_is_admin_only_and_localized(self):
+        from velopos_qt.inventory_insights_page import InventoryInsightsPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeInsights:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, **_options):
+                self.calls += 1
+                return {
+                    "low_count": 2, "expired_count": 1, "expiring_count": 1,
+                    "low_rows": [{"barcode": "LOW", "name_en": "Rice", "stock_qty": 2}],
+                    "expiry_rows": [{"barcode": "OLD", "name_en": "Milk",
+                                     "expiry_date": "2026-11-01"}],
+                    "movements": [{"ts": "2026-11-04", "barcode": "LOW",
+                                   "qty_change": -1, "qty_after": 2,
+                                   "reason": "SALE", "user": "demo"}],
+                }
+
+        fake = FakeInsights()
+        page = InventoryInsightsPage(fake, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(fake.calls, 0)
+            self.assertTrue(all(v.text() == "—" for _, v in page.cards))
+            self.window.identity = PreviewIdentity("staff", "Cashier")
+            page.refresh()
+            self.assertEqual(fake.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(fake.calls, 1)
+            self.assertEqual(page.cards[0][1].text(), "2")
+            self.assertEqual(page.low_table.rowCount(), 1)
+            self.assertEqual(page.ledger_table.rowCount(), 1)
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("smart_inventory"))
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.low_table.rowCount(), 0)
+            self.assertTrue(all(v.text() == "—" for _, v in page.cards))
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_signout_clears_cashier_draft_and_discount(self):
         from velopos_qt.auth_model import PreviewIdentity
         self.window.identity = PreviewIdentity("owner", "Admin")
@@ -318,7 +398,7 @@ class PreviewSmokeTests(unittest.TestCase):
             page.deleteLater()
 
     def test_dashboard_then_shop_settings(self):
-        self.assertEqual(self.window.nav.count(), 10)
+        self.assertEqual(self.window.nav.count(), 11)
         self.assertEqual(self.window.nav.currentRow(), 0)
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")

@@ -6,6 +6,10 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "hold_draft": "Hold draft",
+        "resume_draft": "Resume held",
+        "draft_held_note": "One draft held in memory • No sale has been made",
+        "draft_hold_hint": "Hold a draft while serving another customer • Sign out discards held drafts",
         "smart_inventory": "Smart inventory",
         "insight_low": "Low-stock items",
         "insight_expired": "Expired products",
@@ -156,6 +160,10 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "hold_draft": "බිල් කෙටුම්පත තබන්න",
+        "resume_draft": "තබාගත් බිල ගන්න",
+        "draft_held_note": "එක් බිල් කෙටුම්පතක් තාවකාලිකව තබා ඇත • විකිණීමක් සිදු වී නැත",
+        "draft_hold_hint": "වෙනත් පාරිභෝගිකයෙකුට සේවය කිරීමට බිල තබන්න • ඉවත් වූ විට මැකේ",
         "smart_inventory": "ස්මාර්ට් තොග කළමනාකරණය",
         "insight_low": "අඩු තොග භාණ්ඩ",
         "insight_expired": "කල් ඉකුත් භාණ්ඩ",
@@ -306,6 +314,10 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "hold_draft": "வரைவு பில்லை நிறுத்து",
+        "resume_draft": "நிறுத்திய பில்லை மீட்டு",
+        "draft_held_note": "ஒரு வரைவு பில் நினைவகத்தில் உள்ளது • விற்பனை செய்யவில்லை",
+        "draft_hold_hint": "மற்றொருவருக்காக வரைவை நிறுத்தலாம் • வெளியேறினால் அழியும்",
         "smart_inventory": "ஸ்மார்ட் இருப்பு",
         "insight_low": "குறைந்த இருப்புப் பொருட்கள்",
         "insight_expired": "காலாவதியான பொருட்கள்",

@@ -11,8 +11,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
-    QLineEdit, QMessageBox, QPushButton, QTableWidget, QTableWidgetItem,
-    QVBoxLayout, QWidget,
+    QLineEdit, QMessageBox, QPushButton, QScrollArea, QTableWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from .preview_models import Cart, preview_existing_bill, cash_estimate, money
@@ -34,7 +34,24 @@ class BillingPage(QWidget):
         self.cart = Cart()
         self._held_draft = None
         self.products = []
-        layout = QVBoxLayout(self)
+        # Billing grows vertically as customer/loyalty/hold controls are added.
+        # A scrollable inner canvas preserves table heights at smaller Windows
+        # display scales instead of squeezing the "Draft items" heading onto
+        # the product result rows.
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setObjectName("billingScrollArea")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        root_layout.addWidget(self.scroll_area)
+        canvas = QWidget()
+        self.scroll_area.setWidget(canvas)
+        layout = QVBoxLayout(canvas)
+        layout.setContentsMargins(4, 4, 12, 4)
         layout.setSpacing(12)
 
         self.heading = QLabel()
@@ -97,7 +114,7 @@ class BillingPage(QWidget):
         self.results.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.results.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.results.setMaximumHeight(205)
-        self.results.setMinimumHeight(120)
+        self.results.setMinimumHeight(155)
         self.results.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerItem)
         self.results.verticalHeader().setVisible(False)
         self.results.setAlternatingRowColors(True)
@@ -112,6 +129,7 @@ class BillingPage(QWidget):
         self.cart_title.setStyleSheet("font-size:12pt; font-weight:650;")
         layout.addWidget(self.cart_title)
         self.cart_table = QTableWidget(0, 4)
+        self.cart_table.setMinimumHeight(135)
         self.cart_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.cart_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.cart_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)

@@ -214,7 +214,12 @@ class PreviewSmokeTests(unittest.TestCase):
                 return {
                     "sale_count": 2,
                     "sales_total": 400,
+                    "returns_total": 0,
+                    "net_revenue": 400,
                     "recorded_gross_profit": 100,
+                    "adjusted_gross_profit": 100,
+                    "vat_net": 0,
+                    "service_net": 0,
                     "expenses": 20,
                     "indicative_net": 80,
                     "recent_sales": [{"invoice_no": "DEMO", "date": "2026-11-01",

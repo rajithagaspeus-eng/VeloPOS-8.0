@@ -33,6 +33,21 @@ class PreviewAuthenticator:
         self.services = services
         self.security = security
 
+    def needs_setup(self):
+        _guard(self.database)
+        with self.database.db() as connection:
+            return not bool(connection.execute("SELECT 1 FROM users LIMIT 1").fetchone())
+
+    def bootstrap_admin(self, username, password):
+        """Initialize an empty *preview-only* DB with an owner-selected account."""
+        _guard(self.database)
+        if not self.needs_setup():
+            raise ValueError("Preview administrator is already configured")
+        if len(str(password or "")) < 12:
+            raise ValueError("Choose a password with at least 12 characters")
+        self.services.save_user(username, password, "Admin", "v8-preview-setup")
+        return self.authenticate(username, password)
+
     def authenticate(self, username, password):
         """Verify an existing account with persistent throttling in test DB.
 

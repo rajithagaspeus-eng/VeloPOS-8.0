@@ -6,6 +6,9 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "draft_stock_missing": "product missing",
+        "draft_stock_insufficient": "insufficient stock",
+        "draft_price_changed": "price changed",
         "draft_discount": "Discount",
         "draft_cash_tender": "Cash given",
         "draft_change": "Estimated change",
@@ -136,6 +139,9 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "draft_stock_missing": "භාණ්ඩය නොමැත",
+        "draft_stock_insufficient": "තොගය මදි",
+        "draft_price_changed": "මිල වෙනස් වී ඇත",
         "draft_discount": "වට්ටම",
         "draft_cash_tender": "ලැබුණු මුදල",
         "draft_change": "අනුමාන ඉතිරි මුදල",
@@ -266,6 +272,9 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "draft_stock_missing": "பொருள் இல்லை",
+        "draft_stock_insufficient": "இருப்பு போதாது",
+        "draft_price_changed": "விலை மாறியுள்ளது",
         "draft_discount": "தள்ளுபடி",
         "draft_cash_tender": "பெற்ற பணம்",
         "draft_change": "மதிப்பிடப்பட்ட மீதம்",

@@ -6,6 +6,13 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "printer_receipts": "Printer & receipts",
+        "printer_brand": "Printer brand",
+        "print_mode": "Connection mode",
+        "paper_size": "Receipt paper size",
+        "print_copies": "Receipt copies",
+        "receipt_footer": "Receipt footer",
+        "printer_notice": "This preview only saves settings to a disposable database. Printer discovery, test printing and hardware access are intentionally disabled.",
         "subtitle": "Modern interface preview • Isolated test data • Not for shop use",
         "language": "Language",
         "dashboard": "Dashboard",
@@ -34,6 +41,13 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "printer_receipts": "මුද්‍රණ යන්ත්‍ර සහ රිසිට්පත්",
+        "printer_brand": "මුද්‍රණ යන්ත්‍ර වර්ගය",
+        "print_mode": "සම්බන්ධතා ක්‍රමය",
+        "paper_size": "රිසිට්පත් කඩදාසි ප්‍රමාණය",
+        "print_copies": "රිසිට්පත් පිටපත් ගණන",
+        "receipt_footer": "රිසිට්පත් අවසාන පණිවිඩය",
+        "printer_notice": "මෙහි සැකසුම් සුරැකෙන්නේ තාවකාලික දත්ත ගබඩාවකට පමණයි. මුද්‍රණ යන්ත්‍ර සෙවීම හා පරීක්ෂණ මුද්‍රණය මෙහි ක්‍රියාත්මක නොවේ.",
         "subtitle": "නව අතුරුමුහුණත අත්හදා බැලීම • වෙනම පරීක්ෂණ දත්ත • වෙළඳසැලේ භාවිතයට නොවේ",
         "language": "භාෂාව",
         "dashboard": "ප්‍රධාන පුවරුව",
@@ -62,6 +76,13 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "printer_receipts": "அச்சுப்பொறி மற்றும் ரசீதுகள்",
+        "printer_brand": "அச்சுப்பொறி வகை",
+        "print_mode": "இணைப்பு முறை",
+        "paper_size": "ரசீது காகித அளவு",
+        "print_copies": "ரசீது பிரதிகள்",
+        "receipt_footer": "ரசீது முடிவு செய்தி",
+        "printer_notice": "இந்த முன்னோட்டம் தற்காலிக சோதனைத் தரவுத்தளத்தில் மட்டுமே அமைப்புகளைச் சேமிக்கும். அச்சுப்பொறியைத் தேடுதல் மற்றும் சோதனை அச்சிடுதல் முடக்கப்பட்டுள்ளன.",
         "subtitle": "புதிய இடைமுக முன்னோட்டம் • தனி சோதனைத் தரவு • கடை பயன்பாட்டிற்கு அல்ல",
         "language": "மொழி",
         "dashboard": "முகப்புப் பலகை",

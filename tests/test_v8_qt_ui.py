@@ -73,6 +73,16 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.deleteLater()
         self.sandbox.cleanup()
 
+    def test_dashboard_quick_navigation_and_translation(self):
+        self.assertEqual(len(self.window.quick_buttons), 3)
+        self.window.quick_buttons[0][0].click()
+        self.assertEqual(self.window.nav.currentRow(), 1)
+        self.window.nav.setCurrentRow(0)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(self.window.quick_buttons[0][0].text(), "තොගය බලන්න")
+        self.window.quick_buttons[1][0].click()
+        self.assertEqual(self.window.nav.currentRow(), 2)
+
     def test_dashboard_then_shop_settings(self):
         self.assertEqual(self.window.nav.count(), 9)
         self.assertEqual(self.window.nav.currentRow(), 0)

@@ -10,7 +10,7 @@ from decimal import Decimal
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel,
+    QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit, QMessageBox, QPushButton, QTableWidget, QTableWidgetItem,
     QVBoxLayout, QWidget,
 )
@@ -19,7 +19,7 @@ from .preview_models import Cart, preview_existing_bill, cash_estimate, money
 
 
 class BillingPage(QWidget):
-    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None, stock_reader=None):
+    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None, stock_reader=None, customer_reader=None):
         super().__init__()
         self.inventory = inventory
         self.text = text
@@ -27,6 +27,8 @@ class BillingPage(QWidget):
         self.shift_reader = shift_reader
         self.identity = identity or (lambda: None)
         self.stock_reader = stock_reader
+        self.customer_reader = customer_reader
+        self.customer_id = None
         self._last_stock_signature = None
         self.cart = Cart()
         self._held_draft = None
@@ -44,6 +46,33 @@ class BillingPage(QWidget):
         self.shift_status.setWordWrap(True)
         self.shift_status.setObjectName("hint")
         layout.addWidget(self.shift_status)
+
+        # Customer lookup is opt-in and gated by a signed-in cashier identity.
+        # No name or phone is kept in a held draft; only a stable customer ID.
+        customer_row = QHBoxLayout()
+        self.customer_search_label = QLabel()
+        customer_row.addWidget(self.customer_search_label)
+        self.customer_search = QLineEdit()
+        self.customer_search.setMaximumWidth(230)
+        self.customer_search.returnPressed.connect(self.refresh_customers)
+        customer_row.addWidget(self.customer_search)
+        self.customer_search_button = QPushButton()
+        self.customer_search_button.setObjectName("secondaryAction")
+        self.customer_search_button.clicked.connect(self.refresh_customers)
+        customer_row.addWidget(self.customer_search_button)
+        self.customer_choice = QComboBox()
+        self.customer_choice.setMinimumWidth(180)
+        self.customer_choice.currentIndexChanged.connect(self.choose_customer)
+        customer_row.addWidget(self.customer_choice, 1)
+        self.customer_clear_button = QPushButton()
+        self.customer_clear_button.setObjectName("secondaryAction")
+        self.customer_clear_button.clicked.connect(self.clear_customer)
+        customer_row.addWidget(self.customer_clear_button)
+        layout.addLayout(customer_row)
+        self.customer_summary = QLabel()
+        self.customer_summary.setObjectName("hint")
+        self.customer_summary.setWordWrap(True)
+        layout.addWidget(self.customer_summary)
 
         search_row = QHBoxLayout()
         self.query = QLineEdit()
@@ -193,6 +222,11 @@ class BillingPage(QWidget):
         self.remove_button.setText(self.text("remove_line"))
         self.clear_button.setText(self.text("clear_cart"))
         self.cart_title.setText(self.text("draft_items"))
+        self.customer_search_label.setText(self.text("billing_customer"))
+        self.customer_search.setPlaceholderText(self.text("billing_customer_lookup"))
+        self.customer_search_button.setText(self.text("billing_find_customer"))
+        self.customer_clear_button.setText(self.text("billing_walk_in"))
+        self.refresh_customer_summary()
         self.hold_button.setText(self.text("hold_draft"))
         self.resume_button.setText(self.text("resume_draft"))
         self.hold_button.setToolTip("F6")
@@ -209,6 +243,73 @@ class BillingPage(QWidget):
         self._last_stock_signature = None
         self.refresh_cart()
         self.refresh_shift()
+
+    def refresh_customers(self):
+        if self.customer_reader is None:
+            self.customer_choice.clear()
+            self.refresh_customer_summary()
+            return
+        try:
+            matches = self.customer_reader.search(self.customer_search.text())
+        except (ValueError, RuntimeError, OSError, PermissionError) as exc:
+            self.customer_choice.clear()
+            self.customer_summary.setText(str(exc))
+            return
+        previous = self.customer_id
+        self.customer_choice.blockSignals(True)
+        self.customer_choice.clear()
+        self.customer_choice.addItem(self.text("billing_walk_in"), None)
+        for row in matches:
+            self.customer_choice.addItem(
+                f'{row["name"]} ({row["phone"]})' if row["phone"] else row["name"],
+                row["id"],
+            )
+        restored = self.customer_choice.findData(previous)
+        self.customer_choice.setCurrentIndex(max(0, restored))
+        self.customer_choice.blockSignals(False)
+        if restored == -1 and previous is not None:
+            self.customer_id = None
+        self.refresh_customer_summary()
+
+    def choose_customer(self, _index):
+        self.customer_id = self.customer_choice.currentData()
+        self.refresh_customer_summary()
+
+    def clear_customer(self):
+        self.customer_id = None
+        self.customer_choice.blockSignals(True)
+        self.customer_choice.setCurrentIndex(0 if self.customer_choice.count() else -1)
+        self.customer_choice.blockSignals(False)
+        self.refresh_customer_summary()
+
+    def refresh_customer_summary(self):
+        # Never expose balances/points unless authenticated at read time.
+        user = self.identity()
+        allowed = bool(user and user.role in ("Admin", "Cashier"))
+        self.customer_search.setEnabled(allowed and self.customer_reader is not None)
+        self.customer_search_button.setEnabled(allowed and self.customer_reader is not None)
+        self.customer_choice.setEnabled(allowed and self.customer_reader is not None)
+        self.customer_clear_button.setEnabled(allowed and self.customer_reader is not None)
+        if not allowed or self.customer_reader is None:
+            self.customer_summary.setText(self.text("billing_customer_login_needed"))
+            return
+        if self.customer_id is None:
+            self.customer_summary.setText(self.text("billing_walk_in_note"))
+            return
+        try:
+            customer = self.customer_reader.get(self.customer_id)
+        except (ValueError, RuntimeError, OSError, PermissionError):
+            customer = None
+        if customer is None:
+            self.customer_summary.setText(self.text("billing_customer_unavailable"))
+            return
+        self.customer_summary.setText(
+            f'{customer["name"]}  •  {self.text("billing_points")}: '
+            f'{customer["loyalty_points"]:,.2f}  •  '
+            f'{self.text("billing_credit_balance")}: {customer["credit_balance"]:,.2f}'
+            f'  •  {self.text("billing_credit_limit")}: {customer["credit_limit"]:,.2f}'
+            f'  •  {self.text("billing_points_readonly")}'
+        )
 
     def refresh_stock(self):
         self._last_stock_signature = None
@@ -307,6 +408,9 @@ class BillingPage(QWidget):
     def clear_session_draft(self):
         """Discard ALL active and held data at sign-out; no DB calls."""
         self._held_draft = None
+        self.customer_id = None
+        self.customer_choice.clear()
+        self.customer_search.clear()
         self.cart.clear()
         self.discount_input.setText("0")
         self.tender_input.setText("0")
@@ -333,7 +437,10 @@ class BillingPage(QWidget):
             deepcopy(self.cart.lines),
             self.discount_input.text(),
             self.tender_input.text(),
+            self.customer_id,
         )
+        self.customer_id = None
+        self.clear_customer()
         self.cart.clear()
         self.discount_input.setText("0")
         self.tender_input.setText("0")
@@ -345,11 +452,13 @@ class BillingPage(QWidget):
         """Prevent silently replacing a second active draft."""
         if self._held_draft is None or self.cart.lines:
             return
-        held_lines, discount, tender = self._held_draft
+        held_lines, discount, tender, held_customer_id = self._held_draft
         self.cart.lines = deepcopy(held_lines)
         self._held_draft = None
         self.discount_input.setText(discount)
         self.tender_input.setText(tender)
+        self.customer_id = held_customer_id
+        self.refresh_customer_summary()
         self.refresh_cart()
         self._refresh_hold_controls()
 

@@ -93,6 +93,41 @@ class PreviewSmokeTests(unittest.TestCase):
         )
         self.assertEqual(page.table.item(0, 1).toolTip(), "Sample Rice")
 
+    def test_preview_login_dialog_and_signout_gate(self):
+        from PySide6.QtWidgets import QDialog
+        from velopos_qt.login_dialog import PreviewLoginDialog
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeAuthenticator:
+            def needs_setup(self):
+                return True
+            def bootstrap_admin(self, username, password):
+                if len(password) < 12:
+                    raise ValueError("Use a stronger password")
+                return PreviewIdentity(username, "Admin")
+
+        fake = FakeAuthenticator()
+        dialog = PreviewLoginDialog(fake, self.window.t)
+        try:
+            dialog.username.setText("preview-owner")
+            dialog.password.setText("short")
+            dialog.accept()
+            self.assertIsNone(dialog.identity)
+            self.assertIn("stronger", dialog.error.text())
+            dialog.password.setText("UniqueStrongPassword123!")
+            dialog.accept()
+            self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted)
+            self.window.identity = dialog.identity
+            self.window.authenticator = fake
+            self.window._update_auth_ui()
+            self.assertEqual(self.window.user_label.text(), "preview-owner (Admin)")
+            self.window.preview_logout()
+            self.assertIsNone(self.window.identity)
+            self.assertEqual(self.window.user_label.text(), "")
+        finally:
+            dialog.close()
+            dialog.deleteLater()
+
     def test_dashboard_preview_kpi_cards_and_refresh(self):
         from velopos_qt.dashboard_page import DashboardOverview
 

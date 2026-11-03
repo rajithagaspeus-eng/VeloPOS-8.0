@@ -209,3 +209,19 @@ The Billing draft adds cashier-oriented **F4 Discount** and **F5 Cash Given** fo
 
 New offscreen Qt tests cover KPI contents, invalid-read/error clearing, Sinhala translation, keyboard shortcuts and sign-out draft reset. Continue to run the single combined `python run_v8_checks.py` at the next Windows milestone; these newest tests have not yet been verified in the user's Windows environment.
 
+
+## Phase 1 combined milestone — Smart Inventory and cashier hold/resume
+
+An Admin-only **Smart inventory** screen has been added to the sidebar. It reads the existing, isolated preview `products`, `batches` and `stock_moves` schema, and shows:
+
+- Live low-stock item counts and bounded detail rows (adjustable threshold, default 5)
+- Product-level and active-batch expiration alerts, including items already expired or expiring within a chosen window (default 30 days, capped to 365); depleted batches are ignored, repeated batches are counted as **one product**; details show the earliest known expiry
+- The 30 most recent stock ledger movements showing time, barcode, signed quantity change, ending balance, reason and user (up to 100 per request)
+- Three-language labels and dark/light styled summary cards
+
+**Privacy/security:** the Qt preview-owned read adapter checks the current Admin identity **at each query**, and its page immediately clears counts and tables upon logout. It cannot perform purchases, adjust/receive stock, delete products, open a shift or make sales; the original production ledger remains untouched. The date/quantity limits and SQL are bounded/parameterized. Tests run with disposable test database paths only.
+
+**Faster cashier flow:** Billing draft can **Hold draft (F6)** and **Resume held (F7)**, with one in-memory held slot. A held draft includes cart lines, discount and cash tender estimate. Holding clears the current draft so the next customer can begin; resuming is allowed only when the active cart is empty, so it will not silently overwrite another draft. The held state is **not persisted**, no transaction or stock change occurs, and signing out discards both active and held drafts (including any tender values). F2 barcode, F3 quantity, F4 discount, and F5 tender remain.
+
+The combined Windows check is `git pull origin develop-v8` and `python run_v8_checks.py` **once per milestone**, followed by `python run_v8_preview.py` for the optional GUI acceptance check. New Smart Inventory and Qt hold/resume tests are committed but have **not yet been executed on Windows**. The confirmed previous Windows suite was 97/97 and subsequent unverified batches have added more tests.
+

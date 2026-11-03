@@ -103,8 +103,8 @@ class SettingsPreview(QMainWindow):
         self.shift_reader = PreviewShiftReader(db) if db is not None else None
         # The guarded editor refuses production DB paths. No authentication
         # or production product mutations are enabled in V8 yet.
-        self.product_editor = PreviewProductEditor(db) if db is not None else None
-        self.directory_editor = PreviewDirectoryEditor(db) if db is not None else None
+        self.product_editor = PreviewProductEditor(db, authorize=self._is_preview_admin) if db is not None else None
+        self.directory_editor = PreviewDirectoryEditor(db, authorize=self._is_preview_admin) if db is not None else None
         self.authenticator = PreviewAuthenticator(db) if db is not None else None
         self.identity = None
         self.saved = adapter.read()

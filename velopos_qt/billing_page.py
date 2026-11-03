@@ -413,6 +413,8 @@ class BillingPage(QWidget):
                                 "missing": "draft_stock_missing",
                                 "insufficient": "draft_stock_insufficient",
                                 "price_changed": "draft_price_changed",
+                                "expired": "draft_expired_product",
+                                "expired_batch": "draft_expired_batch",
                             }.get(entry["status"], "draft_stock_attention")
                             messages.append(f'{entry["barcode"]} ({self.text(reason_key)})')
                         self.stock_status.setText(

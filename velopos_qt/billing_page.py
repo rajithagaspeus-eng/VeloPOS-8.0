@@ -26,6 +26,7 @@ class BillingPage(QWidget):
         self.shift_reader = shift_reader
         self.identity = identity or (lambda: None)
         self.stock_reader = stock_reader
+        self._last_stock_signature = None
         self.cart = Cart()
         self.products = []
         layout = QVBoxLayout(self)
@@ -177,6 +178,10 @@ class BillingPage(QWidget):
         self.refresh_cart()
         self.refresh_shift()
 
+    def refresh_stock(self):
+        self._last_stock_signature = None
+        self.refresh_cart()
+
     def refresh_shift(self):
         """Information only; never used to authorize sale operations."""
         if self.shift_reader is None:
@@ -272,7 +277,7 @@ class BillingPage(QWidget):
         self.cart_table.setRowCount(len(lines))
         for row, line in enumerate(lines):
             values = (line["name"], f'{line["qty"]:g}', f'{line["price"]:,.2f}',
-                      f'{line["qty"] * line["price"]:,.2f}')
+                      f'{money(line["qty"] * line["price"]):,.2f}')
             for col, value in enumerate(values):
                 item = QTableWidgetItem(str(value))
                 item.setToolTip(str(value))
@@ -305,18 +310,24 @@ class BillingPage(QWidget):
                 self.net_total.setText(f'{self.text("preview_error")}: {exc}')
         else:
             self.net_total.setText("")
-        if self.stock_reader is not None and lines:
-            try:
-                warnings = self.stock_reader.inspect(self.cart)
-            except (ValueError, OSError, RuntimeError) as exc:
-                self.stock_status.setText(f'{self.text("stock_check_error")}: {exc}')
-            else:
-                if not warnings:
-                    self.stock_status.setText(self.text("draft_stock_looks_ok"))
+        # Tender/discount typing should not trigger repeated SQLite reads.
+        signature = tuple(
+            (line["barcode"], line["qty"], line["price"]) for line in lines
+        )
+        if signature != self._last_stock_signature:
+            self._last_stock_signature = signature
+            if self.stock_reader is not None and lines:
+                try:
+                    warnings = self.stock_reader.inspect(self.cart)
+                except (ValueError, OSError, RuntimeError) as exc:
+                    self.stock_status.setText(f'{self.text("stock_check_error")}: {exc}')
                 else:
-                    names = ", ".join(str(entry["barcode"]) for entry in warnings[:5])
-                    self.stock_status.setText(
-                        f'{self.text("draft_stock_attention")}: {names}'
-                    )
-        else:
-            self.stock_status.setText("")
+                    if not warnings:
+                        self.stock_status.setText(self.text("draft_stock_looks_ok"))
+                    else:
+                        names = ", ".join(str(entry["barcode"]) for entry in warnings[:5])
+                        self.stock_status.setText(
+                            f'{self.text("draft_stock_attention")}: {names}'
+                        )
+            else:
+                self.stock_status.setText("")

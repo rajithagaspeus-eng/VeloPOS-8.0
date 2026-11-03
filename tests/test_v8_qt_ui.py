@@ -13,8 +13,13 @@ try:
     from PySide6.QtWidgets import QApplication
     from velopos_qt.app import SettingsPreview
     from velopos_qt.settings_model import SettingsAdapter
-except ImportError:
-    QApplication = None
+except ModuleNotFoundError as exc:
+    # Skip only when Qt itself is genuinely absent. A missing/broken VeloPOS
+    # import is a real failure and must never be reported as "PySide6 absent".
+    if exc.name == "PySide6" or (exc.name or "").startswith("PySide6."):
+        QApplication = None
+    else:
+        raise
 
 
 class FakeInventory:

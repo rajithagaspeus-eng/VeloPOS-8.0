@@ -14,6 +14,7 @@ from .preview_models import InventoryReader, DirectoryReader
 from .directory_pages import DirectoryPage
 from .core_pages import InventoryPage, BillingPage
 from .product_editor import PreviewProductEditor
+from .directory_editor import PreviewDirectoryEditor
 
 DARK = """
 QWidget { background:#0a1120; color:#e8eef8; font: 10pt 'Segoe UI'; }
@@ -81,6 +82,7 @@ class SettingsPreview(QMainWindow):
         # The guarded editor refuses production DB paths. No authentication
         # or production product mutations are enabled in V8 yet.
         self.product_editor = PreviewProductEditor(db) if db is not None else None
+        self.directory_editor = PreviewDirectoryEditor(db) if db is not None else None
         self.saved = adapter.read()
         self.controls = {}
         stored_locale = str(self.preferences.value("language", "en"))
@@ -220,7 +222,8 @@ class SettingsPreview(QMainWindow):
                     preview_fn = services.preview_bill
             return BillingPage(self.inventory, self.t, bill_preview=preview_fn)
         if index in (3, 4) and self.directory is not None:
-            return DirectoryPage(self.directory, self.nav_keys[index], self.t)
+            return DirectoryPage(self.directory, self.nav_keys[index], self.t,
+                                 editor=self.directory_editor)
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setSpacing(14)

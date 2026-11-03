@@ -6,7 +6,8 @@
 
 - A new standalone PySide6 window with left navigation, light/dark styles and lazily built pages.
 - **Inventory**: read-only searchable product catalogue (up to 100 rows per query), using parameterized SQL over the existing SQLite products table in the dedicated preview database.
-- **Billing draft**: search catalogue, add/remove items, clear cart and view subtotal. NO sale creation, payment processing, receipt printing, stock mutation, licensing changes, or real checkout.
+- **Billing draft**: search catalogue, add/remove items, clear cart, view subtotal and a read-only estimate from the existing `services.preview_bill` (only for the isolated preview database). No checkout, payment processing, receipt printing or stock mutation.
+- **Customers and Suppliers**: separate localized, searchable, read-only tables with credit balance and supplier active status. Fictional demo records are seeded into empty preview-only tables.
 - Five sample products are inserted only if the dedicated preview inventory is empty. Existing preview products are retained.
 - An isolated **Dashboard placeholder** (no fabricated sales data) and live **English / Sinhala / Tamil** text switcher. Language choice applies to preview UI only; the chosen language is now preserved across launches using Qt QSettings under a separate **VeloPOS8Preview** application identity.
 - Existing Settings values and technical combo-box option values remain in English; **full localization is not yet implemented**. Preview language persistence does not modify the production VeloPOS database.
@@ -41,7 +42,7 @@ If your `.venv` is one directory higher than the cloned repo:
 ## Unit tests
 
 ```powershell
-python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_qt_ui -v
+python -m unittest tests.test_v8_settings_model tests.test_v8_i18n tests.test_v8_preview_storage tests.test_v8_batch01 tests.test_v8_batch02_directories tests.test_v8_qt_ui -v
 ```
 
 These include headless model and isolated offscreen Qt smoke tests. A successful run is **not** evidence that the full Windows GUI, live POS, or hardware works.
@@ -49,9 +50,10 @@ These include headless model and isolated offscreen Qt smoke tests. A successful
 ## Manual acceptance checklist (Windows)
 
 1. Launch and verify Dashboard opens without a blank screen or flicker. Visit Inventory and verify sample products appear.
-2. Switch between Dashboard, Inventory, Billing draft, Shop profile, Appearance, Printer & receipts, and About repeatedly; observe render time.
+2. Switch between Dashboard, Inventory, Billing draft, Customers, Suppliers, Shop profile, Appearance, Printer & receipts, and About repeatedly; observe render time.
 3. Switch the top language selector between **English**, **සිංහල** and **தமிழ்**; verify navigation, field labels and messages update immediately and text renders without boxes or clipping. Close and relaunch the preview: the selected language should persist.
-4. Search Rice in Inventory. Open Billing draft, select Sample Rice and Add selected; confirm subtotal changes. Remove or Clear Cart. **Checkout does not exist by design.**
+4. Search Rice in Inventory. Open Billing draft, select Sample Rice and Add selected; confirm subtotal and estimated payable. Remove or Clear Cart. **Checkout does not exist by design.**
+5. Browse Customers and Suppliers; search fictional demo records; switch Sinhala and Tamil. These tables cannot edit data.
 5. Change a test shop name and Save; see a translated confirmation.
 6. Switch to Appearance, choose dark/light, Save and verify theme changes.
 7. Open Printer & receipts, edit paper size, brand, mode, copies and footer, then Save. This must **not** attempt to connect to or enumerate a real printer.
@@ -85,3 +87,9 @@ Previously, the preview database lived in a temporary directory removed on exit;
 ## Batch 01 — scope boundary
 
 This batch delivers preview foundations **only**, not full Billing/Inventory migration. A real checkout must use the existing transactional service and must be built with customer authorization, stock/expiry/discount/VAT verification, shift requirements, rollback and recovery tests before any production enablement. Inventory remains read-only, and cart subtotals are preliminary, not tax-inclusive invoices. Sample product data is demo-only and cannot be used for real business operations.
+
+## Batch 02 — customer, supplier and safe billing bridge
+
+- Customer and supplier screens use bounded parameterized read-only SQL against the separate preview DB. No real contacts are imported.
+- Only the existing read-only `services.preview_bill` is called from Billing Draft, not `create_sale`. Actual stock movement, checkout and payments remain disabled.
+- Qt GUI and headless tests were added, but **new tests have not yet been run** during this editing session. Run the combined test command once on Windows.

@@ -112,6 +112,28 @@ class PreviewSmokeTests(unittest.TestCase):
         self.window.locale_combo.setCurrentIndex(1)
         self.assertEqual(suppliers.heading.text(), "සැපයුම්කරුවන්")
 
+    def test_existing_bill_preview_estimate_uses_read_only_callback(self):
+        from velopos_qt.core_pages import BillingPage
+
+        requests = []
+        def estimate(cart, discount, redeem):
+            requests.append((cart, discount, redeem))
+            return {"net": 265.00}
+
+        page = BillingPage(FakeInventory(), self.window.t, bill_preview=estimate)
+        try:
+            page.results.setCurrentCell(0, 0)
+            page.add_selected()
+            self.assertEqual(len(requests), 1)
+            self.assertEqual(requests[0][0][0]["barcode"], "D001")
+            self.assertEqual(requests[0][1:], (0.0, 0.0))
+            self.assertIn("265.00", page.net_total.text())
+            page.clear_cart()
+            self.assertEqual(page.net_total.text(), "")
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_printer_settings_page_is_lazy_and_safe(self):
         self.assertNotIn(7, self.window._pages)
         self.window.nav.setCurrentRow(7)

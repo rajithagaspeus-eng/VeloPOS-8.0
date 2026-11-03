@@ -244,6 +244,63 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_analytics_view_is_admin_only_localized_and_clears_stale_data(self):
+        from decimal import Decimal
+        from velopos_qt.analytics_page import AnalyticsPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class Reader:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, start, end):
+                self.calls += 1
+                if start == "invalid":
+                    raise ValueError("Invalid date")
+                return {
+                    "sales_total": Decimal("250.00"),
+                    "refunds_total": Decimal("20.00"),
+                    "net_revenue": Decimal("230.00"),
+                    "indicative_net": Decimal("50.00"),
+                    "daily": [{"date": "2026-11-02", "bills": 1,
+                               "sales": Decimal("250"), "refunds": Decimal("20"),
+                               "net_revenue": Decimal("230"),
+                               "indicative_net": Decimal("50")}],
+                    "expenses_by_category": [
+                        {"category": "Rent", "entries": 1, "total": Decimal("30")}
+                    ],
+                    "top_products": [
+                        {"barcode": "SKU", "product": "Soap", "qty": 2,
+                         "revenue": Decimal("250")}
+                    ],
+                }
+
+        reader = Reader()
+        page = AnalyticsPage(reader, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(page.cards[2][1].text(), "230.00")
+            self.assertEqual(page.daily_table.rowCount(), 1)
+            self.assertEqual(page.products_table.rowCount(), 1)
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("analytics"))
+            page.start_input.setText("invalid")
+            page.refresh()
+            self.assertEqual(page.daily_table.rowCount(), 0)
+            self.assertTrue(all(n.text() == "—" for _, n in page.cards))
+            page.start_input.setText("2026-11-01")
+            page.refresh()
+            self.assertEqual(page.expense_table.rowCount(), 1)
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.products_table.rowCount(), 0)
+            self.assertTrue(all(n.text() == "—" for _, n in page.cards))
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_purchasing_is_admin_only_and_clears_on_logout(self):
         from velopos_qt.purchasing_page import PurchasingPage
         from velopos_qt.auth_model import PreviewIdentity
@@ -557,7 +614,7 @@ class PreviewSmokeTests(unittest.TestCase):
             page.deleteLater()
 
     def test_dashboard_then_shop_settings(self):
-        self.assertEqual(self.window.nav.count(), 12)
+        self.assertEqual(self.window.nav.count(), 13)
         self.assertEqual(self.window.nav.currentRow(), 0)
         self.window.nav.setCurrentRow(5)
         self.assertEqual(self.window.controls["shop_name"].text(), "Demo")

@@ -28,6 +28,10 @@ class PurchasingPage(QWidget):
         self.summary.setWordWrap(True)
         self.summary.setObjectName("hint")
         layout.addWidget(self.summary)
+        self.liabilities = QLabel("—")
+        self.liabilities.setObjectName("hint")
+        self.liabilities.setWordWrap(True)
+        layout.addWidget(self.liabilities)
         self.recent_title = QLabel()
         layout.addWidget(self.recent_title)
         self.table = QTableWidget(0, 6)
@@ -43,8 +47,18 @@ class PurchasingPage(QWidget):
         self.suppliers.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.suppliers.verticalHeader().setVisible(False)
         self.suppliers.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.suppliers.setMaximumHeight(160)
+        self.suppliers.setMaximumHeight(135)
         layout.addWidget(self.suppliers)
+        self.balances_title = QLabel()
+        layout.addWidget(self.balances_title)
+        self.balances = QTableWidget(0, 4)
+        self.balances.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.balances.setAlternatingRowColors(True)
+        self.balances.verticalHeader().setVisible(False)
+        self.balances.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch)
+        self.balances.setMinimumHeight(110)
+        layout.addWidget(self.balances, 1)
         self.retranslate()
         self.refresh()
 
@@ -53,6 +67,11 @@ class PurchasingPage(QWidget):
         self.refresh_button.setText(self.text("refresh_stats"))
         self.recent_title.setText(self.text("purchase_recent"))
         self.suppliers_title.setText(self.text("purchase_active_suppliers"))
+        self.balances_title.setText(self.text("purchase_supplier_balances"))
+        self.balances.setHorizontalHeaderLabels([
+            self.text(k) for k in ("suppliers", "purchase_total",
+                                   "purchase_all_payments", "purchase_balance")
+        ])
         self.table.setHorizontalHeaderLabels([
             self.text(key) for key in (
                 "purchase_grn", "report_date", "suppliers",
@@ -68,8 +87,10 @@ class PurchasingPage(QWidget):
     def _clear(self, reason):
         self.warning.setText(reason)
         self.summary.setText("—")
+        self.liabilities.setText("—")
         self.table.setRowCount(0)
         self.suppliers.setRowCount(0)
+        self.balances.setRowCount(0)
 
     @staticmethod
     def _display(table, rows, columns):
@@ -101,3 +122,13 @@ class PurchasingPage(QWidget):
             "grn_no", "date", "supplier", "total", "paid", "status"
         ))
         self._display(self.suppliers, snap["suppliers"], ("id", "name"))
+        # Supplier balances are all-time, unlike the initial payment summary.
+        # Never mix these accounting scopes into one unexplained figure.
+        self.liabilities.setText(
+            f'{self.text("purchase_current_payables")}: '
+            f'{snap["supplier_payables"]:,.2f}   •   '
+            f'{self.text("purchase_supplier_advances")}: '
+            f'{snap["supplier_advances"]:,.2f}'
+        )
+        self._display(self.balances, snap["balances"],
+                      ("name", "bought", "paid", "balance"))

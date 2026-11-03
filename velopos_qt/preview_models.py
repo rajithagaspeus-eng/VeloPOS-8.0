@@ -110,3 +110,19 @@ class DirectoryReader:
                 (search, search, search, limit),
             ).fetchall()
         return [dict(row) for row in records]
+
+
+def preview_existing_bill(cart, calculate):
+    """Call original *read-only* preview_bill service, never create_sale.
+
+    This is a display estimate. Actual checkout must revalidate permissions,
+    customer, stock, VAT, discounts, payment and shift inside create_sale.
+    """
+    items = [
+        {"barcode": line["barcode"], "qty": float(line["qty"]),
+         "price": float(line["price"]), "name": line["name"]}
+        for line in cart.lines.values()
+    ]
+    if not items:
+        return None
+    return calculate(items, 0.0, 0.0)

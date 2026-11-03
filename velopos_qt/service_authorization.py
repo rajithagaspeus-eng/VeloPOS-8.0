@@ -9,11 +9,10 @@ checks inside any eventual commercial mutation before writing any financial
 row. No external role/license booleans can turn the preview into checkout.
 """
 from dataclasses import dataclass
-from hashlib import sha256
-from hmac import compare_digest
 
 from .idempotency_ledger import PreviewIdempotencyLedger
 from .transaction_policy import PreviewTransactionGate
+from .auth_model import verify_preview_session
 
 
 @dataclass(frozen=True)
@@ -62,19 +61,14 @@ class PreviewServiceAuthorization:
 
         reasons = ["preview_transactions_disabled", "commercial_license_unverified"]
         username = getattr(identity, "username", None)
-        stated_role = getattr(identity, "role", None)
-        tag = getattr(identity, "credential_tag", None)
-        actor, role = None, None
-        if isinstance(username, str) and isinstance(tag, str) and tag:
+        row = None
+        if isinstance(username, str):
             row = connection.execute(
                 "SELECT role,pw_hash FROM users WHERE username=?", (username,)
             ).fetchone()
-            if row is not None and row["role"] == stated_role and row["role"] in (
-                "Admin", "Cashier"
-            ):
-                fingerprint = sha256(str(row["pw_hash"]).encode("utf-8")).hexdigest()
-                if compare_digest(tag, fingerprint):
-                    actor, role = username, row["role"]
+        actor, role = None, None
+        if verify_preview_session(self.database, identity, row):
+            actor, role = username, row["role"]
 
         if actor is None:
             reasons.append("verified_session_required")

@@ -364,7 +364,8 @@ class SettingsPreview(QMainWindow):
             return BillingPage(self.inventory, self.t, bill_preview=preview_fn,
                                shift_reader=self.shift_reader, identity=lambda: self.identity,
                                stock_reader=self.stock_reader,
-                               customer_reader=self.customer_reader)
+                               customer_reader=self.customer_reader,
+                               authorize_customer=self._is_preview_cashier)
         if index in (3, 4) and self.directory is not None:
             return DirectoryPage(self.directory, self.nav_keys[index], self.t,
                                  editor=self.directory_editor if self._is_preview_admin() else None)

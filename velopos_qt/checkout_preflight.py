@@ -9,10 +9,9 @@ inside its own authenticated atomic write transaction.
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from hashlib import sha256
-from hmac import compare_digest
 
 from .product_editor import _guard
+from .auth_model import verify_preview_session
 
 
 def _quantity(value):
@@ -90,19 +89,13 @@ class PreviewCheckoutPreflight:
         connection = self.database.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            verified = False
             username = getattr(identity, "username", None)
-            role = getattr(identity, "role", None)
-            tag = getattr(identity, "credential_tag", None)
-            if isinstance(username, str) and isinstance(tag, str) and tag:
+            user = None
+            if isinstance(username, str):
                 user = connection.execute(
                     "SELECT role, pw_hash FROM users WHERE username=?", (username,)
                 ).fetchone()
-                if user is not None and user["role"] == role and role in (
-                    "Admin", "Cashier"
-                ):
-                    computed = sha256(str(user["pw_hash"]).encode("utf-8")).hexdigest()
-                    verified = compare_digest(tag, computed)
+            verified = verify_preview_session(self.database, identity, user)
             if not verified:
                 reasons.append("verified_cashier_required")
 

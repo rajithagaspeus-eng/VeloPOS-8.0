@@ -6,6 +6,7 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "test_mode_badge": "● TEST MODE",
         "new_product": "New product",
         "edit_product": "Edit selected",
         "product_local_name": "Local name",
@@ -73,6 +74,7 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "test_mode_badge": "● පරීක්ෂණ මාදිලිය",
         "new_product": "අලුත් භාණ්ඩයක්",
         "edit_product": "තෝරාගත් භාණ්ඩය වෙනස් කරන්න",
         "product_local_name": "දේශීය නම",
@@ -140,6 +142,7 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "test_mode_badge": "● சோதனை முறை",
         "new_product": "புதிய பொருள்",
         "edit_product": "தேர்ந்த பொருளைத் திருத்து",
         "product_local_name": "உள்ளூர் பெயர்",

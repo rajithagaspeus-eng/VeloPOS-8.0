@@ -10,6 +10,8 @@ from PySide6.QtWidgets import (
 )
 from .settings_model import SettingsAdapter, PRINTER_BRANDS, PRINT_MODES, PAPER_SIZES
 from .i18n import LANGUAGES, translate
+from .preview_models import InventoryReader
+from .core_pages import InventoryPage, BillingPage
 
 DARK = """
 QWidget { background:#0b1220; color:#e8edf8; font: 10pt 'Segoe UI'; }
@@ -40,10 +42,11 @@ QLabel#hint { color:#617087; }
 
 
 class SettingsPreview(QMainWindow):
-    def __init__(self, adapter: SettingsAdapter, preferences=None):
+    def __init__(self, adapter: SettingsAdapter, preferences=None, inventory=None):
         super().__init__()
         self.preferences = preferences if preferences is not None else QSettings("VeloPOS", "VeloPOS8Preview")
         self.adapter = adapter
+        self.inventory = inventory
         self.saved = adapter.read()
         self.controls = {}
         stored_locale = str(self.preferences.value("language", "en"))
@@ -102,7 +105,7 @@ class SettingsPreview(QMainWindow):
         self.nav.setCurrentRow(0)
         self._apply_theme()
 
-    nav_keys = ("dashboard", "shop_profile", "appearance", "printer_receipts", "about")
+    nav_keys = ("dashboard", "inventory", "billing", "shop_profile", "appearance", "printer_receipts", "about")
 
     def t(self, key):
         return translate(self.locale, key)
@@ -125,6 +128,9 @@ class SettingsPreview(QMainWindow):
             self.about_notice.setText(self.t("about_text"))
         if hasattr(self, "printer_notice"):
             self.printer_notice.setText(self.t("printer_notice"))
+        for page in self._pages.values():
+            if isinstance(page, (InventoryPage, BillingPage)):
+                page.retranslate()
 
     def add_field(self, form, key, widget):
         label = QLabel(self.t(key))
@@ -148,6 +154,10 @@ class SettingsPreview(QMainWindow):
         return widget
 
     def _create_page(self, index):
+        if index == 1 and self.inventory is not None:
+            return InventoryPage(self.inventory, self.t)
+        if index == 2 and self.inventory is not None:
+            return BillingPage(self.inventory, self.t)
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setSpacing(14)
@@ -164,7 +174,7 @@ class SettingsPreview(QMainWindow):
             self.dashboard_hint.setWordWrap(True)
             layout.addWidget(self.dashboard_intro)
             layout.addWidget(self.dashboard_hint)
-        elif index == 1:
+        elif index == 3:
             fields = [
                 ("shop_name", "shop_name"), ("phone", "phone"),
                 ("address", "address"), ("currency", "currency"),
@@ -173,12 +183,12 @@ class SettingsPreview(QMainWindow):
             ]
             for label, key in fields:
                 self.add_field(form, key, self._line(key))
-        elif index == 2:
+        elif index == 4:
             self.add_field(form, "theme", self._choice("theme", ["light", "dark", "system"]))
             self.add_field(form, "accent", self._choice("accent", ["Blue", "Green", "Purple", "Orange", "Red"]))
             self.add_field(form, "font_family", self._choice("font_family", ["Segoe UI", "Arial", "Nirmala UI", "Calibri"]))
             self.add_field(form, "font_size", self._choice("font_size", ["13", "14", "15", "16", "18", "20", "22"]))
-        elif index == 3:
+        elif index == 5:
             self.printer_notice = QLabel(self.t("printer_notice"))
             self.printer_notice.setWordWrap(True)
             layout.addWidget(self.printer_notice)
@@ -191,7 +201,7 @@ class SettingsPreview(QMainWindow):
             self.about_notice = QLabel(self.t("about_text"))
             self.about_notice.setWordWrap(True)
             layout.addWidget(self.about_notice)
-        if index in (1, 2, 3):
+        if index in (3, 4, 5):
             layout.addLayout(form)
             save = QPushButton(self.t("save"))
             save.clicked.connect(self.save_settings)
@@ -213,9 +223,9 @@ class SettingsPreview(QMainWindow):
         try:
             # Save only the visible page's values, avoiding stale values from other pages.
             page_fields = {
-                1: ("shop_name", "phone", "address", "currency", "bank_name", "bank_branch", "bank_acc", "bank_holder"),
-                2: ("theme", "accent", "font_family", "font_size"),
-                3: ("printer_brand", "print_mode", "paper_size", "print_copies", "receipt_footer"),
+                3: ("shop_name", "phone", "address", "currency", "bank_name", "bank_branch", "bank_acc", "bank_holder"),
+                4: ("theme", "accent", "font_family", "font_size"),
+                5: ("printer_brand", "print_mode", "paper_size", "print_copies", "receipt_footer"),
             }
             keys = page_fields.get(self.nav.currentRow(), ())
             changes = {
@@ -241,8 +251,9 @@ class SettingsPreview(QMainWindow):
         self.setStyleSheet(DARK if selected == "dark" else LIGHT)
 
 
-def run(settings):
+def run(settings, database=None):
     app = QApplication.instance() or QApplication([])
-    window = SettingsPreview(SettingsAdapter(settings))
+    window = SettingsPreview(SettingsAdapter(settings),
+                             inventory=InventoryReader(database) if database is not None else None)
     window.show()
     return app.exec()

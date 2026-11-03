@@ -351,7 +351,7 @@ class PreviewSmokeTests(unittest.TestCase):
                 self.calls += 1
                 return {
                     "low_count": 2, "expired_count": 1, "expiring_count": 1,
-                    "low_rows": [{"barcode": "LOW", "name_en": "Rice", "stock_qty": 2}],
+                    "low_rows": [{"barcode": "LOW", "name_en": "Rice", "stock_qty": 2, "suggested_topup": 4}],
                     "expiry_rows": [{"barcode": "OLD", "name_en": "Milk",
                                      "expiry_date": "2026-11-01"}],
                     "movements": [{"ts": "2026-11-04", "barcode": "LOW",
@@ -372,6 +372,7 @@ class PreviewSmokeTests(unittest.TestCase):
             self.assertEqual(fake.calls, 1)
             self.assertEqual(page.cards[0][1].text(), "2")
             self.assertEqual(page.low_table.rowCount(), 1)
+            self.assertEqual(page.low_table.item(0, 3).text(), "4")
             self.assertEqual(page.ledger_table.rowCount(), 1)
             self.window.locale_combo.setCurrentIndex(1)
             page.retranslate()

@@ -32,7 +32,7 @@ class ForecastPage(QWidget):
         self.status = QLabel("—")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 8)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
@@ -50,7 +50,8 @@ class ForecastPage(QWidget):
         self.table.setHorizontalHeaderLabels([
             self.text(k) for k in (
                 "barcode", "product_name", "stock", "forecast_sale_days",
-                "forecast_28d", "forecast_expected", "forecast_coverage")
+                "forecast_28d", "forecast_expected", "forecast_coverage",
+                "forecast_backtest_error")
         ])
         if not self.authorized():
             self._clear(self.text("forecast_admin_only"))
@@ -86,10 +87,17 @@ class ForecastPage(QWidget):
                 f'{rec["stock_coverage_days"]:,.1f}'
                 if rec["stock_coverage_days"] is not None else "—"
             )
+            backtest = rec.get("backtest") or {}
+            score = backtest.get("mean_absolute_error")
+            backtest_label = (
+                f"{score:,.2f}"
+                if score is not None
+                else self.text("forecast_backtest_unavailable")
+            )
             values = (
                 rec["barcode"], rec["product"], f'{rec["stock"]:g}',
                 rec["observed_sale_days"], f'{rec["units_28d"]:g}',
-                forecast, cover,
+                forecast, cover, backtest_label,
             )
             for col, value in enumerate(values):
                 item = QTableWidgetItem(str(value))

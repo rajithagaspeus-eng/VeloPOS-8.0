@@ -6,6 +6,9 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "barcode_search_hint": "Scan barcode or search a product • Enter to add • F2 search",
+        "update_quantity": "Update qty",
+        "draft_items": "Draft items",
         "new_record": "Add new",
         "edit_record": "Edit selected",
         "whatsapp": "WhatsApp",
@@ -82,6 +85,9 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "barcode_search_hint": "බාර්කෝඩ් ස්කෑන් කරන්න හෝ භාණ්ඩ සොයන්න • Enter එකතු කරන්න • F2 සොයන්න",
+        "update_quantity": "ප්‍රමාණය වෙනස් කරන්න",
+        "draft_items": "කෙටුම්පත් භාණ්ඩ",
         "new_record": "අලුතින් එකතු කරන්න",
         "edit_record": "තෝරාගත් දත්ත වෙනස් කරන්න",
         "whatsapp": "වට්ස්ඇප්",
@@ -158,6 +164,9 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "barcode_search_hint": "பார்கோடை ஸ்கேன் செய்யவும் அல்லது தேடவும் • Enter சேர்க்க • F2 தேட",
+        "update_quantity": "அளவை மாற்று",
+        "draft_items": "வரைவு பொருட்கள்",
         "new_record": "புதிதாகச் சேர்",
         "edit_record": "தேர்ந்ததைத் திருத்து",
         "whatsapp": "வாட்ஸ்அப்",

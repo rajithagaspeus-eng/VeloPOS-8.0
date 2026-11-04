@@ -2517,3 +2517,11 @@ milestones as commercial security gates permit.
 - `947204d4ce415cdec4e8303a2ce36a2df6ee4ee8`: one additional isolated test for a forged allocation owner combined with an unallocated repayment. **30** sandbox credit test methods now defined; execution status unverified.
 - No exact-head Windows Actions pass has been verified. A commit-status API response with zero statuses and a PR-only workflow list with zero runs is **not** a pass. This session cannot confirm latest push-run CI or a Windows test traceback; changes are code-reviewed and committed, not test-certified.
 - `develop-v8` sandbox only, production posting denied. Overall legacy ~35% is a rough planning estimate; 0/5 commercial gates accepted.
+
+
+## Sandbox credit regression compatibility review — 2026-11-04
+
+- **Concrete regression defect fixed:** `9a416abf4a85b3842ef8dfad4a2248c491344aa1` corrects a contradictory quantity-cap test. After crediting 2 of 5 original RICE units, requesting another 0.01 units is **valid** and cannot be asserted to raise a quantity-limit exception. The negative case now requests 4 additional units, correctly exceeding the original 5. This was found by source review, not by an observed Windows traceback.
+- **Positive regression added:** `9871e3072e5ab05440d1f452ec993278e02bdf94` tests a fractional 0.01-unit credit note within the original sale quantity and confirms the credit reconciliation remains balanced. **31 sandbox credit test methods** are now defined.
+- **CI status:** exact-head Windows Actions pass/fail still **unverified**. GitHub's exposed connector returns no commit status entries and only lists PR-triggered workflow runs; direct Actions page retrieval was not available. Do not present the absence of results as a pass. Next step is to obtain the push-run logs, run full test suite, and fix any real tracebacks.
+- Scope `develop-v8` only, sandbox financial declarations, no production V7 changes; overall ~35% planning estimate, 0/5 commercial gates accepted.

@@ -10,6 +10,7 @@ remain directly importable and must be refactored behind a verified production
 session before any commercial checkout or other financial UI is enabled.
 """
 from .transaction_policy import PreviewTransactionGate
+from .commercial_boundary_assessment import assess_commercial_boundary
 
 
 class PreviewTransactionGateway:
@@ -17,6 +18,10 @@ class PreviewTransactionGateway:
 
     def __init__(self, database):
         self._gate = PreviewTransactionGate(database)
+
+    def assess_future_boundary(self, action, evidence=None):
+        """Read-only planning diagnostics; never unlocks any gateway method."""
+        return assess_commercial_boundary(action, evidence)
 
     def _block(self, action, identity):
         self._gate.require(action, identity)

@@ -82,3 +82,20 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   runner eligibility/billing limits; re-run only when runners can actually
   start. A zero-step run cannot certify tests. Do not weaken security gates
   to make a CI badge green.
+
+## Durable rehearsal integrity follow-up (2026-11-05)
+
+- Hardened the disposable SQLite rehearsal ledger to check every stored
+  reference against its contiguous sequence and to reject missing rows,
+  sequence rewinds/jumps, and forged references before replay.
+- Added SQLite `PRAGMA quick_check` to the preview-only inspection transaction.
+- Added four tampering regressions: deleted middle row, sequence rewind,
+  sequence jump, and forged reference.
+- Retried GitHub Actions Windows run `41920582409` through the connected
+  GitHub API. Attempt 2 also completed **failure** with no runner assigned
+  and zero executed steps. No Python test outcome is available from that run.
+- Root cause remains unconfirmed without GitHub Actions account/organization
+  runner eligibility, billing/usage and workflow annotation visibility.
+  Do not classify this as a Python test failure or claim passing tests.
+- This journal is **not** a production transaction ledger: it contains only
+  disposable rehearsal references and cannot post sales.

@@ -707,6 +707,50 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 raise AssertionError("Tampered allocation passed replay")
         """)
 
+    def test_audit_rejects_negative_settlement_values(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_settlements "
+                    "SET cash_cents=-1 WHERE reference=?", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_settlement_amount:" + first.reference in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_more_than_ten_declared_tenders(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                for number in range(2, 12):
+                    c.execute(
+                        "INSERT INTO main.v8_preview_sandbox_tenders "
+                        "(reference,line_no,method,amount_cents,reference_hint) "
+                        "VALUES (?,?,?,?,?)",
+                        (first.reference,number,"Cash",100,"")
+                    )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_settlements "
+                    "SET cash_cents=cash_cents+1000,change_cents=change_cents+1000 "
+                    "WHERE reference=?", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "settlement_tender_count_exceeded:" + first.reference in audited.reasons
+            assert audited.can_checkout is False
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM main.sales").fetchone()[0] == 0
+        """)
+
     def test_tender_failpoint_rolls_back_settlement_and_stock_together(self):
         self.isolated("""
             try:

@@ -517,6 +517,8 @@ class PreviewSandboxSaleLedger:
                 if settled["due_cents"] != sale["subtotal_cents"]:
                     reasons.append("settlement_invoice_mismatch:" + ref)
                 tenders = tender_by_ref.get(ref, ())
+                if [row["line_no"] for row in tenders] != list(range(1, len(tenders) + 1)):
+                    reasons.append("settlement_tender_line_sequence_mismatch:" + ref)
                 declared = settled["declared"]
                 if declared not in (0,1) or bool(tenders) != bool(declared):
                     reasons.append("settlement_declaration_mismatch:" + ref)

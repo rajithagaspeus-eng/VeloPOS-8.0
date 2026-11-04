@@ -21,7 +21,10 @@ class SaleRehearsalReplay:
 class PreviewSaleRehearsalJournal:
     """Compare repeated requests under a lock; never reserve a real sale."""
 
-    def __init__(self):
+    def __init__(self, *, max_requests=10000):
+        if type(max_requests) is not int or not 1 <= max_requests <= 100000:
+            raise ValueError("Invalid rehearsal journal capacity")
+        self._max_requests = max_requests
         self._lock = RLock()
         self._seen = {}
         self._sequence = 0
@@ -36,6 +39,8 @@ class PreviewSaleRehearsalJournal:
                 return SaleRehearsalReplay(
                     prior.reference, prior.fingerprint, True
                 )
+            if len(self._seen) >= self._max_requests:
+                raise OverflowError("Preview rehearsal journal capacity exceeded")
             # Local sequence only; cannot be used as a commercial invoice ID.
             self._sequence += 1
             reference = "REHEARSAL-%08d" % self._sequence

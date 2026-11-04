@@ -51,6 +51,26 @@ class FingerprintKeySafetyTests(unittest.TestCase):
             request_fingerprint({"lines": [dict(line), dict(line)]}),
         )
 
+
+    def test_hostile_payload_size_and_node_limits_fail_closed(self):
+        with self.assertRaisesRegex(ValueError, "too large"):
+            request_fingerprint({"comment": "X" * 300000})
+        with self.assertRaisesRegex(ValueError, "too large"):
+            request_fingerprint({"lines": "€" * 100000})
+        with self.assertRaisesRegex(ValueError, "too many nodes"):
+            request_fingerprint({"lines": [0] * 10001})
+
+    def test_invalid_unicode_is_caught_as_request_validation_error(self):
+        with self.assertRaisesRegex(ValueError, "encoding"):
+            request_fingerprint({"barcode": "\\ud800"})
+        with self.assertRaisesRegex(ValueError, "encoding"):
+            request_fingerprint({"\\udfff": "entry"})
+
+    def test_boundary_sized_normal_request_fingerprint_is_stable(self):
+        draft = {"lines": [{"sku": "ABC", "qty": 1}],
+                 "request_id": "sale-limited-0001"}
+        self.assertEqual(request_fingerprint(draft), request_fingerprint(dict(draft)))
+
     def test_non_object_payload_still_rejected(self):
         with self.assertRaises(ValueError):
             request_fingerprint([{"sku": "X"}])

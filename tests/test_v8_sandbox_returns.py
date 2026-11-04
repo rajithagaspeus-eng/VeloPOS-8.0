@@ -136,6 +136,22 @@ class SandboxReturnTests(unittest.TestCase):
             assert audited.balanced and audited.total_refund_cents == 9000,audited
         """)
 
+    def test_fractional_return_within_original_sale_line_quantity(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            first = return_service.simulate_return(**new_return(
+                sale.reference,returns=[{"line_no":1,"qty":"1"}]
+            ))
+            second = return_service.simulate_return(**new_return(
+                sale.reference,request_id="sandbox-return-fractional-0002",
+                returns=[{"line_no":1,"qty":"0.01"}]
+            ))
+            assert first.refund_cents == 4500
+            assert second.refund_cents > 0
+            audit = return_service.reconcile_returns()
+            assert audit.balanced,audit
+        """)
+
     def test_cross_branch_invalid_license_and_shift_denied_without_writes(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

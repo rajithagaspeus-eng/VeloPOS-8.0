@@ -620,6 +620,58 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 0
         """)
 
+    def test_corrupt_sale_line_quantity_is_reported_without_crashing(self):
+        self.isolated("""
+            sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            for invalid in ("NaN", "Infinity", "-Infinity", "broken", "0", "-1"):
+                with database.db() as c:
+                    c.execute(
+                        "UPDATE main.v8_preview_sandbox_sale_lines "
+                        "SET quantity=? WHERE line_no=1", (invalid,)
+                    )
+                result = sandbox.reconcile_sandbox()
+                assert not result.balanced, invalid
+                assert "invalid_invoice_line_quantity" in result.reasons, result
+        """)
+
+    def test_corrupt_stock_move_and_balance_decimals_fail_closed(self):
+        self.isolated("""
+            sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            for field, table, condition, expected in (
+                ("sold_qty", "v8_preview_sandbox_stock_moves",
+                 "barcode='RICE'", "invalid_stock_move_quantity"),
+                ("before_qty", "v8_preview_sandbox_stock_moves",
+                 "barcode='RICE'", "invalid_stock_decimal:RICE"),
+                ("after_qty", "v8_preview_sandbox_stock_moves",
+                 "barcode='RICE'", "invalid_stock_decimal:RICE"),
+                ("opening_qty", "v8_preview_sandbox_stock",
+                 "barcode='RICE'", "invalid_stock_decimal:RICE"),
+                ("remaining_qty", "v8_preview_sandbox_stock",
+                 "barcode='RICE'", "invalid_stock_decimal:RICE"),
+            ):
+                with database.db() as c:
+                    original = c.execute(
+                        f"SELECT {field} FROM main.{table} WHERE {condition}"
+                    ).fetchone()[0]
+                for invalid in ("NaN", "Infinity", "bad-decimal"):
+                    with database.db() as c:
+                        c.execute(
+                            f"UPDATE main.{table} SET {field}=? WHERE {condition}",
+                            (invalid,)
+                        )
+                    result = sandbox.reconcile_sandbox()
+                    assert not result.balanced, (field, invalid, result)
+                    assert expected in result.reasons, (field, invalid, result)
+                with database.db() as c:
+                    c.execute(
+                        f"UPDATE main.{table} SET {field}=? WHERE {condition}",
+                        (original,)
+                    )
+                assert sandbox.reconcile_sandbox().balanced
+        """)
+
     def test_two_sequential_sandbox_sales_reconcile_invoice_and_remaining_stock(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

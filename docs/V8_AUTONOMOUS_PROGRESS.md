@@ -1908,3 +1908,77 @@ and 0 skips; address any failures. Continue comprehensive
 service-owned canonical authorization plus signed-license and
 crash-safe idempotent business write design in disposable V8
 storage. Gate A/B must pass before financial posting is enabled.
+
+
+## Delivery acceleration: automated Windows CI + visible Billing Draft receipt slice — 2026-11-04
+
+**Owner constraint and correction:** The owner has rightly objected that
+repeat claims of **~35%** alongside dozens of small security commits
+and requests for manually rerunning Windows tests are too slow and
+time-consuming. The ~35% is explicitly **an unmeasured rough estimate,
+not an actual verified completion percentage**. No artificial
+increase is claimed. Switch to acceptance-driven, user-visible
+end-to-end feature slices, with actual Windows CI instead of repeatedly
+requiring the owner to operate PowerShell. Full plan update:
+`docs/V8_FIVE_PHASE_EXECUTION_PLAN.md` at
+`22e6b3b2219919501da6daf1b6a8a68bc1145d96`.
+
+**CI automation:**
+`24c71d07d7e7a95168ccce46fcb698d005fe6f27`
+creates `.github/workflows/v8-preview-windows.yml` for
+pushes/PRs to `develop-v8`, plus manual dispatch. GitHub-hosted
+Windows runner, Python 3.12, dependencies from `requirements.txt`
+plus PySide6, ephemeral isolated `VELOPOS_HOME`, offscreen Qt,
+`python -m compileall -q velopos_qt tests`, entire
+`python run_v8_checks.py` with **any skipped tests causing failure**,
+and logged tested SHA. No production keys or customer data. The
+workflow file is in GitHub; the actual GitHub Actions run and
+whether the repo permits push-triggered workflows remain
+**UNVERIFIED**. A workflow commit is not evidence of CI success.
+
+**Visible Billing Draft slice:**
+- `0b5960831257fc99a88eec65761e44c5a19ad52c` adds
+  `velopos_qt/draft_receipt.py`: a pure, nontransactional
+  cart-to-receipt-style text view with itemized barcode/quantity/
+  price, discount, optional existing read-only net estimator,
+  typed cash amount, estimated change or shortfall, and prominent
+  NOT A SALE / NOT A TAX INVOICE / NO PAYMENT notices. It does not
+  generate invoices, mutate stock, access customer data, print
+  receipts or call payment services.
+- `f2cca878e75fdc61f6df98ea7ac00ddb278fa1e5` adds a real
+  visible button/dialog in the Billing Draft UI showing
+  scrollable read-only receipt text and copy-to-clipboard.
+  Receipt button is disabled when cart is empty.
+- `a00342bf62ec82979b752b725c26d1aa59eae92d` localizes the
+  viewer/button/copy/close controls in English, Sinhala and Tamil.
+- `537e986350532cf95a0e201469a0ec2d94621956` adds
+  **six** `test_v8_draft_receipt.py` regression methods for
+  estimated totals, discount/change/shortfall, rejecting invalid
+  inputs/line injection, reuse of read-only Billing net estimates,
+  translations, and an offscreen UI preview dialog.
+  THESE TESTS WERE COMMITTED BUT NOT EXECUTED IN THIS SESSION.
+  An in-memory draft is not a certified fiscal receipt.
+
+**Latest independently verified code:** Owner's local Windows
+`da535008b708511fbb8cf64529e5c9d2fc983ebd` had
+**296/296 tests OK, zero skips, exit 0, 121.843 seconds** under
+the correct `.venv`, compileall clean. This evidence is now
+**older than the new CI and Billing Draft changes**. No Windows
+Actions success or latest-head local test success is claimed.
+
+**Phase gates unchanged:** Phase 1 in progress; Phases 2–5
+unaccepted; **0/5 commercial release gates passed**. A/B hard
+BLOCKED. The new screen is a UI/read-only preview milestone,
+NOT commercial billing. All real checkout, taxes, returns,
+supplier payments, GRNs, stock and shift posting remain
+disabled. No V7 production files, paid keys, private signing
+secrets or stable `main` touched.
+
+**Next high-value delivery:** verify hosted push Windows Actions
+and fix red jobs; then prioritize a true integrated service-owned
+atomic sale/stock/receipt/tender vertical slice on disposable
+V8 data, including trusted licensing, cancellation/replay,
+crash recovery and financial/stock reconciliation, before
+ever enabling real checkout. Report tangible acceptance milestones,
+not unsupported percentages. Do not burden the owner with
+every routine small batch's local testing.

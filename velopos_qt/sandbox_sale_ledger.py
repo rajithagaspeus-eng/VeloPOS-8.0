@@ -321,6 +321,8 @@ class PreviewSandboxSaleLedger:
                 connection, "sale", request_id, payload
             )
             if journal.state == "journal_completed_unverified":
+                if journal.result_ref != reference:
+                    raise RuntimeError("Sandbox journal reference does not match request")
                 evidence = self._read_exact_sale(
                     connection, journal.result_ref, request_id,
                     plan, tender_plan, frozen_actor.username,

@@ -1194,3 +1194,40 @@ session/role/branch/shift/signed-license authorization under the same
 disposable SQLite transaction as persistent idempotency and crash recovery,
 with cross-branch and concurrent-request regression tests. Retain
 mandatory deny gate until all Gate A/B evidence is complete.
+
+
+## Journal schema fail-closed completion constraints — 2026-11-04
+
+**Previous verified evidence:** user-provided local Windows
+`dd7ae38` run: **263 tests / OK / 88.806 seconds**, not current code.
+Commercial gates reviewed: Gate A BLOCKED; B in progress but BLOCKED for
+production; C/D/E not production-ready.
+
+**New safe code batch on `develop-v8`:**
+- `39d18c1a3953ae33a4704858cb51ba4b741ce019` tightens newly
+  created SQLite preview request-journal constraints: a COMPLETED
+  result_ref must be TEXT, length 1–128, trimmed, and free of ASCII
+  newline, carriage return and tab. This narrows direct SQL bypasses
+  around the existing Python-level reference validation.
+  The `complete()` method now validates scope AND request ID using the
+  same canonical identity contract as `claim()`.
+- `414baed8cc4d3316c6ebd2b25253e8c0ee4e7d45` adds two disposable
+  DB regressions for direct SQL malformed-completion insertion and
+  invalid completion request IDs.
+- An independent SQLite in-memory smoke exercise verified 7 malformed
+  references rejected and a normal reference accepted. This is NOT
+  a run of the repository's Windows tests. Existing legacy journal
+  tables are not automatically migrated or represented as safe.
+
+**Verification pending:** Exact-head Windows compileall and
+`python run_v8_checks.py` have **not** run on these commits.
+GitHub combined status and PR-filtered Actions lookup did not provide
+a confirmed push-triggered Windows run for the previous checkpoint.
+Do not reuse the prior 263-test PASS as evidence for this head.
+
+**Next priority:** Verify new head on GitHub-hosted Windows Actions and
+the combined Windows suite; fix any failures. Continue Gate A canonical
+session/role/branch/shift/signed-entitlement checks and transactional
+idempotency, with a dedicated posting simulation that ALWAYS rolls
+back. No real financial mutations or V7 services may be unlocked.
+`main`, V7 production data and signing secrets untouched.

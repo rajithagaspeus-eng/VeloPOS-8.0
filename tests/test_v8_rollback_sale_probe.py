@@ -186,6 +186,56 @@ class RollbackSaleProbeTests(unittest.TestCase):
             assert probe.recovery.inspect(**args).journal.state == "not_recorded"
         """)
 
+    def test_expired_batch_changed_price_and_stock_are_denied_without_writes(self):
+        self.isolated("""
+            with database.db() as c:
+                before = snapshot(c)
+            for bad_lines in (
+                [{"barcode": "RICE", "qty": 20, "price": 45}],
+                [{"barcode": "RICE", "qty": 1, "price": 44}],
+                [{"barcode": "NONEXISTENT", "qty": 1, "price": 45}],
+            ):
+                try:
+                    probe.simulate(**dict(args, lines=bad_lines))
+                except PermissionError:
+                    pass
+                else:
+                    raise AssertionError("Unsafe draft was accepted")
+                with database.db() as c:
+                    assert snapshot(c) == before
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO batches "
+                    "(barcode,batch_no,expiry_date,qty_remaining) "
+                    "VALUES('RICE','EXPIRED-TEST','2026-11-01',2)"
+                )
+                expired_before = snapshot(c)
+            try:
+                probe.simulate(**args)
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Expired batch was accepted")
+            with database.db() as c:
+                assert snapshot(c) == expired_before
+        """)
+
+    def test_invalid_request_key_denied_before_journal_side_effect(self):
+        self.isolated("""
+            with database.db() as c:
+                before = snapshot(c)
+            for bad in ("request with spaces", "!bad-request-0001",
+                        "x" * 129):
+                try:
+                    probe.simulate(**dict(args, request_id=bad))
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError("Invalid id was accepted: " + bad)
+                with database.db() as c:
+                    assert snapshot(c) == before
+        """)
+
     def test_unknown_failure_point_denies_without_opening_business_transaction(self):
         self.isolated("""
             with database.db() as c:

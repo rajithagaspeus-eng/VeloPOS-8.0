@@ -133,3 +133,21 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   to Actions account/organization policy, usage, and run annotations.
 - Do not interpret this test-only rehearsal ledger as certified production
   crash recovery or permission to enable checkout.
+
+## Durable preview schema constraints and CI follow-up (2026-11-05)
+
+- Hardened the disposable journal connection with SQLite
+  `trusted_schema=OFF` and `foreign_keys=ON`.
+- Refuse silent reconstruction of a missing sequence even when the existing
+  journal contains zero requests. Enforce request primary keys and unique
+  reference index in addition to column-name checks.
+- Added three regressions covering empty-ledger sequence deletion, missing
+  reference uniqueness and missing request primary key.
+- Windows Actions run `41923058146` was retried: attempt 2 again ended
+  in `failure`, `runner_name=""`, `steps=[]`. GitHub Actions has not
+  produced executable Python test output for this batch.
+- A direct container checkout attempt could not resolve `github.com`.
+  Root cause of runner allocation failure remains unconfirmed; investigate
+  repository Actions permissions and runner eligibility in GitHub UI.
+- These checks protect disposable test rehearsals only; no production
+  transaction authorization is provided.

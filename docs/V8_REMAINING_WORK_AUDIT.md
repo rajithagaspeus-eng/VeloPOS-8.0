@@ -222,3 +222,22 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   resolve github.com.
 - All tests and database work remain preview-only. Production transaction
   posting remains disabled.
+
+## Strict schema and index integrity follow-up (2026-11-05)
+
+- The preview SQLite journal now rejects hidden/generated columns
+  (`PRAGMA table_xinfo`), foreign keys, and extra/altered index signatures.
+- Replaced `PRAGMA quick_check` with full `PRAGMA integrity_check`
+  before every journal replay or append, so index consistency is checked.
+- Four new application regression methods cover generated columns, foreign
+  keys, injected indexes and integrity after restart/replay. These are
+  committed but have **not** run as a repository suite.
+- A local standalone SQLite probe verified canonical primary/unique index
+  signatures, detection of extra indexes, and detection of generated columns
+  (PASS); this is **not** a VeloPOS application test.
+- GitHub Actions run `41926999203` completed failure with no runner
+  and zero steps; sandbox run `41926997239` completed failure with no jobs.
+  Permissions/runner diagnostics are unavailable through the connected
+  GitHub API allowlist, and direct checkout failed DNS resolution. Therefore
+  runner root cause and application regression PASS remain unverified.
+- No V7/main, commercial checkout, or production database changes.

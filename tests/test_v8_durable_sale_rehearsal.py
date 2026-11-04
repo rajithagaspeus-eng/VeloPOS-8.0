@@ -395,6 +395,35 @@ os._exit(19)
         with self.journal._connect() as conn:
             self.assertEqual(conn.execute("PRAGMA synchronous").fetchone()[0], 2)
 
+    def test_sequence_check_constraints_cannot_be_removed(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_sequence")
+            conn.execute(
+                "CREATE TABLE preview_sequence ("
+                "singleton INTEGER PRIMARY KEY, next_number INTEGER NOT NULL)"
+            )
+            conn.execute("INSERT INTO preview_sequence VALUES (1,1)")
+        with self.assertRaisesRegex(PermissionError, "CHECK constraints"):
+            DurablePreviewSaleJournal(self.path)
+
+    def test_sequence_check_tampering_after_open_blocks_new_request(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_sequence")
+            conn.execute(
+                "CREATE TABLE preview_sequence ("
+                "singleton INTEGER PRIMARY KEY, next_number INTEGER NOT NULL)"
+            )
+            conn.execute("INSERT INTO preview_sequence VALUES (1,1)")
+        with self.assertRaisesRegex(PermissionError, "CHECK constraints"):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

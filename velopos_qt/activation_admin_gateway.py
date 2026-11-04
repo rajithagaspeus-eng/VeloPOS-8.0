@@ -57,7 +57,6 @@ class PreviewSignedActivationGateway:
         self.authority = authority
         if self.authority.database is not database:
             raise ValueError("Gateway and authority must share canonical DB")
-        self.authority._check  # authority constructor already guards preview path
 
     def _check(self, connection):
         self.authority._check(connection)

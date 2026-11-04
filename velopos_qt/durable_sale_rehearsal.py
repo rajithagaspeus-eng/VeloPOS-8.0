@@ -46,6 +46,15 @@ class DurablePreviewSaleJournal:
         self.path = str(candidate)
         self.max_requests = max_requests
         with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                self._initialize(conn)
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
+
+    def _initialize(self, conn):
             # Refuse pre-existing triggers/views before any initialization SQL.
             preexisting = conn.execute(
                 "SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
@@ -65,9 +74,19 @@ class DurablePreviewSaleJournal:
                 singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
                 next_number INTEGER NOT NULL CHECK(next_number > 0)
             )""")
-            conn.execute(
-                "INSERT OR IGNORE INTO preview_sequence(singleton,next_number) VALUES (1,1)"
-            )
+            # Do not silently heal a missing sequence in an existing ledger.
+            previous_count = conn.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0]
+            sequence_count = conn.execute(
+                "SELECT COUNT(*) FROM preview_sequence"
+            ).fetchone()[0]
+            if previous_count and not sequence_count:
+                raise PermissionError("Missing sequence in existing preview journal")
+            if not sequence_count:
+                conn.execute(
+                    "INSERT INTO preview_sequence(singleton,next_number) VALUES (1,1)"
+                )
             # An existing preview file is untrusted: refuse extra triggers,
             # tables or views instead of executing attacker-supplied SQL.
             objects = conn.execute(

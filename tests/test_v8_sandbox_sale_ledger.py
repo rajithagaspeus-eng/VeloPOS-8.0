@@ -354,6 +354,31 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == "COMPLETED"
         """)
 
+    def test_audit_rejects_second_completed_request_pointing_to_same_invoice(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_request_journal "
+                    "(scope,request_id,payload_sha256,status,result_ref) "
+                    "SELECT scope,'forged-sandbox-request-0002',"
+                    "payload_sha256,status,result_ref "
+                    "FROM main.v8_preview_request_journal "
+                    "WHERE scope='sale' AND request_id=?",
+                    (args["request_id"],)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "completed_sale_journal_coverage_mismatch" in audited.reasons, audited
+            assert audited.can_checkout is False
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+                assert c.execute("SELECT COUNT(*) FROM main.sales").fetchone()[0] == 0
+        """)
+
     def test_sandbox_independent_audit_reconciles_invoice_stock_and_journal(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

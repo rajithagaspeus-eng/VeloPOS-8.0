@@ -55,6 +55,24 @@ try:
             "last_payload_sha256 FROM v8_preview_server_license_state "
             "WHERE license_id='LIC-BOUND'").fetchone())
         assert after == before, (now, before, after)
+    # Adversarial stale/replayed transfer and wrong previous binding.
+    for overrides in (
+        {"expected_sequence": 2},
+        {"expected_machine_id": "MACHINE-OTHER"},
+        {"expected_branch_id": "BRANCH-OTHER"},
+    ):
+        attempt = dict(common, **overrides)
+        try:
+            recovery.transfer(c, server_now=at(4, 10), **attempt)
+        except PermissionError:
+            pass
+        else:
+            raise AssertionError("Stale or cross-binding transfer accepted")
+        after = tuple(c.execute(
+            "SELECT machine_id,branch_id,expires_utc,last_sequence,"
+            "last_payload_sha256 FROM v8_preview_server_license_state "
+            "WHERE license_id='LIC-BOUND'").fetchone())
+        assert after == before, (attempt, before, after)
     try:
         recovery.require_checkout()
     except PermissionError:

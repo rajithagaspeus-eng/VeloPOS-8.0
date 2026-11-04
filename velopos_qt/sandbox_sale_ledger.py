@@ -590,8 +590,10 @@ class PreviewSandboxSaleLedger:
                             before = Decimal(move["before_qty"])
                             sold = Decimal(move["sold_qty"])
                             after = Decimal(move["after_qty"])
-                            if (not all(v.is_finite() for v in (before, sold, after))
-                                    or before != current or sold <= 0
+                            if not all(v.is_finite() for v in (before, sold, after)):
+                                reasons.append("invalid_stock_decimal:" + barcode)
+                                continue
+                            if (before != current or sold <= 0
                                     or after != before - sold or after < 0):
                                 reasons.append("stock_chain_mismatch:" + barcode)
                             current = after

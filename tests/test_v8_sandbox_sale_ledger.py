@@ -291,6 +291,25 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_handles_corrupt_subtotal_with_declared_tender(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sales "
+                    "SET subtotal_cents='invalid' WHERE reference=?",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "settlement_invoice_amount_invalid:" + first.reference in audited.reasons
+            assert "invalid_invoice_subtotal_encoding" in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_text_invoice_subtotal_without_crashing(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

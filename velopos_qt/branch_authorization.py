@@ -1,0 +1,116 @@
+"""Read-only, fail-closed branch-binding diagnostic for isolated V8 preview.
+
+The branch registry and user/shift bindings are persisted in the disposable
+VeloPOS8PreviewData SQLite database by test fixtures. This inspector NEVER
+creates or edits those tables, changes V7 data, or authorizes a transaction.
+It requires the caller's canonical preview connection inside a transaction.
+A branch string supplied by a UI/client is not proof of branch membership.
+"""
+from dataclasses import dataclass
+
+from .idempotency_ledger import PreviewIdempotencyLedger
+from .service_authorization import _ACTION_ROLES, _SHIFT_ACTIONS
+
+
+_TABLES = frozenset({
+    "v8_preview_branch_registry",
+    "v8_preview_branch_memberships",
+    "v8_preview_branch_shifts",
+})
+
+
+@dataclass(frozen=True)
+class PreviewBranchDecision:
+    action: str
+    branch_id: str | None
+    actor: str | None
+    reasons: tuple[str, ...]
+    branch_verified: bool
+    can_execute: bool = False
+
+
+class PreviewBranchAuthorization:
+    """Inspect canonical persisted branch/actor/shift bindings; never grant."""
+
+    def __init__(self, database):
+        self.database = database
+        self._connection_gate = PreviewIdempotencyLedger(database)
+
+    def inspect(self, connection, *, action, actor, branch_id, shift_id=None):
+        self._connection_gate._check_connection(connection)
+        if action not in _ACTION_ROLES:
+            raise ValueError("Unknown protected financial action")
+
+        reasons = []
+        valid_branch = (
+            type(branch_id) is str
+            and 1 <= len(branch_id) <= 120
+            and all(c.isascii() and (c.isalnum() or c in "-_")
+                    for c in branch_id)
+        )
+        if not valid_branch:
+            reasons.append("canonical_branch_id_required")
+        if not isinstance(actor, str) or not actor:
+            reasons.append("verified_branch_actor_required")
+
+        present = {
+            row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name IN (?,?,?)", tuple(sorted(_TABLES))
+            ).fetchall()
+        }
+        if present != _TABLES:
+            reasons.append("canonical_branch_registry_missing")
+            return PreviewBranchDecision(
+                action, branch_id if valid_branch else None,
+                actor if isinstance(actor, str) else None,
+                tuple(reasons), False,
+            )
+
+        if valid_branch:
+            branch = connection.execute(
+                "SELECT active FROM v8_preview_branch_registry WHERE branch_id=?",
+                (branch_id,),
+            ).fetchone()
+            if branch is None or branch["active"] != 1:
+                reasons.append("branch_not_active")
+
+        if valid_branch and isinstance(actor, str) and actor:
+            membership = connection.execute(
+                "SELECT active FROM v8_preview_branch_memberships "
+                "WHERE username=? AND branch_id=?",
+                (actor, branch_id),
+            ).fetchone()
+            if membership is None or membership["active"] != 1:
+                reasons.append("actor_branch_membership_required")
+
+        if action in _SHIFT_ACTIONS:
+            if type(shift_id) is not int or shift_id <= 0:
+                reasons.append("branch_shift_binding_required")
+            else:
+                shift = connection.execute(
+                    "SELECT s.cashier, s.status, b.branch_id "
+                    "FROM shifts AS s LEFT JOIN v8_preview_branch_shifts AS b "
+                    "ON b.shift_id=s.id WHERE s.id=?",
+                    (shift_id,),
+                ).fetchone()
+                if shift is None or shift["status"] != "OPEN":
+                    reasons.append("branch_shift_not_open")
+                else:
+                    if not isinstance(actor, str) or shift["cashier"] != actor:
+                        reasons.append("branch_shift_actor_mismatch")
+                    if not valid_branch or shift["branch_id"] != branch_id:
+                        reasons.append("shift_branch_mismatch")
+
+        # Even an empty reasons tuple is ONLY a read-only diagnostic.
+        return PreviewBranchDecision(
+            action, branch_id if valid_branch else None,
+            actor if isinstance(actor, str) else None,
+            tuple(reasons), not reasons,
+        )
+
+    def require(self, connection, **kwargs):
+        decision = self.inspect(connection, **kwargs)
+        raise PermissionError("; ".join(
+            (*decision.reasons, "preview_transactions_disabled")
+        ))

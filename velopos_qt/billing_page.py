@@ -470,8 +470,14 @@ class BillingPage(QWidget):
             self.notice.setText(self.text("no_checkout_notice"))
         self.results.setRowCount(len(self.products))
         for row, item in enumerate(self.products):
-            values = (item["barcode"], item["name_en"],
-                      f'{float(item["selling_price"]):,.2f}')
+            try:
+                price_label = f'{money(item["selling_price"]):,.2f}'
+            except (ValueError, KeyError, TypeError):
+                # Show the row for diagnosis, but do not allow a malformed
+                # catalog price to become a billable draft line.
+                price_label = "—"
+            values = (item.get("barcode", ""), item.get("name_en", ""),
+                      price_label)
             for col, value in enumerate(values):
                 cell = QTableWidgetItem(str(value))
                 cell.setToolTip(str(value))

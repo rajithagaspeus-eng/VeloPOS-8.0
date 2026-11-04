@@ -263,3 +263,23 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   endpoints are blocked by the GitHub connector. Git clone cannot resolve
   github.com in the available container, preventing repository suite execution.
 - Preview only. No main/V7/production changes and no commercial posting.
+
+## Canonical SQLite DDL and recovery atomicity follow-up (2026-11-05)
+
+- Durable journal now checks complete normalized canonical CREATE TABLE DDL
+  for both preview tables on initialize and every inspect. This rejects
+  unexpected CHECK constraints and comment-spoofed required checks; unlike
+  previous regex-only checks, it is not satisfied by a matching comment.
+- Three new application regressions cover injected CHECK, spoofed sequence
+  CHECK comments, and fail-closed schema-tamper rollback followed by
+  repaired-journal replay and contiguous next reference.
+- Verified locally with sqlite3 that SQLite stores the normalized canonical
+  CREATE TABLE text without the original IF NOT EXISTS clause. This is
+  a standalone SQLite compatibility check, not a VeloPOS regression PASS.
+- Latest available Windows Actions run `41927782959` failed with no
+  assigned runner, zero steps; Linux run `41927799678` failed with
+  zero jobs. Fetching Windows job logs returned HTTP 404 BlobNotFound
+  and job steps returned []. GitHub connector rejects administrative
+  runner/permissions API endpoints. Root cause cannot be confirmed.
+- Repository regression suite has not executed; container GitHub checkout
+  still fails DNS resolution. No production financial writes or V7/main edits.

@@ -922,6 +922,7 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
         self.isolated("""
             from unittest.mock import patch
             import velopos_qt.sandbox_credit_ledger as credit_module
+            import velopos_qt.idempotency_ledger as journal_module
             original_fingerprint = credit_module.request_fingerprint
             sale = sale_service.simulate_commit(**args)
             open_account()
@@ -933,7 +934,8 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
                     payload = dict(payload)
                     payload.pop("charge_ref", None)
                 return original_fingerprint(payload)
-            with patch.object(credit_module, "request_fingerprint", legacy_fingerprint):
+            with patch.object(credit_module, "request_fingerprint", legacy_fingerprint), \
+                    patch.object(journal_module, "request_fingerprint", legacy_fingerprint):
                 first = repay("10",request_id="legacy-fingerprint-0001")
             replay = repay("10",request_id="legacy-fingerprint-0001")
             assert replay.replayed and replay.reference == first.reference

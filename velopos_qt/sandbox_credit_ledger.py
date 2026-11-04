@@ -604,6 +604,20 @@ class PreviewSandboxCreditLedger:
                 "branch_id":expected_branch_id, "shift_id":shift_id,
                 "license_id":license_id, "machine_id":machine_id,"day":day,
             }
+            # Legacy customer-level repayments predate the optional charge_ref
+            # fingerprint field. Preserve their immutable journal identity on
+            # replay without changing fingerprints for newly created requests.
+            if charge_ref is None:
+                existing = c.execute(
+                    "SELECT payload_sha256 FROM main.v8_preview_request_journal "
+                    "WHERE scope='credit_payment' AND request_id=?",
+                    (request_id,)
+                ).fetchone()
+                if existing is not None:
+                    legacy_payload = dict(payload)
+                    legacy_payload.pop("charge_ref")
+                    if existing["payload_sha256"] == request_fingerprint(legacy_payload):
+                        payload = legacy_payload
             fingerprint = request_fingerprint(payload)
             ref = "CRP-" + sha256(
                 (request_id + ":" + fingerprint).encode("utf-8")
@@ -761,9 +775,16 @@ class PreviewSandboxCreditLedger:
             charges_by_ref = {row["reference"]:row for row in charges}
             payments_by_ref = {row["reference"]:row for row in payments}
             allocated_payment_refs = {row["repayment_ref"] for row in allocations}
+            # Audit both the allocation's claimed customer and the actual
+            # repayment owner: a forged customer_id must not hide mixed modes.
             customers_with_allocations = {
                 row["customer_id"] for row in allocations
             }
+            customers_with_allocations.update(
+                payments_by_ref[row["repayment_ref"]]["customer_id"]
+                for row in allocations
+                if row["repayment_ref"] in payments_by_ref
+            )
             for payment in payments:
                 if (payment["customer_id"] in customers_with_allocations
                         and payment["reference"] not in allocated_payment_refs):

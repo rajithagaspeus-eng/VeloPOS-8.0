@@ -243,7 +243,15 @@ class DurablePreviewSaleJournal:
     def _connect(self):
         if self._file_identity is not None and self._identity() != self._file_identity:
             raise PermissionError("Preview database file replaced")
-        conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
+        # Once initialized, open read-write without CREATE. A deleted or
+        # swapped journal must never be silently recreated during a race.
+        if self._file_identity is None:
+            conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
+        else:
+            conn = sqlite3.connect(
+                Path(self.path).absolute().as_uri() + "?mode=rw",
+                uri=True, timeout=10, isolation_level=None,
+            )
         try:
             if self._file_identity is not None and self._identity() != self._file_identity:
                 raise PermissionError("Preview database changed during open")

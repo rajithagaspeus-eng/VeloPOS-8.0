@@ -183,6 +183,57 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_symlinked_sqlite_sidecars_refused_without_touching_target(self):
+        for suffix in ("-journal", "-wal", "-shm"):
+            with self.subTest(suffix=suffix):
+                target = Path(tempfile.gettempdir()) / (
+                    "v8-sidecar-target-" + uuid4().hex
+                )
+                target.write_bytes(b"do-not-modify")
+                sidecar = Path(self.path + suffix)
+                try:
+                    try:
+                        sidecar.symlink_to(target)
+                    except (OSError, NotImplementedError):
+                        self.skipTest("Symlink creation unavailable")
+                    with self.assertRaisesRegex(PermissionError, "sidecar"):
+                        self.journal.inspect(
+                            request_id="durable-request-0001", lines=self.lines
+                        )
+                    self.assertEqual(target.read_bytes(), b"do-not-modify")
+                finally:
+                    sidecar.unlink(missing_ok=True)
+                    target.unlink(missing_ok=True)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
+                1,
+            )
+
+    def test_hardlinked_rollback_sidecar_refused(self):
+        target = Path(tempfile.gettempdir()) / (
+            "v8-sidecar-target-" + uuid4().hex
+        )
+        sidecar = Path(self.path + "-journal")
+        target.write_bytes(b"do-not-modify")
+        try:
+            try:
+                os.link(target, sidecar)
+            except OSError:
+                self.skipTest("Hard link creation unavailable")
+            with self.assertRaisesRegex(PermissionError, "sidecar"):
+                self.journal.inspect(
+                    request_id="durable-request-0001", lines=self.lines
+                )
+            self.assertEqual(target.read_bytes(), b"do-not-modify")
+        finally:
+            sidecar.unlink(missing_ok=True)
+            target.unlink(missing_ok=True)
+
     def test_deleted_pinned_database_is_never_recreated(self):
         self.journal.inspect(
             request_id="durable-request-0001", lines=self.lines

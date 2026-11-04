@@ -81,3 +81,31 @@ or authorization to post financial transactions. Gate A remains BLOCKED.
 Next: design signed entitlement policy with a trusted clock/server-backed
 revocation model, audit transaction boundary threats and atomic replay/
 stock batch consistency. No production transactions until every gate passes.
+
+## Gate D signed activation freshness diagnostic — November 4, 2026
+
+Added `velopos_qt/activation_status.py`: a read-only, isolated-preview
+Ed25519-signed activation status inspector with explicit machine/license
+binding, revoked/inactive rejection, canonical UTC timestamp parsing, bounded
+offline freshness (0–168 hours), future timestamp and clock rollback checks.
+`tests/test_v8_phase2_activation_status.py` exercises ephemeral signed
+server-status envelopes, forged signatures, expired status, revocation,
+binding mismatches, future timestamps, rollback and production path refusal.
+It is not connected to any transaction gateway, local license installation,
+remote activation API or V7 code, and `can_execute` is always False.
+
+**Security limitation:** `now` and `last_seen_utc` are caller-provided
+diagnostic observations, NOT trustworthy clock attestations; an attacker
+controlling local time/storage can bypass naive offline expiry logic. No
+server activation service, authenticated server clock, tamper-resistant
+continuity, signed key rotation, revocation cache or commercial grace
+enforcement is implemented. Gate D and Gate A remain blocked.
+
+**Next batch:** integrate independently signed entitlement and activation
+status as a single fail-closed read-only policy with transaction-scoped
+session/shift checks, then test tampered status and rollback against
+disposable DB. Never turn any diagnostic into permission to post.
+
+**CI:** New test commit `aaa7d56607c72dd9995f811d531a19346f0193f5`
+awaits an exact-head Windows combined run; previous completed success
+`974734c724b7cc9d2646bc08eea4e5f100690132` does not verify this code.

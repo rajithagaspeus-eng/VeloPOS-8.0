@@ -64,7 +64,7 @@ class DurablePreviewSaleJournal:
     def _initialize(self, conn):
             # Refuse pre-existing triggers/views before any initialization SQL.
             preexisting = conn.execute(
-                "SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+                "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"
             ).fetchall()
             allowed = {
                 ("table", "preview_rehearsals"),
@@ -107,7 +107,7 @@ class DurablePreviewSaleJournal:
             # An existing preview file is untrusted: refuse extra triggers,
             # tables or views instead of executing attacker-supplied SQL.
             objects = conn.execute(
-                "SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+                "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"
             ).fetchall()
             if set(objects) != {
                 ("table", "preview_rehearsals"),
@@ -230,7 +230,7 @@ class DurablePreviewSaleJournal:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 objects = conn.execute(
-                    "SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+                    "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"
                 ).fetchall()
                 if set(objects) != {
                     ("table", "preview_rehearsals"),

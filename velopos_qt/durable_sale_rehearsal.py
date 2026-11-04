@@ -65,6 +65,14 @@ class DurablePreviewSaleJournal:
             }
             if not set(preexisting).issubset(allowed):
                 raise PermissionError("Unexpected preview database objects")
+            expected_existing = {
+                "preview_rehearsals": ("request_id", "fingerprint", "reference"),
+                "preview_sequence": ("singleton", "next_number"),
+            }
+            for kind, name in preexisting:
+                columns = conn.execute(f"PRAGMA table_info({name})").fetchall()
+                if tuple(column[1] for column in columns) != expected_existing[name]:
+                    raise PermissionError("Unexpected preview database schema")
             conn.execute("""CREATE TABLE IF NOT EXISTS preview_rehearsals (
                 request_id TEXT PRIMARY KEY,
                 fingerprint TEXT NOT NULL,

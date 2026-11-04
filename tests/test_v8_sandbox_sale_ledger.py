@@ -1174,6 +1174,22 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_malformed_stock_movement_reference(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET reference='SBX-invalid' "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_stock_move_reference" in audited.reasons, audited
+            assert "orphan_stock_move" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_malformed_stock_and_move_barcodes(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

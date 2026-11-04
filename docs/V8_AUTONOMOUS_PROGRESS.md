@@ -23,10 +23,11 @@ This records verifiable implementation evidence; update after each major batch.
   call trial servers, or authorize a sale. Ephemeral test-only key cases
   cover tampering, machine mismatch, expiry, unsupported action and V7
   payload compatibility. No real licensing integration was enabled.
-- Last **verified** full Windows CI milestone before this batch:
-  **167 tests PASS**, run 41747090462, SHA
-  `d5d2ba33198b526725c9a3367afc70f5506d65ce`.
-  Update with the latest CI result only after it completes.
+- Last **verified** full Windows CI milestone for this core batch:
+  **169 tests PASS**, run 41749040073, SHA
+  `03a0a71ed541d469783c81fd747507a65f846d01`.
+  The later documentation-only checkpoint commit must still receive its own
+  CI result; never imply the prior test run covers unverified code.
 
 ## Blocking acceptance gates
 

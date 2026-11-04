@@ -39,6 +39,8 @@ jobs:
         run: python -m pip check
       - name: Run dependency-free SQLite crash recovery contract
         run: python -m unittest -v tests.test_v8_sqlite_crash_contract
+      - name: Run dependency-free SQLite transaction and WAL contract
+        run: python -m unittest -v tests.test_v8_sqlite_transaction_contract
       - name: Verify commercial release gates remain closed
         run: |
           python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment tests.test_v8_sale_request_service tests.test_v8_sale_rehearsal_journal tests.test_v8_durable_sale_rehearsal

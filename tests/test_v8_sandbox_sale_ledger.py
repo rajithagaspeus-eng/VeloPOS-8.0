@@ -501,6 +501,31 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert checked.can_checkout is False
         """)
 
+    def test_replay_rejects_renumbered_tender_lines_with_same_totals(self):
+        self.isolated("""
+            allocation = [
+                {"method":"Card","amount":"100","reference":"CARD-TEST-01"},
+                {"method":"Cash","amount":"150"},
+            ]
+            first = sandbox.simulate_commit(**dict(args,tenders=allocation))
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_tenders SET line_no=99 "
+                    "WHERE reference=? AND line_no=1", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(args,tenders=allocation))
+            except RuntimeError as exc:
+                assert "tender mismatch" in str(exc).lower(), exc
+            else:
+                raise AssertionError("Renumbered tender replay was accepted")
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM main.sales").fetchone()[0] == 0
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_replay_refuses_missing_or_changed_tender_rows(self):
         self.isolated("""
             first = sandbox.simulate_commit(**dict(

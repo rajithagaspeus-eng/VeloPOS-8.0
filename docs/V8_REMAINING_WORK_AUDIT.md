@@ -151,3 +151,17 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   repository Actions permissions and runner eligibility in GitHub UI.
 - These checks protect disposable test rehearsals only; no production
   transaction authorization is provided.
+
+## Disposable database file-identity defense (2026-11-05)
+
+- Pin the temporary rehearsal SQLite file's device/inode after initialization;
+  reject subsequent path substitution, symlinks, hard links and missing files.
+- Verify the main SQLite database path on reopened connections.
+- Added two regressions for replacement database and symlink substitution.
+- GitHub Actions Windows run `41923359470` was retried (attempt 2).
+  The latest observed job metadata had no assigned runner and zero steps.
+  Repository Actions permissions and runner endpoints are inaccessible through
+  the current GitHub connector, so runner root cause remains **unconfirmed**.
+- No claim is made that the newly added tests executed or passed.
+- Inode checks are defense-in-depth, not a guarantee against every filesystem
+  race; production database posting remains disabled.

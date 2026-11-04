@@ -286,13 +286,21 @@ class PreviewSandboxSaleLedger:
                 "FROM main.v8_preview_sandbox_sales ORDER BY reference"
             ).fetchall()
             all_lines = connection.execute(
-                "SELECT reference,line_cents FROM main.v8_preview_sandbox_sale_lines"
+                "SELECT reference,barcode,quantity,line_cents "
+                "FROM main.v8_preview_sandbox_sale_lines"
             ).fetchall()
             expected_lines = {}
-            for line in all_lines:
-                expected_lines[line["reference"]] = (
-                    expected_lines.get(line["reference"], 0) + line["line_cents"]
-                )
+            line_quantities = {}
+            with localcontext(_CONTEXT):
+                for line in all_lines:
+                    expected_lines[line["reference"]] = (
+                        expected_lines.get(line["reference"], 0) + line["line_cents"]
+                    )
+                    key = (line["reference"], line["barcode"])
+                    line_quantities[key] = (
+                        line_quantities.get(key, Decimal("0"))
+                        + Decimal(line["quantity"])
+                    )
             invoice_refs = {sale["reference"] for sale in invoices}
             if set(expected_lines) - invoice_refs:
                 reasons.append("orphan_invoice_line")
@@ -318,10 +326,17 @@ class PreviewSandboxSaleLedger:
                 "FROM main.v8_preview_sandbox_stock_moves ORDER BY rowid"
             ).fetchall()
             moves_by_barcode = {}
+            movement_keys = set()
             for move in moves:
                 moves_by_barcode.setdefault(move["barcode"], []).append(move)
+                key = (move["reference"], move["barcode"])
+                movement_keys.add(key)
                 if move["reference"] not in invoice_refs:
                     reasons.append("orphan_stock_move")
+                if Decimal(move["sold_qty"]) != line_quantities.get(key):
+                    reasons.append("stock_line_quantity_mismatch")
+            if set(line_quantities) != movement_keys:
+                reasons.append("stock_line_coverage_mismatch")
             listed = {row["barcode"] for row in stock_rows}
             if set(moves_by_barcode) - listed:
                 reasons.append("untracked_stock_move")

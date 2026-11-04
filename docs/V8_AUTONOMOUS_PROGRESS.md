@@ -2356,3 +2356,34 @@ allocation to original tender and real COGS/tax/batch policy
 reconciliation on copied V8 data. Do not enable real financial
 posting until independently accepted Gates A/B and current-code
 Windows CI. Avoid routine owner PowerShell burden.
+
+
+## Phase 2 sandbox stock movement cardinality hardening — 2026-11-04
+
+**Code:** `c437b020c788649d250a79d04e924a4321ceed67` updates
+`PreviewSandboxAccounting.closeout()` to explicitly reject duplicate
+`(sale reference, barcode)` stock movement records with
+`duplicate_sale_stock_movement`. Previously a set-based coverage check
+discarded duplicate identities, potentially hiding corrupted extra movement
+rows. The normal sandbox writer enforces a composite primary key, but the
+independent auditor must still fail closed if a copied/corrupted schema loses
+that constraint.
+
+**Regression:** `30b02bf66d3b2cfd6707f088d17a3c313d1071b4`
+adds a disposable-db subprocess test which creates a legitimate sale,
+rebuilds only its test stock-movement table without the uniqueness constraint,
+inserts a duplicate movement, and requires unbalanced close-out and
+`can_checkout=False`.
+
+**Verification:** Source and regression were committed on `develop-v8`;
+no local Python or exact-head hosted Windows CI pass has been established
+for these commits. The historical 296-test local Windows PASS belongs to
+an earlier SHA, not this batch. No financial production code or V7 data
+was changed. **0/5 commercial release gates accepted.**
+
+**Next:** Confirm latest exact-head hosted Windows CI; inspect job logs and
+repair regressions. Then audit stock movement cardinality and journal
+cross-links in other sandbox reconciliation modules, followed by
+customer-scoped credit/repayment modeling and true COGS/tax/batch
+reconciliation on disposable data. Gates A/B block commercial posting;
+C/D/E remain outstanding.

@@ -6,6 +6,7 @@ back together unless a future authenticated service holds an independent,
 monotonic per-license state. The local clock is NOT a trusted time source.
 No financial permission, production licensing or persistence is implemented.
 """
+import binascii
 import hashlib
 import json
 from dataclasses import dataclass
@@ -95,7 +96,8 @@ class PreviewSignedActivationChainInspector:
         for label, token in (("previous", previous_status), ("current", current_status)):
             try:
                 verified[label] = self._verify(token)
-            except (ValueError, TypeError, UnicodeError, InvalidSignature):
+            except (ValueError, TypeError, UnicodeError, binascii.Error,
+                    InvalidSignature):
                 reasons.append(label + "_status_signature_invalid")
 
         if len(verified) != 2:

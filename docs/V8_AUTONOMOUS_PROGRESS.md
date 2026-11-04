@@ -1705,6 +1705,9 @@ reproduced and verified without use of customer data.
   `Inexact` trapped) and assert identical receipt cents,
   exact stock quantities and journal fingerprints.
   **Three new unittest methods** added across preexisting files.
+- `4dbfa74e4f37ee212603af3459535ab6d0a7a138`: post-review
+  fix adds the explicit sale-planner import inside the disposable
+  integration test subprocess, avoiding a missing-name test failure.
 
 **Verification limitations:** An independent local Python smoke
 using the same built-in Decimal fixed-point arithmetic passed for

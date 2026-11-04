@@ -42,7 +42,9 @@ class PreviewActivationStatusInspector:
         _guard(self.database)
         if not isinstance(machine_id, str) or not 1 <= len(machine_id) <= 120:
             raise ValueError("Invalid machine identity")
-        if not isinstance(license_id, str) or not 1 <= len(license_id) <= 120:
+        if (not isinstance(license_id, str) or not 1 <= len(license_id) <= 120
+                or any(not (c.isascii() and (c.isalnum() or c in "-_"))
+                       for c in license_id)):
             raise ValueError("Invalid license identity")
         if type(max_offline_hours) is not int or not 0 <= max_offline_hours <= 168:
             raise ValueError("Invalid offline limit")
@@ -71,9 +73,14 @@ class PreviewActivationStatusInspector:
         except (ValueError, TypeError, UnicodeError, InvalidSignature):
             reasons.append("activation_status_signature_invalid")
         if valid:
-            if data.get("machine_id") != machine_id or data.get("license_id") != license_id:
+            # Signed observations must use explicit textual identities. Python
+            # treats True == 1; never let JSON booleans stand in for IDs.
+            if (type(data.get("machine_id")) is not str
+                    or type(data.get("license_id")) is not str
+                    or data.get("machine_id") != machine_id
+                    or data.get("license_id") != license_id):
                 reasons.append("activation_binding_mismatch")
-            if data.get("status") != "active":
+            if type(data.get("status")) is not str or data.get("status") != "active":
                 reasons.append("activation_not_active")
             timestamp = data.get("observed_utc")
             try:

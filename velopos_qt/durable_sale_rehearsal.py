@@ -73,6 +73,17 @@ class DurablePreviewSaleJournal:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
+                # Verify the complete disposable journal before returning any
+                # replay, including entries unrelated to the current request.
+                rows = conn.execute(
+                    "SELECT fingerprint,reference FROM preview_rehearsals"
+                ).fetchall()
+                for stored_fingerprint, stored_reference in rows:
+                    if (type(stored_fingerprint) is not str or
+                            _DIGEST.fullmatch(stored_fingerprint) is None or
+                            type(stored_reference) is not str or
+                            _REFERENCE.fullmatch(stored_reference) is None):
+                        raise PermissionError("Corrupt preview replay record")
                 existing = conn.execute(
                     "SELECT fingerprint,reference FROM preview_rehearsals "
                     "WHERE request_id=?", (request_id,)

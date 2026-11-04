@@ -230,10 +230,20 @@ class PreviewLicenseRecoveryTests(unittest.TestCase):
                 c.close()
             with database.db() as c:
                 c.execute("BEGIN IMMEDIATE")
-                assert c.execute("SELECT COUNT(*) FROM "
-                    "v8_preview_server_license_state").fetchone()[0]==0
-                assert c.execute("SELECT COUNT(*) FROM "
-                    "v8_preview_activation_commands").fetchone()[0]==0
+                # CREATE TABLE was inside the rolled-back transaction too.
+                # SQLite correctly drops the disposable fixture schema.
+                for table in (
+                    "v8_preview_server_license_state",
+                    "v8_preview_activation_commands",
+                ):
+                    exists=c.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' "
+                        "AND name=?", (table,)
+                    ).fetchone()
+                    if exists:
+                        assert c.execute(
+                            f"SELECT COUNT(*) FROM {table}"
+                        ).fetchone()[0]==0
             # New independent fixture: revocation permanently prevents
             # renewal and recovery, including after commercial expiry.
             c=database.connect()

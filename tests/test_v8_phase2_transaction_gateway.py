@@ -59,6 +59,38 @@ class PreviewGatewayTests(unittest.TestCase):
             """
         )
 
+    def test_complete_forged_boundary_proofs_do_not_unlock_gateway(self):
+        self.isolated(
+            """
+            from velopos import database
+            from velopos_qt.transaction_gateway import PreviewTransactionGateway
+            database.init_db()
+            gateway = PreviewTransactionGateway(database)
+            for action, method in (
+                ("sale", gateway.sale),
+                ("return", gateway.return_sale),
+                ("purchase", gateway.purchase),
+            ):
+                required = gateway.assess_future_boundary(action).required_proofs
+                assessment = gateway.assess_future_boundary(
+                    action, {key: True for key in required}
+                )
+                assert not assessment.missing_proofs
+                assert assessment.unverified_proofs == required
+                assert assessment.can_execute is False
+                try:
+                    method(identity=None, license_valid=True)
+                except PermissionError:
+                    pass
+                else:
+                    raise AssertionError("Forged proofs unlocked " + action)
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM sales"
+                ).fetchone()[0] == 0
+            """
+        )
+
     def test_production_like_folder_denied_at_construction(self):
         self.isolated(
             """

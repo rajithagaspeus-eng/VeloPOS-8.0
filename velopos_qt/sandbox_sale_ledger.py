@@ -474,8 +474,13 @@ class PreviewSandboxSaleLedger:
                         reasons.append("invalid_invoice_line_barcode")
                     key = (line["reference"], barcode)
                     try:
-                        qty = Decimal(line["quantity"])
-                        if not qty.is_finite() or qty <= 0:
+                        raw_qty = line["quantity"]
+                        if type(raw_qty) is not str or len(raw_qty) > 128:
+                            raise ValueError("invalid quantity encoding")
+                        qty = Decimal(raw_qty)
+                        if (not qty.is_finite() or qty <= 0
+                                or qty > Decimal("1000000")
+                                or qty.adjusted() < -18):
                             raise ValueError("invalid quantity")
                     except (InvalidOperation, TypeError, ValueError):
                         reasons.append("invalid_invoice_line_quantity")
@@ -487,12 +492,13 @@ class PreviewSandboxSaleLedger:
                     # price. Equal-total price/amount substitutions must not
                     # pass an independent invoice subtotal audit.
                     try:
-                        price = Decimal(line["price"])
+                        raw_price = line["price"]
+                        if type(raw_price) is not str or len(raw_price) > 128:
+                            raise ValueError("Invalid sandbox price encoding")
+                        price = Decimal(raw_price)
                         if (not price.is_finite() or price < 0
                                 or price > Decimal("100000000")
-                                or qty > Decimal("1000000")
-                                or len(line["price"]) > 128
-                                or len(line["quantity"]) > 128):
+                                or (price != 0 and price.adjusted() < -18)):
                             raise ValueError("Invalid sandbox line price/quantity")
                         with localcontext(Context(prec=512, rounding=ROUND_HALF_UP)):
                             expected_cents = int(

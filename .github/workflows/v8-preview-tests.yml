@@ -36,4 +36,18 @@ jobs:
         run: python -m compileall -q velopos_qt tests
       - name: Combined V8 test suite (no skips)
         shell: pwsh
-        run: python run_v8_checks.py
+        run: |
+          python run_v8_checks.py --verbose 2>&1 | Tee-Object -FilePath v8-preview-test-results.txt
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) {
+            Write-Error "V8 preview regression suite failed with exit code $testExit"
+            exit $testExit
+          }
+      - name: Preserve V8 test output for failure diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-preview-windows-test-output
+          path: v8-preview-test-results.txt
+          if-no-files-found: warn
+          retention-days: 14

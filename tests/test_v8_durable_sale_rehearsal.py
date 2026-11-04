@@ -609,6 +609,39 @@ os._exit(19)
         with self.assertRaisesRegex(PermissionError, "table DDL"):
             DurablePreviewSaleJournal(self.path)
 
+    def test_rejected_schema_tamper_does_not_consume_reference(self):
+        first = self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        self.assertEqual(first.reference, "REHEARSAL-00000001")
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "CREATE INDEX tamper_idx ON preview_rehearsals(fingerprint)"
+            )
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0002", lines=self.lines
+            )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
+                2,
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                1,
+            )
+            conn.execute("DROP INDEX tamper_idx")
+        recovered = DurablePreviewSaleJournal(self.path)
+        replay = recovered.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        self.assertTrue(replay.replayed)
+        second = recovered.inspect(
+            request_id="durable-request-0002", lines=self.lines
+        )
+        self.assertEqual(second.reference, "REHEARSAL-00000002")
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

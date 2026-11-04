@@ -584,3 +584,45 @@ UNVERIFIED at this moment. Run the Windows preview suite on the exact
 new PR SHA and check mergeability before merging. Post-merge
 `develop-v8` push CI must also pass. Commercial checkout remains
 permanently disabled in this preview code.
+
+
+## Bounded signed offline grace preview — November 4, 2026
+
+**Baseline:** `develop-v8` SHA
+`e33226abbc42c4a445abdc781eaeaeb68a0ddb26`, whose exact-head
+Windows push Actions [41810352575](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41810352575)
+passed **187/187** tests and module compileall checks.
+
+New feature branch: `feature/v8-offline-grace-signed-grants`.
+Added `velopos_qt/offline_grace_reference.py`, an isolated test-only
+server-signed bounded offline grant for the latest committed active
+activation receipt. Grant binds license, machine, branch, receipt digest
+and sequence, is capped at 24 hours and never exceeds license expiry.
+An offline read-only inspector rejects forged or mismatched signatures,
+expired or oversized grants, invalid chronology and observed clock rollback.
+Test-only issuer checks server revocation and superseded receipts.
+
+New adversarial tests:
+`tests/test_v8_phase2_offline_grace.py` with ephemeral signing keys
+and disposable VeloPOS8PreviewData. Documentation:
+`docs/V8_OFFLINE_GRACE_RECOVERY_CONTRACT.md`.
+
+**Critical security limit:** customer-controlled local time and stored
+receipts cannot be a trusted anti-rollback clock or watermark; an
+old legitimate pair can look mathematically valid after server revocation.
+`window_consistent=True` does **not** mean permission to charge,
+and all preview decisions have `can_execute=False`; both require_checkout
+methods always raise. No offline POS sales, commercial renewal/trial,
+real hosted server, device attestation or network API was enabled.
+All commercial gates A/B/C/D/E remain blocked.
+
+**Verification:** this new feature head has NOT YET been verified
+by Windows CI at the moment of writing. Run the full no-skips
+`python run_v8_checks.py` suite and Python compileall on the exact
+PR head; fix any failures. Then separately verify exact post-merge
+`develop-v8` Windows push CI.
+
+**Next:** implement a separate authenticated reconnect-and-renewal
+backend contract with tenant-aware key custody, server-side revocation,
+device transfer recovery and commercial service-bound authorization.
+Keep zero mandatory paid costs for offline POS and preserve main/V7.

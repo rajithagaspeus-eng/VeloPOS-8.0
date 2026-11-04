@@ -181,6 +181,36 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             DurablePreviewSaleJournal(self.path)
 
+    def test_missing_sequence_is_not_silently_recreated(self):
+        self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DELETE FROM preview_sequence")
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_sequence").fetchone()[0],
+                0,
+            )
+
+    def test_failed_initialization_rolls_back_partial_schema(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_sequence")
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute("CREATE TABLE preview_rehearsals (unexpected INTEGER)")
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM sqlite_master "
+                    "WHERE name='preview_sequence'"
+                ).fetchone()[0],
+                0,
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

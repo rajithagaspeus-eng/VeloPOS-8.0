@@ -46,6 +46,16 @@ class DurablePreviewSaleJournal:
         self.path = str(candidate)
         self.max_requests = max_requests
         with self._connect() as conn:
+            # Refuse pre-existing triggers/views before any initialization SQL.
+            preexisting = conn.execute(
+                "SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+            allowed = {
+                ("table", "preview_rehearsals"),
+                ("table", "preview_sequence"),
+            }
+            if not set(preexisting).issubset(allowed):
+                raise PermissionError("Unexpected preview database objects")
             conn.execute("""CREATE TABLE IF NOT EXISTS preview_rehearsals (
                 request_id TEXT PRIMARY KEY,
                 fingerprint TEXT NOT NULL,

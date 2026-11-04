@@ -256,6 +256,27 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert observed.can_checkout is False
         """)
 
+    def test_oversized_stream_is_rejected_before_any_journal_change(self):
+        self.isolated("""
+            with database.db() as c:
+                before = snapshot(c)
+            yielded = []
+            def hostile_draft():
+                for i in range(101):
+                    yielded.append(i)
+                    yield {"barcode": "RICE", "qty": 1, "price": 45}
+                raise AssertionError("Unbounded iterator consumption")
+            try:
+                recovery.inspect(**dict(args, lines=hostile_draft()))
+            except ValueError as exc:
+                assert "1-100 lines" in str(exc), exc
+            else:
+                raise AssertionError("Oversized stream was accepted")
+            assert len(yielded) == 101, len(yielded)
+            with database.db() as c:
+                assert snapshot(c) == before
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

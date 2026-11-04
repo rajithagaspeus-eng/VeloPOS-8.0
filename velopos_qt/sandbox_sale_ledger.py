@@ -553,7 +553,9 @@ class PreviewSandboxSaleLedger:
             ).fetchone()
             if pending is not None:
                 reasons.append("pending_sale_journal_requires_reconciliation")
-            if set(expected_lines) - invoice_refs:
+            # An orphan line must remain visible even when its amount was
+            # rejected and therefore excluded from expected_lines.
+            if set(line_numbers) - invoice_refs:
                 reasons.append("orphan_invoice_line")
             for ref, numbers in line_numbers.items():
                 if any(type(number) is not int or number <= 0 for number in numbers):

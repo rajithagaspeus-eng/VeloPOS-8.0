@@ -544,7 +544,7 @@ class PreviewSandboxSaleLedger:
                                     "WHERE reference=?", (move_ref,)
                                 ).fetchone()
                                 all_invoice_lines = connection.execute(
-                                    "SELECT line_cents FROM "
+                                    "SELECT quantity,price,line_cents FROM "
                                     "main.v8_preview_sandbox_sale_lines "
                                     "WHERE reference=?", (move_ref,)
                                 ).fetchall()
@@ -558,6 +558,40 @@ class PreviewSandboxSaleLedger:
                                                for line in all_invoice_lines)
                                         != invoice_total["subtotal_cents"]):
                                     raise ValueError("historical invoice subtotal mismatch")
+                                # Validate every line, including products other
+                                # than the barcode currently being sold. A
+                                # forged line and forged subtotal can otherwise
+                                # cancel each other out.
+                                for historical_line in all_invoice_lines:
+                                    raw_qty = historical_line["quantity"]
+                                    raw_price = historical_line["price"]
+                                    if (type(raw_qty) is not str
+                                            or type(raw_price) is not str
+                                            or len(raw_qty) > 128
+                                            or len(raw_price) > 128):
+                                        raise ValueError("invalid historical invoice line")
+                                    historical_qty = Decimal(raw_qty)
+                                    historical_price = Decimal(raw_price)
+                                    if (not historical_qty.is_finite()
+                                            or historical_qty <= 0
+                                            or historical_qty > Decimal("1000000")
+                                            or historical_qty.adjusted() < -18
+                                            or raw_qty != canonical_decimal(historical_qty)
+                                            or not historical_price.is_finite()
+                                            or historical_price < 0
+                                            or historical_price > Decimal("100000000")
+                                            or raw_price != canonical_decimal(historical_price)):
+                                        raise ValueError("invalid historical invoice line")
+                                    with localcontext(Context(
+                                        prec=512, rounding=ROUND_HALF_UP
+                                    )):
+                                        calculated_cents = int(
+                                            (historical_qty * historical_price).quantize(
+                                                Decimal("0.01")
+                                            ) * 100
+                                        )
+                                    if historical_line["line_cents"] != calculated_cents:
+                                        raise ValueError("historical invoice line mismatch")
                                 raw_move = (
                                     move["before_qty"], move["sold_qty"],
                                     move["after_qty"],

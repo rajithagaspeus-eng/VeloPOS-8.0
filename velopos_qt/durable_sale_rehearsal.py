@@ -73,6 +73,9 @@ class DurablePreviewSaleJournal:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
+                integrity = conn.execute("PRAGMA quick_check").fetchall()
+                if integrity != [("ok",)]:
+                    raise PermissionError("Preview SQLite integrity check failed")
                 # Verify the complete disposable journal before returning any
                 # replay, including entries unrelated to the current request.
                 rows = conn.execute(

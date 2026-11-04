@@ -284,7 +284,6 @@ class PreviewOfflineGraceTests(unittest.TestCase):
             else:
                 raise AssertionError("Production storage was accepted")
         """,folder="VeloPOS")
-        """)
 
 
 if __name__ == "__main__":

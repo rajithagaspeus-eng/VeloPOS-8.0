@@ -456,11 +456,25 @@ class PreviewSandboxSaleLedger:
                                                for char in move_ref[4:])):
                                     raise ValueError("invalid movement reference")
                                 invoice = connection.execute(
-                                    "SELECT 1 FROM main.v8_preview_sandbox_sales "
+                                    "SELECT request_id FROM "
+                                    "main.v8_preview_sandbox_sales "
                                     "WHERE reference=?", (move_ref,)
                                 ).fetchone()
                                 if invoice is None:
                                     raise ValueError("orphan stock movement")
+                                # Stock must never be extended from an invoice
+                                # whose exactly-once journal was deleted or
+                                # redirected to a different result reference.
+                                journal_row = connection.execute(
+                                    "SELECT result_ref,status FROM "
+                                    "main.v8_preview_request_journal "
+                                    "WHERE scope='sale' AND request_id=?",
+                                    (invoice["request_id"],)
+                                ).fetchone()
+                                if (journal_row is None
+                                        or journal_row["status"] != "COMPLETED"
+                                        or journal_row["result_ref"] != move_ref):
+                                    raise ValueError("invoice journal mismatch")
                                 # A forged but numerically balanced stock move
                                 # must match the actual persisted invoice lines.
                                 invoice_lines = connection.execute(

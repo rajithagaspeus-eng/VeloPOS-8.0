@@ -1002,6 +1002,27 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 assert "invalid_invoice_line_quantity" in result.reasons, result
         """)
 
+    def test_replay_rejects_hostile_stock_chain_decimal(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET before_qty='1E+999999999' "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "stock" in str(exc).lower(), exc
+            else:
+                raise AssertionError("Corrupted sandbox replay must be rejected")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_audit_rejects_extreme_stock_balance_and_chain_exponents(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

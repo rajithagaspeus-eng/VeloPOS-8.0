@@ -75,3 +75,16 @@ heading/notice behavior and the still-unavailable transaction gateway.
 This is an incremental interface refinement; full premium polish,
 small-screen responsiveness, high-DPI Windows rendering, accessibility and
 manual real-screen review remain separate acceptance gates.
+
+## Customer and supplier directory polish — November 2026
+
+Customer and supplier preview pages now share consistent premium search
+surfaces, larger hit areas, clearer titles and bounded, readable directory
+tables in dark/light themes. The existing search behavior, translated field
+labels and customer/supplier edit permissions are unchanged. New offscreen
+UI regressions check both record types, translations in all three preview
+languages and read-only editor hiding when no authorized editor exists.
+
+**No** money, contacts from live shops or cloud data are imported. The
+preview remains isolated, and full Windows visual QA, font shaping and
+responsive design validation remain future acceptance milestones.

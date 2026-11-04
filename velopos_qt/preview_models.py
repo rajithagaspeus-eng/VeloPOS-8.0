@@ -39,7 +39,7 @@ class InventoryReader:
                 "SELECT barcode, name_en, name_local, stock_qty, selling_price "
                 "FROM products WHERE barcode LIKE ? ESCAPE '\\' "
                 "OR name_en LIKE ? ESCAPE '\\' OR name_local LIKE ? ESCAPE '\\' "
-                "ORDER BY CASE WHEN barcode=? THEN 0 ELSE 1 END, name_en, barcode LIMIT ?",
+                "ORDER BY CASE WHEN barcode=? COLLATE NOCASE THEN 0 ELSE 1 END, name_en, barcode LIMIT ?",
                 (search, search, search, term, limit),
             ).fetchall()
         return [dict(row) for row in rows]

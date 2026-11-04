@@ -269,3 +269,35 @@ remains False; no V7 service or production database touched.
 with push events; repair failures. Then design transaction-scoped branch
 authorization and trusted persistent activation continuity, with adversarial
 tests. Gates A/B/C/D/E remain blocked.
+
+
+## Signed branch scope preview diagnostic — November 4, 2026
+
+Added an optional `expected_branch_id` to the signed V8 entitlement
+inspector and propagated it through combined authorization. When supplied,
+only a canonical signed V8 `branch_id` matching that expected branch can
+produce `entitled=True`; missing, malformed, legacy-version and cross-branch
+claims fail closed. No caller-provided branch identity is itself trusted:
+the current implementation does NOT resolve branch membership from a
+persisted canonical branch registry or authenticate the requested branch.
+It remains a read-only preview diagnostic; `can_execute=False` regardless
+of branch match. No production transaction or V7 service changed.
+
+Code commits: `2fbc1fb9dd50ada7a0613927e0e2873f2471ec6c`,
+`1c73f4817750d8e3453cb761a85937d498407718`,
+`2c0bf33ecb4c8278c3358cdedaca0bb956bf52c5`.
+Regression: `3fbab8c033fe74e0b231ed363055c09e5c73c0cc`,
+`tests/test_v8_phase2_branch_scope.py` with valid, mismatched, absent,
+malformed, legacy and forged signed branch claims and no financial writes.
+
+**Verification:** new tests not executed locally. Commit status lookup
+returned no statuses; PR-filtered workflow lookup returned no runs.
+Neither establishes push-triggered Windows CI status, so exact-head CI
+is **UNVERIFIED**, not PASS. No verified new test count.
+
+**Next:** obtain push-event GitHub Actions workflow listing for exact head
+and fix failures. Add a transaction-scoped canonical branch registry and
+persisted user/shift-to-branch binding (isolated preview only), with
+cross-branch adversarial tests. Then trusted activation continuity and
+commercial service-bound policy. Gates A/B/C/D/E remain blocked; never
+enable financial posting before acceptance.

@@ -420,6 +420,23 @@ class PreviewSandboxSaleLedger:
                         current = opening
                         if not existing_moves:
                             raise PermissionError("Sandbox stock history missing")
+                        # Each invoice that sold this barcode must have one
+                        # corresponding stock move. A remaining chain can be
+                        # internally consistent even after a move is deleted.
+                        invoice_refs_for_barcode = {
+                            record["reference"] for record in connection.execute(
+                                "SELECT DISTINCT reference FROM "
+                                "main.v8_preview_sandbox_sale_lines "
+                                "WHERE barcode=?", (barcode,)
+                            ).fetchall()
+                        }
+                        move_refs_for_barcode = {
+                            move["reference"] for move in existing_moves
+                        }
+                        if invoice_refs_for_barcode != move_refs_for_barcode:
+                            raise PermissionError(
+                                "Sandbox stock invoice movement coverage mismatch"
+                            )
                         try:
                             for move in existing_moves:
                                 # A balanced chain is not sufficient if its

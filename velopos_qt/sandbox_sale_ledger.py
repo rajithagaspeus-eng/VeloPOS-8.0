@@ -568,7 +568,9 @@ class PreviewSandboxSaleLedger:
                                     if (type(historical_line["line_no"]) is not int
                                             or historical_line["line_no"] != expected_line_no
                                             or type(historical_line["barcode"]) is not str
-                                            or not historical_line["barcode"]):
+                                            or not 1 <= len(historical_line["barcode"]) <= 80
+                                            or historical_line["barcode"] != historical_line["barcode"].strip()
+                                            or not historical_line["barcode"].isprintable()):
                                         raise ValueError("historical invoice line identity mismatch")
                                     raw_qty = historical_line["quantity"]
                                     raw_price = historical_line["price"]

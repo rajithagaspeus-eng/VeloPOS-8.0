@@ -1462,3 +1462,69 @@ Then implement reviewed **service-owned** persisted-role, canonical
 branch/shift and trusted signed-license authorization together with
 durable idempotent write transaction and crash recovery in disposable
 V8 storage. Do not bypass Gate A/B.
+
+
+## Phase 1 fail-closed journal privacy and strict request-id agreement — 2026-11-04
+
+**Branch and gate review:** develop-v8 ONLY. Reviewed five-phase plan,
+commercial release gates, latest progress, atomic sale recovery,
+service and branch authorization, signed entitlements, idempotency journal,
+checkout preflight and disposable integrated regressions. V8 remains
+TEST DATA ONLY; signed preview diagnostics do NOT grant commerce.
+
+**Security vulnerability addressed:** Prior
+`PreviewAtomicSaleRecovery.inspect_in_transaction()` could inspect
+and return a prior journal result reference even if the current session,
+branch binding, shift, license activation, price or stock validation
+failed. Such references could reveal a prior transaction's existence to
+an unauthorized/invalid caller. At
+`cb0e4904109f10cbf4114ff88f67bda33d989a32`, journal inspection
+is withheld entirely unless EVERY current preview diagnostic is
+consistent: persisted session bound, branch verified, license bound,
+signed activation chain valid, policy consistent AND checkout local
+checks consistent. On denial it returns
+`RecoveryInspection("withheld_authorization_required")` with no
+result reference; no journal SELECT is attempted. This is information
+minimization only, NOT a production authorization. The standard
+`require()` continues to deny unconditionally.
+
+**Contract alignment:** `c3e55a8a56188aa14845ce5861400cf0029b648c`
+replaces the preview checkout preflight's old length-only request ID
+validation with exactly the existing `PreviewIdempotencyLedger`
+scope and request-id syntax. Invalid IDs now fail local checks and
+cannot reach the recovery journal even when 8-128 characters long.
+
+**Regressions:** `d3c46552f59743c26202b52349281ceea95dab26`
+updates previous atomic recovery integration assertions for masked
+unauthorized branch, identity, device, license and shift contexts,
+while keeping immutable-draft idempotency conflict checks for
+otherwise valid callers. `7353f367e6f6d3a7aaf520bb76ca8491f6514ade`
+adds two disposable subprocess regressions: a forged role must not
+query the journal at all; invalid price, license and request IDs
+must mask journal references. `541e85ecb639c627f78d7507d80a9d26d00fcf52`
+adds a third dedicated preflight regression for noncanonical
+request IDs. The recovery test module now contains **17 unittest
+methods** (three new this batch).
+
+**Verification:** GitHub fetched the new source/test files, checked
+strict preflight validator and masked state and compared latest code
+commit `541e85ec` against `develop-v8`: identical. Combined commit
+status had no status entries, PR-event workflow lookup had no
+runs; neither verifies push-triggered Windows CI. **No new
+full-suite test execution took place in this session**. Prior user
+verified local Windows `dd7ae38` **263 tests, OK** remains an older
+baseline, NOT a result for these latest commits. The current
+exact-head Windows compileall and no-skip suite are UNVERIFIED.
+
+**Five-phase acceptance:** Phase 1 IN PROGRESS, Phases 2–5
+NOT ACCEPTED; commercial Gates A/B hard BLOCKED, C/D/E outstanding
+(0/5 accepted). No real checkout, refund, GRN, credit/supplier
+payment, shift posting, stock movement or transaction capability
+enabled; main, V7 production data and license signing secrets untouched.
+
+**Next:** Obtain exact-head Windows push Actions and a full
+`python run_v8_checks.py` run with no skips; fix regressions.
+Then implement a reviewed **service-owned** trusted signed-license,
+canonical session/role/branch/shift and idempotent atomic business
+write boundary in isolated V8 data, with crash/rollback tests.
+Do NOT permit production financial posting until Gates A/B pass.

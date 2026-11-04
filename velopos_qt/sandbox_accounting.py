@@ -385,12 +385,25 @@ class PreviewSandboxAccounting:
                 allocated_by_charge = {}
                 allocated_payment_refs = set()
                 customers_with_allocations = set()
+                repayment_customer_by_ref = {
+                    row["reference"]: row["customer_id"]
+                    for row in connection.execute(
+                        "SELECT reference,customer_id FROM "
+                        "main.v8_preview_sandbox_credit_repayments"
+                    )
+                }
                 for allocation in connection.execute(
                     "SELECT repayment_ref,charge_ref,customer_id,branch_id,amount_cents "
                     "FROM main.v8_preview_sandbox_credit_allocations"
                 ):
                     allocated_payment_refs.add(allocation["repayment_ref"])
+                    # The allocation row is mutable test data. Use the
+                    # independently persisted repayment owner as well so
+                    # a forged customer_id cannot conceal mixed modes.
                     customers_with_allocations.add(allocation["customer_id"])
+                    owner = repayment_customer_by_ref.get(allocation["repayment_ref"])
+                    if owner is not None:
+                        customers_with_allocations.add(owner)
                     repayment = connection.execute(
                         "SELECT customer_id,branch_id,amount_cents FROM "
                         "main.v8_preview_sandbox_credit_repayments WHERE reference=?",

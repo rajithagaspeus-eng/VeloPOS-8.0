@@ -32,7 +32,7 @@ class ThreeWayAuthorizationTests(unittest.TestCase):
 
                 license_key = sign(dict(v=8, license_id="LICENSE", m="MACHINE", actions=["sale"], expires="2030-01-01"))
                 status = sign(dict(machine_id="MACHINE", license_id="LICENSE",
-                                   status="active", observed_utc="2026-11-04T02:00:00Z"))
+                                   status="active", sequence=10, observed_utc="2026-11-04T02:00:00Z"))
                 database.init_db()
                 services.save_user("cashier", "SecurePassForCashier123!", "Cashier", "setup")
                 identity = PreviewAuthenticator(database).authenticate("cashier", "SecurePassForCashier123!")
@@ -50,6 +50,10 @@ class ThreeWayAuthorizationTests(unittest.TestCase):
                                 now=datetime(2026, 11, 4, 3, tzinfo=timezone.utc))
                     good = policy.inspect_with_activation(conn, signed_status=status, **args)
                     assert good.authorization.entitled and good.activation_current
+                    replay = policy.inspect_with_activation(
+                        conn, signed_status=status, **dict(args, last_accepted_sequence=11))
+                    assert not replay.activation_current
+                    assert "activation_signed_sequence_replay_suspected" in replay.activation_reasons
                     assert good.activation_signature_valid and not good.can_execute
                     assert "signed_license_id_binding_unverified" not in good.activation_reasons
                     swapped = policy.inspect_with_activation(
@@ -68,7 +72,7 @@ class ThreeWayAuthorizationTests(unittest.TestCase):
                     assert "signed_license_id_binding_unverified" in malformed.activation_reasons
                     revoked = policy.inspect_with_activation(
                         conn, signed_status=sign(dict(machine_id="MACHINE",
-                        license_id="LICENSE", status="revoked",
+                        license_id="LICENSE", status="revoked", sequence=11,
                         observed_utc="2026-11-04T02:00:00Z")), **args)
                     assert not revoked.activation_current
                     assert "activation_not_active" in revoked.activation_reasons
@@ -90,7 +94,7 @@ class ThreeWayAuthorizationTests(unittest.TestCase):
                     duplicate_status = sign_raw(
                         '{"machine_id":"MACHINE","license_id":"LICENSE",'
                         '"status":"revoked","status":"active",'
-                        '"observed_utc":"2026-11-04T02:00:00Z"}')
+                        '"observed_utc":"2026-11-04T02:00:00Z","sequence":10}')
                     ambiguous_status = policy.inspect_with_activation(
                         conn, signed_status=duplicate_status, **args)
                     assert not ambiguous_status.activation_signature_valid

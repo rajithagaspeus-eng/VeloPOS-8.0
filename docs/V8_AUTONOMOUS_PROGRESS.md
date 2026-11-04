@@ -372,3 +372,41 @@ repair failures. Then audit persisted branch registry schema provenance,
 revocation lifecycle and cross-branch authorization before any production
 service integration. Gate A/B/C/D/E remain blocked; all preview financial
 operations remain denied.
+
+
+## Signed activation pair diagnostic — November 4, 2026
+
+**Pull request:** #4 (`feature/v8-signed-activation-chain-preview`).
+Added `velopos_qt/activation_chain.py` (read-only, isolated
+`VeloPOS8PreviewData`) and adversarial tests at
+`tests/test_v8_phase2_activation_chain.py`. Two independently
+Ed25519-signed, versioned server observations are inspected for identical
+signed machine/license/branch identities, active state, nondecreasing
+observation UTC, increasing integer sequence, current signed expiry,
+freshness and a SHA-256 digest of the previous signed payload.
+The inspector always has `can_execute=False` and `require()` rejects.
+
+**Critical limitation:** the checker cannot authenticate the caller clock,
+prove persistent continuity or stop an attacker replaying an earlier valid
+pair. It is NOT a durable anti-rollback mechanism, commercial activation
+service, or reason to enable posting. Server-held monotonic per-license
+state, revocation, trusted time, and a reviewed service-bound transaction
+policy are still required. Gate A/B/C/D/E remain blocked.
+
+**Independent repair:** the base develop-v8 SHA `7962e2a...` had 5
+Windows CI failures from literal escaped newline characters in
+`velopos_qt/branch_authorization.py` (IndentationError). The PR fixes the
+syntax without weakening the intended persisted role/shift denials.
+
+**Verified PR code milestone:** GitHub Windows Actions run
+[41802314954](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41802314954)
+PASS: **180 tests, 0 failures**, SHA
+`2905b06c15dc5e6be372359a37ae4dbde4727f68`.
+Because this checkpoint text is being committed after that code head,
+the final documentation-inclusive SHA must receive its own exact-head
+Actions result before PR merge.
+
+**Next:** Verify final PR SHA and post-merge Windows CI; then design
+authenticated server continuity/revocation, safe offline grace and the
+service-bound commercial policy. No live checkout, production key,
+customer data or stable `main` modifications were made.

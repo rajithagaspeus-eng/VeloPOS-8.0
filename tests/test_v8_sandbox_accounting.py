@@ -185,6 +185,25 @@ class SandboxCloseoutTests(unittest.TestCase):
             assert "unmatched_return_journal" in orphan.reasons
         """)
 
+    def test_closeout_detects_nonrestock_disposition_corruption(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            return_service.simulate_return(**new_return(
+                sale.reference,disposition="DISCARDED"
+            ))
+            assert closeout.closeout().balanced
+            with database.db() as c:
+                c.execute("PRAGMA ignore_check_constraints=ON")
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_return_lines "
+                    "SET restocked=1"
+                )
+            checked = closeout.closeout()
+            assert not checked.balanced
+            assert "return_disposition_not_nonrestocking" in checked.reasons
+            assert checked.can_checkout is False
+        """)
+
     def test_accounting_requires_a_complete_return_schema(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

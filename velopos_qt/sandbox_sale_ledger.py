@@ -545,7 +545,8 @@ class PreviewSandboxSaleLedger:
             # A completed sale journal without its durable sandbox invoice is
             # a broken exactly-once record, even if no invoice row remains.
             completed_journals = connection.execute(
-                "SELECT request_id,result_ref FROM main.v8_preview_request_journal "
+                "SELECT request_id,result_ref,payload_sha256 "
+                "FROM main.v8_preview_request_journal "
                 "WHERE scope='sale' AND status='COMPLETED'"
             ).fetchall()
             if any(row["result_ref"] not in invoice_refs
@@ -568,6 +569,16 @@ class PreviewSandboxSaleLedger:
                             row["request_id"],
                         ) is None):
                     reasons.append("invalid_completed_sale_journal_request_id")
+                digest = row["payload_sha256"]
+                if (type(digest) is not str
+                        or re.fullmatch(r"[0-9a-f]{64}", digest) is None):
+                    reasons.append("invalid_completed_sale_journal_fingerprint")
+                elif type(row["request_id"]) is str:
+                    expected_ref = "SBX-" + sha256(
+                        (row["request_id"] + ":" + digest).encode("utf-8")
+                    ).hexdigest()[:24]
+                    if journal_ref != expected_ref:
+                        reasons.append("completed_sale_journal_reference_mismatch")
             completed_pairs = {
                 (row["request_id"], row["result_ref"])
                 for row in completed_journals

@@ -164,3 +164,28 @@ push events; fix any regression. Continue adversarial entitlement validation
 and activation policy with trusted server time/revocation, then service-side
 atomic transaction architecture. Existing V7 behavior untouched. All
 commercial gates remain blocked; preview always denies posting.
+
+
+## Signed-envelope ambiguity hardening — November 4, 2026
+
+Signed V8 license and signed activation status JSON now reject duplicate
+object keys (including nested duplicate claims) rather than silently using
+the last value. This prevents cross-parser claim confusion where one verifier
+could interpret `status=active` or `license_id` differently from another.
+The V8 version discriminator now requires an actual integer 8; JSON boolean
+`true` can no longer masquerade as Python `8` for signed ID binding.
+Changes remain entirely inside isolated preview diagnostics and do not
+authorize financial writes or change V7 licensing.
+
+Code commits: `4897db05e596a78e8025949bd4b9b4204d36e3e7`,
+`8cc9355a0a18fb43700af5bb0f709531ab64679b`;
+adversarial regression commit `d7401e7f60be38601dd6223016df4f9da02f9074`.
+**Verification:** tests not executed in this tool session; exact-head
+Windows CI must be checked independently. The available commit workflow
+lookup covers pull requests only and cannot establish push-run status.
+
+**Next priority:** obtain reliable push-triggered Windows Actions run
+status for exact head; fix any regressions. Then harden license and
+activation canonical claim schemas, signed server observation continuity,
+and transaction-scoped branch authorization. All Gate A/B/C/D/E release
+requirements remain outstanding; checkout stays disabled.

@@ -13,6 +13,7 @@ from .transaction_policy import PreviewTransactionGate
 from .commercial_boundary_assessment import assess_commercial_boundary
 from .sale_request_service import PreviewSaleRequestService
 from .sale_rehearsal_journal import PreviewSaleRehearsalJournal
+from .durable_sale_rehearsal import DurablePreviewSaleJournal
 
 
 class PreviewTransactionGateway:
@@ -21,6 +22,11 @@ class PreviewTransactionGateway:
     def __init__(self, database):
         self._gate = PreviewTransactionGate(database)
         self._rehearsal_journal = PreviewSaleRehearsalJournal()
+
+    @staticmethod
+    def disposable_durable_rehearsal(path, *, max_requests=10000):
+        """Explicit opt-in disposable journal; never attaches POS database."""
+        return DurablePreviewSaleJournal(path, max_requests=max_requests)
 
     def rehearse_sale_replay(self, *, request_id, lines):
         """In-memory replay diagnostics only; never posts or reserves a sale."""

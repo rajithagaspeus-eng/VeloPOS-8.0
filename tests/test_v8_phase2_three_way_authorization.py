@@ -30,7 +30,7 @@ class ThreeWayAuthorizationTests(unittest.TestCase):
                     payload = json.dumps(data, sort_keys=True).encode()
                     return enc(payload) + "." + enc(key.sign(payload))
 
-                license_key = sign(dict(m="MACHINE", actions=["sale"], expires="2030-01-01"))
+                license_key = sign(dict(v=8, license_id="LICENSE", m="MACHINE", actions=["sale"], expires="2030-01-01"))
                 status = sign(dict(machine_id="MACHINE", license_id="LICENSE",
                                    status="active", observed_utc="2026-11-04T02:00:00Z"))
                 database.init_db()
@@ -51,7 +51,21 @@ class ThreeWayAuthorizationTests(unittest.TestCase):
                     good = policy.inspect_with_activation(conn, signed_status=status, **args)
                     assert good.authorization.entitled and good.activation_current
                     assert good.activation_signature_valid and not good.can_execute
-                    assert "signed_license_id_binding_unverified" in good.activation_reasons
+                    assert "signed_license_id_binding_unverified" not in good.activation_reasons
+                    swapped = policy.inspect_with_activation(
+                        conn, signed_status=status, **dict(args, license_key=sign(dict(
+                            v=8, license_id="OTHER", m="MACHINE",
+                            actions=["sale"], expires="2030-01-01"))))
+                    assert "signed_license_id_binding_unverified" in swapped.activation_reasons
+                    legacy = policy.inspect_with_activation(
+                        conn, signed_status=status, **dict(args, license_key=sign(dict(
+                            m="MACHINE", actions=["sale"], expires="2030-01-01"))))
+                    assert "signed_license_id_binding_unverified" in legacy.activation_reasons
+                    malformed = policy.inspect_with_activation(
+                        conn, signed_status=status, **dict(args, license_key=sign(dict(
+                            v=8, license_id="LICENSE SPACE", m="MACHINE",
+                            actions=["sale"], expires="2030-01-01"))))
+                    assert "signed_license_id_binding_unverified" in malformed.activation_reasons
                     revoked = policy.inspect_with_activation(
                         conn, signed_status=sign(dict(machine_id="MACHINE",
                         license_id="LICENSE", status="revoked",

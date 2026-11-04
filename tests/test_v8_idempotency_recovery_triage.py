@@ -164,5 +164,92 @@ class IdempotencyRecoveryTriageTests(unittest.TestCase):
         """)
 
 
+    def test_process_crash_before_commit_leaves_no_durable_claim(self):
+        self.isolated("""
+            import os
+            import subprocess
+            import sys
+            crash_script = chr(10).join((
+                "import os",
+                "from velopos import database",
+                "from velopos_qt.idempotency_ledger import PreviewIdempotencyLedger",
+                "c = database.connect()",
+                "c.execute('BEGIN IMMEDIATE')",
+                "j = PreviewIdempotencyLedger(database)",
+                "p = {'branch_id': 'BR-A', 'lines': [{'barcode': 'RICE', 'qty': '1'}]}",
+                "j.claim(c, 'sale', 'crash-recovery-0001', p)",
+                "j.complete(c, 'sale', 'crash-recovery-0001', 'SIM-UNCOMMITTED')",
+                "os._exit(31)",
+            ))
+            crashed = subprocess.run(
+                [sys.executable, "-c", crash_script], env=os.environ.copy(),
+                capture_output=True, text=True, timeout=25,
+            )
+            assert crashed.returncode == 31, (crashed.stdout, crashed.stderr)
+            c = transaction()
+            assert ledger.inspect_request(
+                c, "sale", request_id, payload
+            ).state == "not_recorded"
+            assert ledger.claim(c, "sale", request_id, payload).is_new
+            c.rollback()
+            c.close()
+        """)
+
+    def test_competing_connections_replay_exactly_one_journal_completion(self):
+        self.isolated("""
+            from concurrent.futures import ThreadPoolExecutor
+            from threading import Event
+            claim_staged = Event()
+            allow_commit = Event()
+
+            def first():
+                c = transaction()
+                try:
+                    result = ledger.claim(c, "sale", request_id, payload)
+                    assert result.is_new
+                    claim_staged.set()
+                    assert allow_commit.wait(timeout=10)
+                    ledger.complete(c, "sale", request_id, "SIM-ONCE-01")
+                    c.commit()
+                    return result.is_new
+                finally:
+                    c.close()
+
+            def second():
+                assert claim_staged.wait(timeout=10)
+                c = database.connect()
+                try:
+                    c.execute("PRAGMA busy_timeout=10000")
+                    allow_commit.set()
+                    c.execute("BEGIN IMMEDIATE")
+                    replay = ledger.claim(c, "sale", request_id, payload)
+                    assert replay.is_new is False, replay
+                    assert replay.result_ref == "SIM-ONCE-01", replay
+                    c.rollback()
+                    return replay.is_new
+                finally:
+                    c.close()
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                first_result = executor.submit(first)
+                second_result = executor.submit(second)
+                assert first_result.result(timeout=20) is True
+                assert second_result.result(timeout=20) is False
+            c = transaction()
+            try:
+                rows = c.execute(
+                    "SELECT status,result_ref FROM v8_preview_request_journal "
+                    "WHERE scope='sale' AND request_id=?",
+                    (request_id,),
+                ).fetchall()
+                assert len(rows) == 1
+                assert rows[0]["status"] == "COMPLETED"
+                assert rows[0]["result_ref"] == "SIM-ONCE-01"
+            finally:
+                c.rollback()
+                c.close()
+        """)
+
+
 if __name__ == "__main__":
     unittest.main()

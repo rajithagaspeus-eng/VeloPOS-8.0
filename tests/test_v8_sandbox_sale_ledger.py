@@ -1339,6 +1339,52 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_next_sale_refuses_tampered_historical_line_cents(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_cents=line_cents+1 "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-historical-amount-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Tampered invoice line cents accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
+    def test_next_sale_refuses_noncanonical_historical_line_price(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET price=price || '.0' "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-historical-amount-0002"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Noncanonical historical price accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_next_sale_refuses_tampered_historical_journal_fingerprint(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

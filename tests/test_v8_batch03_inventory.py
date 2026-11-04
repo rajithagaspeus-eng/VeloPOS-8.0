@@ -44,6 +44,7 @@ class InventoryEditIntegrationTests(unittest.TestCase):
                 assert len(matches) == 50
                 assert matches[0]["barcode"] == "SCAN", matches[0]
                 assert reader.search("SCAN", limit=1)[0]["barcode"] == "SCAN"
+                assert reader.search("scan", limit=1)[0]["barcode"] == "SCAN"
                 with database.db() as c:
                     assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
                     assert c.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0] == 61

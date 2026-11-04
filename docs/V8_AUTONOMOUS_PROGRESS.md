@@ -1159,3 +1159,38 @@ canonical session/role, shift, signed entitlement, branch isolation and
 persistent atomic idempotency. Gate A/B BLOCKED; C/D/E remain outstanding.
 No production sale, payment, stock posting, V7 data, secrets or `main`
 modified.
+
+
+## Exact-head local Windows suite PASS — 2026-11-04
+
+**User-provided Windows execution evidence (not GitHub-hosted CI):**
+User fast-forwarded local `develop-v8` from `ad1507d` to the exact GitHub
+code SHA `dd7ae38b4adfdfb53f0b23fe9690fd3d76f7ba70`.
+`git rev-parse --short HEAD` printed `dd7ae38`.
+`python -m compileall -q velopos_qt tests` returned without visible errors.
+`python run_v8_checks.py` reported **Ran 263 tests in 88.806s — OK**.
+The suite runner is configured to return failure on skipped tests; no skips
+were reported. Therefore the 263-test Windows **local** suite PASSED for
+exact code SHA `dd7ae38`, fixing the prior one-failure 263-test run at
+`ad1507d`. PySide6 printed missing-font-directory and
+`propagateSizeHints` warnings; neither failed this suite. The user also
+reported an unrelated untracked local `VeloPOS-8.0/` folder in earlier
+`git status`; no action was taken on it.
+
+**GitHub status distinction:** GitHub connector compared `dd7ae38`
+to `develop-v8` and returned identical before this documentation-only
+checkpoint. Commit combined-status returned no status entries and
+PR-filtered Actions run lookup returned no runs. This does **not** verify
+the GitHub-hosted push Windows Actions run. Do not attribute these 263
+passed tests to this later documentation commit.
+
+**Commercial gates:** A/B still BLOCKED; C/D/E still outstanding.
+No checkout/payment/return/GRN/stock posting authorized or enabled,
+no V7 production data, signing secrets or `main` touched.
+
+**Next strict priority:** independently inspect exact commit's GitHub-hosted
+Windows push workflow; then continue trusted service-owned
+session/role/branch/shift/signed-license authorization under the same
+disposable SQLite transaction as persistent idempotency and crash recovery,
+with cross-branch and concurrent-request regression tests. Retain
+mandatory deny gate until all Gate A/B evidence is complete.

@@ -12,6 +12,7 @@ from decimal import Decimal, InvalidOperation
 
 from .product_editor import _guard
 from .auth_model import verify_preview_session
+from .idempotency_ledger import PreviewIdempotencyLedger
 
 
 def _quantity(value):
@@ -37,9 +38,18 @@ class PreviewCheckoutPreflight:
     def __init__(self, database):
         _guard(database)
         self.database = database
+        self._connection_gate = PreviewIdempotencyLedger(database)
 
     def inspect(self, *, identity=None, shift_id=None, lines=(), request_id="",
-                today=None):
+                today=None, connection=None):
+        """Inspect with own rollback-only lock or a caller-owned preview TX.
+
+        When connection is passed, it MUST already be inside a transaction
+        on the canonical preview database. This method never commits or
+        rolls back a caller's transaction, allowing independent authorization,
+        stock and price checks on precisely the same SQLite snapshot.
+        A returned diagnostic is NEVER permission to post a sale.
+        """
         """Check only. No service calls and no write or payment side effects."""
         _guard(self.database)
         if lines is None or isinstance(lines, (str, bytes, dict)):
@@ -86,9 +96,17 @@ class PreviewCheckoutPreflight:
         if isinstance(shift_id, bool) or not isinstance(shift_id, int) or shift_id <= 0:
             reasons.append("valid_open_shift_required")
 
-        connection = self.database.connect()
+        owns_connection = connection is None
+        if owns_connection:
+            connection = self.database.connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+            except BaseException:
+                connection.close()
+                raise
+        else:
+            self._connection_gate._check_connection(connection)
         try:
-            connection.execute("BEGIN IMMEDIATE")
             username = getattr(identity, "username", None)
             user = None
             if isinstance(username, str):
@@ -135,9 +153,11 @@ class PreviewCheckoutPreflight:
                 if row and _quantity(row["selling_price"]) != price:
                     reasons.append(f"price_changed:{barcode}")
         finally:
-            # An inspection MUST NOT commit, even on an exception.
-            connection.rollback()
-            connection.close()
+            # Caller-managed transactions remain untouched. The original
+            # inspect() path owns its lock and always rolls it back.
+            if owns_connection:
+                connection.rollback()
+                connection.close()
         return CheckoutPreflight(
             can_checkout=False, reasons=tuple(dict.fromkeys(reasons)),
             line_count=len(parsed), subtotal=subtotal.quantize(Decimal("0.01")),

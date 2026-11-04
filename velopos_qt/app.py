@@ -571,17 +571,23 @@ class SettingsPreview(QMainWindow):
         if index == 2 and self.inventory is not None:
             # Only use the original billing preview engine in our test-only DB.
             preview_fn = None
+            sandbox_accounting = None
             db = getattr(self.inventory, "database", None)
             if db is not None:
                 from pathlib import Path
                 if Path(db.DATA_DIR).resolve().name.casefold() == "velopos8previewdata":
                     from velopos import services
+                    from .sandbox_accounting import PreviewSandboxAccounting
                     preview_fn = services.preview_bill
+                    # Strictly read-only accounting; does not expose sandbox
+                    # posting or any legacy transaction service in the UI.
+                    sandbox_accounting = PreviewSandboxAccounting(db)
             return BillingPage(self.inventory, self.t, bill_preview=preview_fn,
                                shift_reader=self.shift_reader, identity=lambda: self.identity,
                                stock_reader=self.stock_reader,
                                customer_reader=self.customer_reader,
-                               authorize_customer=self._is_preview_cashier)
+                               authorize_customer=self._is_preview_cashier,
+                               sandbox_accounting=sandbox_accounting)
         if index in (3, 4) and self.directory is not None:
             return DirectoryPage(self.directory, self.nav_keys[index], self.t,
                                  editor=self.directory_editor if self._is_preview_admin() else None)

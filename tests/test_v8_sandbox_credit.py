@@ -352,6 +352,177 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert not orphan.balanced and "orphan_credit_journal" in orphan.reasons
         """)
 
+    def test_partial_credit_note_reduces_outstanding_and_closeout_net(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            initial = charge(invoice.reference)
+            note = credit_service.declare_credit_note(
+                customer_id=customer_id,charge_ref=initial.reference,
+                sale_line_no=1,quantity="1",request_id="credit-note-0001",
+                **ctx()
+            )
+            assert note.amount_cents == 4500
+            assert note.outstanding_cents == 20500
+            assert not note.actual_payment_captured
+            assert not note.real_customer_balance_changed
+            repaid = repay("100")
+            assert repaid.outstanding_cents == 10500
+            audit = credit_service.reconcile()
+            assert audit.balanced, audit
+            assert audit.total_credit_notes_cents == 4500
+            assert audit.total_outstanding_cents == 10500
+            closeout = PreviewSandboxAccounting(database).closeout()
+            assert closeout.balanced, closeout
+            assert closeout.declared_credit_notes_cents == 4500
+            assert closeout.net_after_declared_returns_cents == 20500
+            assert closeout.outstanding_credit_cents == 10500
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT credit_balance FROM main.customers WHERE id=?",
+                    (customer_id,)
+                ).fetchone()[0] == 0
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.credit_logs"
+                ).fetchone()[0] == 0
+                assert c.execute(
+                    "SELECT remaining_qty FROM main.v8_preview_sandbox_stock "
+                    "WHERE barcode='RICE'"
+                ).fetchone()[0] == "5"
+        """)
+
+    def test_credit_note_replay_and_mutated_request_conflict(self):
+        self.isolated("""
+            from velopos_qt.idempotency_ledger import IdempotencyConflict
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            opts = dict(
+                customer_id=customer_id,charge_ref=issued.reference,
+                sale_line_no=1,quantity="1",request_id="credit-note-0001",
+                **ctx()
+            )
+            first = credit_service.declare_credit_note(**opts)
+            replay = credit_service.declare_credit_note(**opts)
+            assert replay.replayed and replay.reference == first.reference
+            assert replay.outstanding_cents == 20500
+            for variant in (
+                dict(opts,quantity="2"), dict(opts,disposition="DISCARDED"),
+                dict(opts,customer_id=other_customer)
+            ):
+                try:
+                    credit_service.declare_credit_note(**variant)
+                except (IdempotencyConflict,PermissionError):
+                    pass
+                else:
+                    raise AssertionError("Mutated credit-note id reused")
+            assert credit_service.reconcile().balanced
+        """)
+
+    def test_multiple_credit_notes_bound_to_original_line_and_sale_limit(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            for n in (1,2):
+                note = credit_service.declare_credit_note(
+                    customer_id=customer_id,charge_ref=issued.reference,
+                    sale_line_no=1,quantity="1",request_id="credit-note-000"+str(n),
+                    disposition="DISCARDED",**ctx()
+                )
+                assert note.amount_cents == 4500
+            assert credit_service.reconcile().total_credit_notes_cents == 9000
+            for line_no, qty in ((1,"0.01"),(999,"1"),(2,"4")):
+                try:
+                    credit_service.declare_credit_note(
+                        customer_id=customer_id,charge_ref=issued.reference,
+                        sale_line_no=line_no,quantity=qty,
+                        request_id="credit-note-invalid-"+str(line_no),**ctx()
+                    )
+                except (PermissionError,ValueError):
+                    pass
+                else:
+                    raise AssertionError("Original sale quantity exceeded")
+            assert credit_service.reconcile().balanced
+        """)
+
+    def test_credit_note_cannot_exceed_debt_after_repayments(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            repay("250")
+            try:
+                credit_service.declare_credit_note(
+                    customer_id=customer_id,charge_ref=issued.reference,
+                    sale_line_no=1,quantity="1",request_id="credit-note-0001",
+                    **ctx()
+                )
+            except PermissionError as exc:
+                assert "unpaid debt" in str(exc)
+            else:
+                raise AssertionError("Credit note created cash refund from zero debt")
+            audit = credit_service.reconcile()
+            assert audit.balanced and audit.total_credit_notes_cents == 0
+        """)
+
+    def test_credit_note_failure_injection_rolls_back_journal_and_note(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            for point in ("after_claim","after_post","after_complete"):
+                try:
+                    credit_service.declare_credit_note(
+                        customer_id=customer_id,charge_ref=issued.reference,
+                        sale_line_no=1,quantity="1",request_id="credit-note-0001",
+                        inject_failure_at=point,**ctx()
+                    )
+                except RuntimeError as exc:
+                    assert "Injected credit note failure" in str(exc)
+                else:
+                    raise AssertionError("Credit note failpoint did not trigger")
+                with database.db() as c:
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM main.v8_preview_sandbox_credit_notes"
+                    ).fetchone()[0] == 0
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM main.v8_preview_request_journal "
+                        "WHERE scope='credit_note'"
+                    ).fetchone()[0] == 0
+            assert credit_service.reconcile().balanced
+            assert credit_service.declare_credit_note(
+                customer_id=customer_id,charge_ref=issued.reference,
+                sale_line_no=1,quantity="1",request_id="credit-note-0001",
+                **ctx()
+            ).amount_cents == 4500
+        """)
+
+    def test_credit_note_tamper_detected_by_audit_and_closeout(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_credit_note(
+                customer_id=customer_id,charge_ref=issued.reference,
+                sale_line_no=1,quantity="1",request_id="credit-note-0001",
+                **ctx()
+            )
+            assert credit_service.reconcile().balanced
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET amount_cents=9999"
+                )
+            assert not credit_service.reconcile().balanced
+            checked = PreviewSandboxAccounting(database).closeout()
+            assert not checked.balanced
+            assert "sandbox_credit_note_quantity_mismatch" in checked.reasons
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

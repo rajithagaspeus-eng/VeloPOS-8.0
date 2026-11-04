@@ -1121,3 +1121,41 @@ regressions). Then implement strictly service-owned verified
 session/role, canonical branch/shift and signed-license checks in the
 same isolated DB transaction as durable journal and posting simulation;
 never connect to real checkout while Gate A/B fail.
+
+
+## Windows 263-test failure triage and surrogate fixture repair — 2026-11-04
+
+**Actual user Windows evidence:** After fast-forwarding `develop-v8` from
+`a76e230` to `ad1507d`, the local `python -m compileall -q velopos_qt
+tests` completed without visible errors; `python run_v8_checks.py`
+ran **263 tests** in 85.520 seconds, **FAILED (failures=1)**. The only
+reported failure was
+`tests.test_v8_idempotency_key_canonicalization.FingerprintKeySafetyTests.test_invalid_unicode_is_caught_as_request_validation_error`.
+Earlier local `a76e230` had 212 tests, OK, but is an older code version.
+
+**Root cause:** Test fixture used Python string `"\\\\ud800"` and
+`"\\\\udfff"` (literal backslash-u text), which is valid JSON input,
+rather than actual lone-surrogate Unicode code points. The production preview
+fingerprint code's surrogate-to-ValueError conversion did not cause the failure.
+
+**Fixes on `develop-v8`:**
+`003d6d595c285ec6558284e84968d44e23efb300` replaces those
+ambiguous literals with `chr(0xD800)` and `chr(0xDFFF)`, ensuring
+genuinely malformed Unicode is rejected with a ValueError containing
+"encoding". A positive control asserts legitimate literal backslash-u
+barcode text remains valid. Follow-up
+`6d006735c26b6f928f2113dd0fe750537e91c726` corrects that positive
+control to contain one literal backslash rather than two.
+
+**Verification:** An isolated independent local Python unittest exercising
+the same json.dumps(ensure_ascii=False) -> UTF-8 encoding behavior passed
+(1 test, OK); this is **not** an execution of the repository test suite.
+Exact new GitHub SHA Windows CI / 263-test suite rerun is **PENDING**.
+Do not claim all tests pass on the patched commit yet.
+
+**Next priority:** Run the entire exact-head Windows preview suite and
+compileall; if failed, fix remaining regressions. Then resume service-owned
+canonical session/role, shift, signed entitlement, branch isolation and
+persistent atomic idempotency. Gate A/B BLOCKED; C/D/E remain outstanding.
+No production sale, payment, stock posting, V7 data, secrets or `main`
+modified.

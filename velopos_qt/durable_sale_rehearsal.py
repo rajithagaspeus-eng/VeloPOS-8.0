@@ -126,6 +126,18 @@ class DurablePreviewSaleJournal:
 
     @staticmethod
     def _check_constraints(conn):
+        # table_info silently omits generated/hidden columns; table_xinfo
+        # must match the entire expected layout before any journal write.
+        for table, expected in (
+            ("preview_rehearsals", ("request_id", "fingerprint", "reference")),
+            ("preview_sequence", ("singleton", "next_number")),
+        ):
+            extended = conn.execute(f"PRAGMA table_xinfo({table})").fetchall()
+            if (tuple(column[1] for column in extended) != expected or
+                    any(column[6] != 0 for column in extended)):
+                raise PermissionError("Hidden or generated preview schema columns")
+            if conn.execute(f"PRAGMA foreign_key_list({table})").fetchall():
+                raise PermissionError("Unexpected preview foreign keys")
         for table, key in (
             ("preview_rehearsals", "request_id"),
             ("preview_sequence", "singleton"),

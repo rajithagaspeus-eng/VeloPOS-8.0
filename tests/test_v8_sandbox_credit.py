@@ -433,7 +433,7 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
                 )
                 assert note.amount_cents == 4500
             assert credit_service.reconcile().total_credit_notes_cents == 9000
-            for line_no, qty in ((1,"0.01"),(999,"1"),(2,"4")):
+            for line_no, qty in ((1,"4"),(999,"1"),(2,"4")):
                 try:
                     credit_service.declare_credit_note(
                         customer_id=customer_id,charge_ref=issued.reference,

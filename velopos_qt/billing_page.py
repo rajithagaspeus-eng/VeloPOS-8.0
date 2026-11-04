@@ -21,7 +21,7 @@ from .draft_receipt import draft_receipt_text
 
 
 class BillingPage(QWidget):
-    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None, stock_reader=None, customer_reader=None, authorize_customer=None):
+    def __init__(self, inventory, text, bill_preview=None, shift_reader=None, identity=None, stock_reader=None, customer_reader=None, authorize_customer=None, sandbox_accounting=None):
         super().__init__()
         self.inventory = inventory
         self.text = text
@@ -30,6 +30,7 @@ class BillingPage(QWidget):
         self.identity = identity or (lambda: None)
         self.stock_reader = stock_reader
         self.customer_reader = customer_reader
+        self.sandbox_accounting = sandbox_accounting  # read-only; never checkout
         # A real preview window passes its persisted-session verifier here.
         # Component-only tests may fall back to their synthetic identity.
         self.authorize_customer = authorize_customer or (
@@ -238,6 +239,15 @@ class BillingPage(QWidget):
         self.stock_status = QLabel()
         self.stock_status.setWordWrap(True)
         layout.addWidget(self.stock_status)
+        self.sandbox_audit_button = QPushButton("Inspect sandbox accounting (read-only)")
+        self.sandbox_audit_button.setObjectName("sandboxAuditPreviewButton")
+        self.sandbox_audit_button.setEnabled(sandbox_accounting is not None)
+        self.sandbox_audit_button.clicked.connect(self.inspect_sandbox_accounting)
+        layout.addWidget(self.sandbox_audit_button)
+        self.sandbox_audit_status = QLabel("Sandbox accounting not connected")
+        self.sandbox_audit_status.setObjectName("sandboxAuditStatus")
+        self.sandbox_audit_status.setWordWrap(True)
+        layout.addWidget(self.sandbox_audit_status)
 
         self.totals_panel = QFrame()
         self.totals_panel.setObjectName("billingTotals")
@@ -648,6 +658,32 @@ class BillingPage(QWidget):
         actions.addWidget(close_button)
         layout.addLayout(actions)
         dialog.exec()
+
+    def inspect_sandbox_accounting(self):
+        """Inspect a disposable sandbox ledger without posting this cart."""
+        if self.sandbox_accounting is None:
+            self.sandbox_audit_status.setText("Sandbox accounting not connected")
+            return
+        try:
+            result = self.sandbox_accounting.closeout()
+            if result.balanced:
+                self.sandbox_audit_status.setText(
+                    "SANDBOX ONLY — balanced declarations, NOT captured funds. "
+                    f"Invoices: {result.invoice_count}; returns: {result.return_count}; "
+                    f"gross: {result.gross_cents / 100:,.2f}; "
+                    f"declared refunds: {result.declared_returns_cents / 100:,.2f}; "
+                    f"net: {result.net_after_declared_returns_cents / 100:,.2f}. "
+                    "Commercial checkout disabled."
+                )
+            else:
+                self.sandbox_audit_status.setText(
+                    "SANDBOX ONLY — reconciliation BLOCKED: "
+                    + ", ".join(result.reasons[:5])
+                )
+        except (OSError, ValueError, RuntimeError, PermissionError) as exc:
+            self.sandbox_audit_status.setText(
+                f"SANDBOX ONLY — reconciliation unavailable: {exc}"
+            )
 
     def refresh_cart(self, selected_barcode=None):
         lines = list(self.cart.lines.values())

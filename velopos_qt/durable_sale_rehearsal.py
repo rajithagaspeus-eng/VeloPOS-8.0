@@ -132,6 +132,16 @@ class DurablePreviewSaleJournal:
             columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
             if tuple(col[1] for col in columns if col[5] > 0) != (key,):
                 raise PermissionError("Missing preview primary key")
+        # SQLite's quick_check does not establish application-level NOT NULL
+        # or CHECK constraints; verify the required declared column flags.
+        for table, required in (
+            ("preview_rehearsals", ("fingerprint", "reference")),
+            ("preview_sequence", ("next_number",)),
+        ):
+            columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
+            for col in columns:
+                if col[1] in required and col[3] != 1:
+                    raise PermissionError("Missing preview NOT NULL constraint")
         indexes = conn.execute(
             "PRAGMA index_list(preview_rehearsals)"
         ).fetchall()

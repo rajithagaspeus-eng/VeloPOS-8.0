@@ -531,6 +531,29 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_independent_audit_rejects_tampered_external_tender_reference(self):
+        self.isolated("""
+            original = sandbox.simulate_commit(**dict(
+                args, tenders=[
+                    {"method":"Card","amount":"100","reference":"CARD-TEST-01"},
+                    {"method":"Cash","amount":"150"},
+                ]
+            ))
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_tenders "
+                    "SET reference_hint='' WHERE reference=? AND method='Card'",
+                    (original.reference,)
+                )
+            checked = sandbox.reconcile_sandbox()
+            assert not checked.balanced, checked
+            assert "invalid_tender_reference" in checked.reasons
+            assert checked.can_checkout is False
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM main.sales").fetchone()[0] == 0
+        """)
+
     def test_replay_refuses_missing_or_changed_tender_rows(self):
         self.isolated("""
             first = sandbox.simulate_commit(**dict(

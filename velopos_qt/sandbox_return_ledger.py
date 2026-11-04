@@ -177,6 +177,17 @@ class PreviewSandboxReturnLedger:
                 "WHERE reference=?", (original_ref,)
             ).fetchone() is None:
                 raise PermissionError("Original sandbox settlement unavailable")
+            # No credit-note / receivable reduction policy exists yet.
+            # A return on a sandbox invoice already assigned to customer
+            # credit would otherwise leave the credit outstanding overstated.
+            if "v8_preview_sandbox_credit_charges" in known:
+                if connection.execute(
+                    "SELECT 1 FROM main.v8_preview_sandbox_credit_charges "
+                    "WHERE invoice_ref=?", (original_ref,)
+                ).fetchone() is not None:
+                    raise PermissionError(
+                        "Credit-backed return needs approved credit-note policy"
+                    )
             # Check this key first, while authorization and original invoice
             # are current. Conflict blocks changed quantities/mode.
             journal = self.journal.inspect_request(

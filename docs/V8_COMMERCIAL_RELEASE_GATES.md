@@ -6,13 +6,16 @@ an isolated **TEST DATA ONLY**, nontransactional preview.
 
 ## Current evidence
 
-- Owner-confirmed newer **local Windows** regression milestone:
-  `dd7ae38b4adfdfb53f0b23fe9690fd3d76f7ba70` ran
-  `python run_v8_checks.py`: **263 tests, OK, 88.806 seconds**;
-  `python -m compileall -q velopos_qt tests` returned without visible
-  errors. The test runner rejects skipped tests. This evidence is for that
-  exact earlier code SHA only, NOT for later Phase 1 safety commits.
-  GitHub-hosted push Actions success on the current head remains unverified.
+- Owner-confirmed latest **local Windows** regression milestone:
+  code commit `9753c4727cc36addbcff73ea458ce44c837897cb` ran
+  `python run_v8_checks.py`: **293 tests, OK, 139.399 seconds**,
+  with no failures or skips reported. `python -m compileall -q
+  velopos_qt tests` returned without visible errors. The test runner
+  treats skipped tests as a failure. This verifies that exact **code
+  SHA locally on Windows**, NOT GitHub-hosted push Actions or any
+  subsequent documentation-only checkpoint. PySide6 font and
+  `propagateSizeHints()` warnings did not fail the suite. Hosted
+  Windows Actions success remains unverified.
 - Preview pages include Dashboard, Inventory, Billing Draft, directory editors,
   Reports, Smart Inventory, Purchasing, historical Business Intelligence and
   demand-baseline planning. Preview mutations are restricted to test product /

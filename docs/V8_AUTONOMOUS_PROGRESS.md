@@ -1293,3 +1293,62 @@ DB transaction before any business posting. Add concurrent/crash and
 cross-branch regression evidence; keep checkout and legacy V7 services
 strictly disabled for V8 until Gates A/B actually pass. Do not touch
 stable `main`, production data, private keys or customer licenses.
+
+
+## Five-phase commercial execution adopted + Phase 1 immutable draft snapshot — 2026-11-04
+
+**User decision:** Group the entire VeloPOS V8 mission into five ordered
+acceptance phases rather than report subjective percentage increases.
+`docs/V8_FIVE_PHASE_EXECUTION_PLAN.md` added in
+`e052b9f47a915243bd681ad9f8ca53ef9d5cf4e3`; master roadmap linked
+in `a784049a7798fc6b168e5624cdff1dd275a175ab`.
+Phase 1: verified service-bound security, signed entitlement, shift and
+branch identity, atomicity, persistent idempotency, crash recovery.
+Phase 2: billing/purchasing/stock/returns and Gate A/B reconciliation.
+Phase 3: optional offline-first multi-branch/cloud/owner dashboard.
+Phase 4: production activation/trial/email recovery/installer.
+Phase 5: premium UI, trilingual accessibility, Windows/hardware/final QA.
+**Phase status:** Phase 1 in progress; none of the five phases accepted.
+These are milestones, NOT claims of work finished in one run.
+
+**Phase 1 code batch:** `63a86015eee013e56377e6e62187fb560a7e93b2`
+makes `PreviewAtomicSaleRecovery.inspect_in_transaction()` validate and
+canonicalize the caller's draft once, then pass the same frozen lines to
+persisted session/branch/license/stock policy inspection and journal
+fingerprinting. This addresses one-shot generator exhaustion and caller
+mutation between the independent checks. `fc51ea10db39a479e2f118922d3e7a0841a81175`
+pins an omitted calendar date to one resolved day across preflight and
+immutable request identity (important at local midnight). All of these are
+**read-only/rollback-only V8 TEST DATA** diagnostics; `require()` still
+denies, `can_checkout=False`, and no production posting is enabled.
+
+**Regression:** `f891a35741267077b5e9e50f744770d3a04f0454`
+adds generator-consumption and hostile caller draft-mutation
+subprocess tests. `ae8d3d82cd731bec2d7358329dfb3e0bf1cb2d8a`
+adds date-pinning regression, making three new methods and nine total
+in `tests/test_v8_atomic_sale_recovery.py`.
+
+**Evidence:** Previously confirmed user Windows local `dd7ae38`
+`run_v8_checks.py`: **263 tests / OK, 88.806 sec**, and compileall
+with no errors. That SHA is older than these Phase 1 commits.
+At `a784049`, GitHub branch comparison returned `identical` to
+`develop-v8`; combined status entries and the connector's PR-filtered
+workflow runs were empty. Neither is proof of push Actions result.
+**Exact-head Windows CI and new test execution UNVERIFIED**; no
+fresh passing count is claimed. No local test execution in this run.
+
+**Gate status:** **0/5 commercial release gates accepted**. A/B hard
+BLOCKED; C/D/E incomplete. The earlier ~35% figure is a subjective,
+not independently computed estimate; do not advance it without
+objective task/gate accounting. No real sales, returns, GRNs, supplier
+or credit payments, shift mutations, stock posting, production V7
+data, paid licenses, signing keys or `main` touched.
+
+**Exactly next priority:** Inspect the latest exact-head Windows push
+Actions and full no-skip preview suite; repair failing tests if present.
+Then move Phase 1 into a separately reviewed service-owned canonical
+session/role, branch/shift and signed-license enforcement boundary
+that owns the SAME isolated SQLite transaction and idempotent ledger;
+prove revoked sessions, concurrency, crash and cross-branch refusal
+on disposable data. Real financial writes remain disabled until Gate A/B
+are independently accepted.

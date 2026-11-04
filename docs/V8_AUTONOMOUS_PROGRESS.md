@@ -1837,3 +1837,74 @@ preview service-owned authorization and recovery, and advance
 trusted service-owned license/session/branch/shift checks with
 persistent idempotency and crash-safe accounting invariants on
 disposable V8 storage only.
+
+
+## Phase 1 canonical SQLite main-schema binding against TEMP shadowing — 2026-11-04
+
+**Progress baseline:** The owner-requested rough overall development
+estimate remains **~35% (unmeasured, not an acceptance score)**;
+Phase 1 of five is still IN PROGRESS. Commercial release **gates
+accepted: 0/5**; A/B BLOCKED, C/D/E outstanding. A verified Windows
+local suite at `da535008b708511fbb8cf64529e5c9d2fc983ebd`
+ran **296 tests / OK, 0 skipped, exit 0, 121.843 seconds** in
+the correct `.venv`. That is an older exact code SHA; this newer
+hardening batch has NOT been run on Windows yet.
+
+**Security issue found:** SQLite resolves an unqualified table name to
+a caller-created `TEMP` table before the persistent `main` table.
+A caller-owned connection whose `main` path passed the preview DB
+path check could therefore shadow `users`, `shifts`,
+`products`, branch registry tables or
+`v8_preview_request_journal`, potentially producing misleading
+identity, branch, inventory or journal diagnostics. This is a
+**transaction-boundary integrity problem**, not a production bypass
+claim (V8 checkout remains hard disabled). A separate isolated
+Python/SQLite smoke reproduced the TEMP-first resolution and
+confirmed explicit `main.table` avoids it.
+
+**Code commits on develop-v8 only:**
+- `25c8e81480f12c8812518e9e112dca7729f6c582`: explicit
+  `main.v8_preview_request_journal` in inspect, claim,
+  insert, complete and `main.sqlite_master` lookup;
+  no TEMP/ATTACH shadow can impersonate persisted idempotency rows.
+- `7d6c178cd4d5316c809d7557a10c44a7842babd4`: current
+  persisted cashier/shift policy reads from `main.users`,
+  `main.shifts`, never TEMP overrides.
+- `5a175322aafc2ace617d6eee9d0a75f73556db52`: branch
+  registration, membership and shift assignments use `main`
+  tables and main schema metadata.
+- `712d0b8a29254c88f2e39f6d6d4be25e237aba15`: checkout
+  preflight user, shift, product, batch and price rechecks read
+  `main` tables explicitly.
+
+**Regression methods:** `a306b466d1a3c78d2d7974c3af4fb9102a4c7da7`
+adds 3 disposable V8 SQLite subprocess tests in
+`tests/test_v8_atomic_sale_recovery.py`: TEMP user/shift copies must
+not resurrect a main-database revoked role or closed shift;
+TEMP product/branch copies must not mask main stock depletion or
+membership revocation; and a TEMP shadow journal must not hide a
+persisted completed request or permit a new claim.
+`d38bb54ba5f7b2c182eefb83095b4dde52630cf4` adds a fourth
+regression ensuring a forged TEMP completed record cannot block a
+fresh canonical main journal claim; staged main table creation and
+claim are rolled back. **4 new test methods**, 22 methods in
+atomic-sale-recovery test module.
+
+**Verification scope:** GitHub source and commits verified.
+An independent SQLite namespace smoke passed and showed canonical
+main queries override TEMP shadows; this does NOT establish repository
+suite passing. **New-head compileall, Windows local no-skip suite and
+GitHub-hosted push Actions remain UNVERIFIED**. No new passing test
+count is claimed. Old `da53500` local 296-test result is not
+inherited by this code. No implementation here authorizes real
+sales, payments, stock deduction, return, GRN, shift or supplier
+posting. No `main` branch, V7 production data, signing secrets or
+paid customer licenses changed.
+
+**Next strict priority:** Verify the new exact SHA in Windows
+`python -m compileall -q velopos_qt tests` and
+`python run_v8_checks.py` with the correct virtual environment
+and 0 skips; address any failures. Continue comprehensive
+service-owned canonical authorization plus signed-license and
+crash-safe idempotent business write design in disposable V8
+storage. Gate A/B must pass before financial posting is enabled.

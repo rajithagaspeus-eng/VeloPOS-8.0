@@ -15,7 +15,7 @@ from .idempotency_ledger import (
     PreviewIdempotencyLedger, RecoveryInspection,
 )
 from .product_editor import _guard
-from .sale_plan import plan_preview_sale
+from .sale_plan import canonical_decimal, plan_preview_sale
 
 
 def canonical_sale_recovery_payload(
@@ -68,17 +68,28 @@ class PreviewAtomicSaleRecovery:
     def inspect_in_transaction(self, connection, **sale_kwargs):
         """Observe current policy AND durable request state in one snapshot."""
         self.journal._check_connection(connection)
+        # A generator can be consumed by the preflight, and a caller-owned
+        # mutable list can change between preflight and journal hashing.
+        # Freeze validated decimal values ONCE so both inspections see the
+        # identical draft even if the caller mutates its original input.
+        plan = plan_preview_sale(sale_kwargs["lines"])
+        frozen_lines = tuple(
+            {"barcode": line.barcode, "qty": canonical_decimal(line.qty),
+             "price": canonical_decimal(line.price)}
+            for line in plan.lines
+        )
+        stable_kwargs = dict(sale_kwargs, lines=frozen_lines)
         readiness = self.boundary.inspect_in_transaction(
-            connection, **sale_kwargs
+            connection, **stable_kwargs
         )
         payload = canonical_sale_recovery_payload(
-            identity=sale_kwargs["identity"],
-            shift_id=sale_kwargs["shift_id"],
-            lines=sale_kwargs["lines"],
-            expected_branch_id=sale_kwargs["expected_branch_id"],
-            license_id=sale_kwargs["license_id"],
-            machine_id=sale_kwargs["machine_id"],
-            today=sale_kwargs.get("today"),
+            identity=stable_kwargs["identity"],
+            shift_id=stable_kwargs["shift_id"],
+            lines=stable_kwargs["lines"],
+            expected_branch_id=stable_kwargs["expected_branch_id"],
+            license_id=stable_kwargs["license_id"],
+            machine_id=stable_kwargs["machine_id"],
+            today=stable_kwargs.get("today"),
         )
         journal = self.journal.inspect_request(
             connection, "sale", sale_kwargs["request_id"], payload

@@ -21,11 +21,19 @@ def _finite_decimal(value):
     if value is None or type(value) is bool:
         raise ValueError("Invalid draft quantity or price")
     try:
-        number = Decimal(str(value))
-    except (InvalidOperation, TypeError, ValueError) as exc:
+        raw = str(value)
+        # Decimal("1E-999999999") is tiny yet finite: converting it to a
+        # fixed-point idempotency string would allocate an enormous buffer.
+        # Reject hostile/overprecise representations before any formatting.
+        if len(raw) > 128:
+            raise ValueError("Draft number representation too long")
+        number = Decimal(raw)
+    except (InvalidOperation, TypeError) as exc:
         raise ValueError("Invalid draft quantity or price") from exc
     if not number.is_finite():
         raise ValueError("Draft quantity or price must be finite")
+    if number != 0 and not -18 <= number.adjusted() <= 18:
+        raise ValueError("Draft number magnitude exceeds safe planning bounds")
     return number
 
 
@@ -71,6 +79,7 @@ def plan_preview_sale(lines):
 
     - 1..100 lines, canonical nonblank printable 1..80-character barcode
     - positive finite qty <=1,000,000, nonnegative finite price <=100m
+    - bounded numerical representation/magnitude before Decimal rendering
     - repeated barcodes are accumulated for stock checks; the combined
       requested quantity cannot silently exceed the line-level ceiling
     - each *line* is rounded independently, then summed. Never round an

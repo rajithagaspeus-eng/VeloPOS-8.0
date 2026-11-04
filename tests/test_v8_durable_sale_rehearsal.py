@@ -211,6 +211,37 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
                 0,
             )
 
+    def test_conflicting_request_rolls_back_without_sequence_gap(self):
+        self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        with self.assertRaises(ValueError):
+            self.journal.inspect(
+                request_id="durable-request-0001",
+                lines=[{"barcode": "SOAP", "qty": "5", "price": "0.50"}],
+            )
+        restarted = DurablePreviewSaleJournal(self.path)
+        next_result = restarted.inspect(
+            request_id="durable-request-0002", lines=self.lines
+        )
+        self.assertEqual(next_result.reference, "REHEARSAL-00000002")
+
+    def test_corrupt_sequence_rolls_back_without_new_row(self):
+        self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("UPDATE preview_sequence SET next_number=50")
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0002", lines=self.lines
+            )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                1,
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

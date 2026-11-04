@@ -837,3 +837,41 @@ head with an all-event Actions listing (PR-filtered lookup is insufficient),
 run full no-skip `python run_v8_checks.py`, repair failures, then implement
 trusted service-bound session/branch/shift and persistent idempotency on
 isolated disposable schema before enabling any money/stock writes.
+
+
+## Fast Development Mode: integrated atomic sale boundary (November 4, 2026)
+
+**Start:** `develop-v8` SHA
+`a76e2304dd076d380d753746a3d2828a9fbbae4f`, Windows
+Actions [41823957374](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41823957374)
+**212/212 PASS + compileall PASS**.
+
+**Feature branch:** `feature/v8-integrated-atomic-sale-boundary`.
+Instead of more isolated UI polish, this integrated core batch
+adds `velopos_qt/atomic_sale_boundary.py` to combine current
+persisted session, open shift, canonical branch, signed license,
+signed activation chain, and line/price/stock/expiry checks
+inside one `BEGIN IMMEDIATE` SQLite snapshot on isolated test data.
+All diagnostics are immutable; `can_checkout` and `can_execute`
+always False, and `require` always denies. The inspecting wrapper
+ALWAYS rolls back, even when local checks appear healthy.
+
+`PreviewCheckoutPreflight.inspect` now optionally accepts a
+canonical already-open transaction without committing/rolling
+back caller work; existing own-lock public behavior is retained.
+`RollbackOnlySaleRehearsal` now invokes the shared preflight
+inside its existing transaction to guard current price,
+aggregated stock, product expiry and expired active batches.
+
+`tests/test_v8_phase2_atomic_sale_boundary.py` adds seven
+disposable-database cases for valid-but-denied chained
+authorization, denial and expiry, forged sessions, contract
+boundary enforcement, immutable results, injected failure
+rollback and rehearsal safety. See
+`docs/V8_INTEGRATED_ATOMIC_SALE_BOUNDARY.md`.
+
+**Verification status: PENDING** Windows exact PR-head full
+`run_v8_checks.py` and compileall (zero skips/failures), then
+independent exact merged-head push CI. All commercial Gates
+A/B/C/D/E stay blocked. No V7 checkout, production data,
+`main`, signing keys or hosted services were modified.

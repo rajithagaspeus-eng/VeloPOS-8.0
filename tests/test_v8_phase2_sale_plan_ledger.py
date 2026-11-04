@@ -9,7 +9,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
-from decimal import Decimal, localcontext
+from decimal import Decimal, Inexact, ROUND_UP, localcontext
 from pathlib import Path
 
 from velopos_qt.sale_plan import canonical_decimal, plan_preview_sale
@@ -78,6 +78,35 @@ class PreviewSalePlanTests(unittest.TestCase):
                     request_fingerprint({"lines": pa.request_items()}),
                     request_fingerprint({"lines": pb.request_items()}),
                 )
+
+    def test_sale_totals_ignore_external_decimal_precision_rounding_and_traps(self):
+        # A caller changing context.prec or rounding must not change receipt
+        # cents, aggregate stock quantity or idempotency request items.
+        lines = [
+            {"barcode": "TINY", "qty": "0.0049994999", "price": "1"},
+            {"barcode": "TINY", "qty": "0.0049994999", "price": "1"},
+            {"barcode": "LONG", "qty": "1.234567890123456789012345678901",
+             "price": "0.01"},
+        ]
+        baseline = plan_preview_sale(lines)
+        self.assertEqual(baseline.subtotal, Decimal("0.01"))
+        self.assertEqual(
+            baseline.quantities,
+            (("TINY", Decimal("0.0099989998")),
+             ("LONG", Decimal("1.234567890123456789012345678901"))),
+        )
+        with localcontext() as ctx:
+            ctx.prec = 3
+            ctx.rounding = ROUND_UP
+            ctx.traps[Inexact] = True
+            checked = plan_preview_sale(lines)
+            self.assertEqual(checked.subtotal, baseline.subtotal)
+            self.assertEqual(checked.quantities, baseline.quantities)
+            self.assertEqual(checked.request_items(), baseline.request_items())
+            self.assertEqual(
+                request_fingerprint({"items": checked.request_items()}),
+                request_fingerprint({"items": baseline.request_items()}),
+            )
 
     def test_untrusted_iterator_is_bounded_to_101_inputs(self):
         """A bad generator must not consume unbounded scan lines or hang."""

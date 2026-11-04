@@ -1025,3 +1025,43 @@ posting is enabled. Gate A/B/C/D/E remain blocked.
 **Next priority:** verify exact-head push Windows CI, then implement and test
 service-owned persistent transaction journal recovery and branch/session/shift
 authorization on disposable V8 storage, preserving V7 production isolation.
+
+
+## Durable journal crash-recovery triage — 2026-11-04
+
+Branch: `develop-v8`. Reviewed roadmap, commercial gates, progress, journal
+and rollback-only sale/return callers. Baseline Windows push CI run
+[41847710848](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41847710848)
+was successful for **older** SHA `e19232a5098fdf5fc19b236f2d29dfc8746f59e1`
+(245 tests previously reported), **not** this batch.
+
+**Code:** `f3c16db61961f0c44dc8c749a073256efd56b482` adds read-only
+`PreviewIdempotencyLedger.inspect_request` to distinguish not-recorded,
+persisted PENDING needing manual reconciliation, COMPLETED journal-only
+unverified results and malformed legacy records. It checks immutable
+payload conflicts. `claim` rejects corrupt completed refs; `complete`
+requires printable nonpadded refs; newly created preview journal table
+enforces pending/null and completed/nonempty constraints. Existing tables
+remain compatible and are validated on replay. This does not validate any
+real business invoice or authorize transactions, and deliberately never
+auto-deletes/retries a stranded claim.
+
+**Regression:** `4bed24ca854dbce8c73443491e4959c178bf8e54` and control-character
+literal fix `b94819270b58b5579248dad1251821eab6f97a98` add six disposable
+SQLite subprocess test methods covering durable replay, payload/branch
+conflict, committed orphan PENDING, rollback, invalid refs, corrupt
+legacy completion and new schema constraints. Five isolated local SQLite
+schema smoke cases gave expected results; this is not a run of repo tests.
+
+**CI:** Latest test SHA `b94819270b58b5579248dad1251821eab6f97a98`
+returned no combined status entries or PR-triggered runs via the
+available connector. Push-triggered Actions are not covered by the PR
+lookup. Exact-head Windows `compileall` and no-skip `run_v8_checks.py`
+remain **UNVERIFIED**; verified new regression count is zero.
+Gates A/B BLOCKED; C/D/E outstanding. Production V7, real payments/stock,
+license keys and `main` untouched.
+
+**NEXT:** verify current checkpoint SHA against Windows push CI and fix
+failures, then build service-owned persistent transaction authorization
+(session, shift, canonical branch and signed license) with crash/retry
+and concurrency evidence in disposable V8 storage. No live checkout.

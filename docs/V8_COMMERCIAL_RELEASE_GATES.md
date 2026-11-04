@@ -7,15 +7,19 @@ an isolated **TEST DATA ONLY**, nontransactional preview.
 ## Current evidence
 
 - Owner-confirmed latest **local Windows** regression milestone:
-  code commit `9753c4727cc36addbcff73ea458ce44c837897cb` ran
-  `python run_v8_checks.py`: **293 tests, OK, 139.399 seconds**,
-  with no failures or skips reported. `python -m compileall -q
-  velopos_qt tests` returned without visible errors. The test runner
-  treats skipped tests as a failure. This verifies that exact **code
-  SHA locally on Windows**, NOT GitHub-hosted push Actions or any
-  subsequent documentation-only checkpoint. PySide6 font and
-  `propagateSizeHints()` warnings did not fail the suite. Hosted
-  Windows Actions success remains unverified.
+  code commit `da535008b708511fbb8cf64529e5c9d2fc983ebd` ran
+  `python run_v8_checks.py` using verified virtual environment
+  `C:\\Users\\user\\VeloPOS8\\.venv\\Scripts\\python.exe`:
+  **296 tests, OK, 121.843 seconds; 0 failures, 0 skips, exit code 0**.
+  `python -m compileall -q velopos_qt tests` returned without visible
+  errors and the test Python interpreter imported `PySide6` and
+  `cryptography` successfully. The previous attempt at this same SHA
+  printed `OK (skipped=59)`, and therefore did NOT count as a complete
+  pass. The corrected environment rerun exercised all 296 tests.
+  PySide6 missing-font and `propagateSizeHints()` warnings did not
+  fail the run. This confirms that exact **code SHA locally on Windows**,
+  NOT GitHub-hosted push Actions or subsequent documentation-only
+  commits. Hosted Windows Actions success remains unverified.
 - Preview pages include Dashboard, Inventory, Billing Draft, directory editors,
   Reports, Smart Inventory, Purchasing, historical Business Intelligence and
   demand-baseline planning. Preview mutations are restricted to test product /

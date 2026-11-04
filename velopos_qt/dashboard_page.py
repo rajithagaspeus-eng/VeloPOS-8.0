@@ -11,7 +11,11 @@ class MetricCard(QFrame):
         self.setObjectName("metricCard")
         self.setMinimumWidth(140)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(20, 17, 20, 17)
+        layout.setSpacing(8)
+        self.index_label = QLabel("01 / OVERVIEW")
+        self.index_label.setObjectName("metricIndex")
+        layout.addWidget(self.index_label)
         self.label = QLabel()
         self.label.setObjectName("metricLabel")
         self.label.setWordWrap(True)
@@ -32,9 +36,10 @@ class DashboardOverview(QWidget):
         self.open_inventory = open_inventory
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 8, 0, 0)
+        outer.setSpacing(18)
         heading = QHBoxLayout()
         self.section_title = QLabel()
-        self.section_title.setStyleSheet("font-size:14pt; font-weight:650;")
+        self.section_title.setObjectName("dashboardSection")
         heading.addWidget(self.section_title)
         heading.addStretch()
         self.refresh_button = QPushButton()
@@ -48,8 +53,11 @@ class DashboardOverview(QWidget):
         self.cards = []
         for index, _ in enumerate(self.keys):
             card = MetricCard()
+            card.index_label.setText(f"{index + 1:02d}  /  STORE PULSE")
             self.cards.append(card)
             metrics.addWidget(card, index // 2, index % 2)
+        metrics.setColumnStretch(0, 1)
+        metrics.setColumnStretch(1, 1)
         outer.addLayout(metrics)
 
         self.alert_frame = QFrame()

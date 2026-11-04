@@ -37,6 +37,20 @@ def request_fingerprint(payload):
     """Canonical payload digest. No secret data or full payload is stored."""
     if not isinstance(payload, dict):
         raise ValueError("Request payload must be an object")
+    # JSON coerces integer object keys to strings. That would make distinct
+    # caller payloads share one idempotency fingerprint (e.g. {1: "a"} and
+    # {"1": "a"}). Reject ambiguous keys at every nesting level.
+    def validate_keys(value):
+        if isinstance(value, dict):
+            if any(type(key) is not str for key in value):
+                raise ValueError("Request payload keys must be strings")
+            for child in value.values():
+                validate_keys(child)
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                validate_keys(child)
+
+    validate_keys(payload)
     try:
         serialized = json.dumps(
             payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"),

@@ -124,7 +124,7 @@ class SandboxReturnTests(unittest.TestCase):
             assert first.refund_cents == second.refund_cents == 4500
             extra = new_return(
                 sale.reference,request_id="sandbox-return-0003",
-                returns=[{"line_no":1,"qty":"1"}],
+                returns=[{"line_no":1,"qty":"0.01"}],
             )
             try:
                 return_service.simulate_return(**extra)

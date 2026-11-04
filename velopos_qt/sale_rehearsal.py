@@ -15,6 +15,7 @@ from hashlib import sha256
 from .checkout_preflight import _quantity, PreviewCheckoutPreflight
 from .idempotency_ledger import PreviewIdempotencyLedger
 from .service_authorization import PreviewServiceAuthorization
+from .sale_plan import plan_preview_sale
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class SaleRehearsal:
     subtotal: Decimal
     staged_items: int
     persisted: bool = False
+    staged_stock_movements: int = 0
 
 
 class RollbackOnlySaleRehearsal:
@@ -46,31 +48,20 @@ class RollbackOnlySaleRehearsal:
         day = date.today() if today is None else date.fromisoformat(str(today))
         if today is not None and day.isoformat() != str(today):
             raise ValueError("Noncanonical date")
-        parsed, needed = [], {}
-        total = Decimal(0)
-        for item in lines:
-            if not isinstance(item, dict):
-                raise ValueError("Invalid line")
-            barcode = item.get("barcode")
-            if not isinstance(barcode, str) or not 1 <= len(barcode) <= 80:
-                raise ValueError("Invalid barcode")
-            qty, price = _quantity(item.get("qty")), _quantity(item.get("price"))
-            if not 0 < qty <= Decimal(1000000) or not 0 <= price <= Decimal(100000000):
-                raise ValueError("Invalid quantity/price")
-            needed[barcode] = needed.get(barcode, Decimal(0)) + qty
-            parsed.append((barcode, qty, price))
-            total += qty * price
-        total = total.quantize(Decimal("0.01"))
+        plan = plan_preview_sale(lines)
+        parsed = [
+            (line.barcode, line.qty, line.price, line.line_total)
+            for line in plan.lines
+        ]
+        needed = dict(plan.quantities)
+        total = plan.subtotal
         # Keep fingerprint fully bound to immutable line quantities, dates,
         # identity and shift. This is still only a test-only claim.
         payload = {
             "actor": getattr(identity, "username", None),
             "shift": shift_id,
             "day": day.isoformat(),
-            "items": [
-                {"barcode": barcode, "qty": str(qty), "price": str(price)}
-                for barcode, qty, price in parsed
-            ],
+            "items": plan.request_items(),
         }
         invoice = "SIM-" + sha256(str(request_id).encode("utf-8")).hexdigest()[:20]
         connection = self.database.connect()
@@ -122,9 +113,24 @@ class RollbackOnlySaleRehearsal:
                 )
                 if changed.rowcount != 1:
                     raise ValueError("Stock changed during rehearsal")
+                # Stage the stock movement in the SAME transaction as
+                # the synthetic sale and journal, without ever committing.
+                after = connection.execute(
+                    "SELECT stock_qty FROM products WHERE barcode=?", (barcode,)
+                ).fetchone()["stock_qty"]
+                connection.execute(
+                    "INSERT INTO stock_moves "
+                    "(ts,barcode,qty_change,qty_after,reason,ref,user,note) "
+                    "VALUES(?,?,?,?,?,?,?,?)",
+                    (day.isoformat() + "T00:00:00", barcode, -float(qty),
+                     after, "SIMULATED_SALE", invoice, decision.actor,
+                     "ROLLBACK-ONLY V8 TEST - never persisted"),
+                )
+            if inject_failure_at == "after_stock_ledger":
+                raise RuntimeError("Injected failure after stock ledger staging")
             if inject_failure_at == "after_stock":
                 raise RuntimeError("Injected failure after stock changes")
-            for barcode, _, price in parsed:
+            for barcode, _, price, _ in parsed:
                 row = connection.execute(
                     "SELECT selling_price FROM products WHERE barcode=?",
                     (barcode,),
@@ -136,19 +142,34 @@ class RollbackOnlySaleRehearsal:
                 "VALUES(?,?,'00:00:00',?,?,'SIMULATED')",
                 (invoice, day.isoformat(), float(total), decision.actor),
             )
-            for barcode, qty, price in parsed:
+            for barcode, qty, price, line_total in parsed:
                 connection.execute(
                     "INSERT INTO sale_items(invoice_no,barcode,qty,selling_price,total) "
                     "VALUES(?,?,?,?,?)",
-                    (invoice, barcode, float(qty), float(price), float(qty * price)),
+                    (invoice, barcode, float(qty), float(price), float(line_total)),
                 )
             if inject_failure_at == "after_invoice":
                 raise RuntimeError("Injected failure after invoice")
             self.journal.complete(connection, "sale", request_id, invoice)
+            if inject_failure_at == "after_journal_complete":
+                raise RuntimeError("Injected failure after idempotency completion")
+            # The same key and immutable request must return the staged
+            # result rather than create a second synthetic invoice.
+            replay = self.journal.claim(connection, "sale", request_id, payload)
+            if replay.is_new or replay.result_ref != invoice:
+                raise RuntimeError("Idempotency replay verification failed")
             staged = connection.execute(
                 "SELECT COUNT(*) FROM sale_items WHERE invoice_no=?", (invoice,)
             ).fetchone()[0]
-            return SaleRehearsal(invoice, total, staged)
+            staged_moves = connection.execute(
+                "SELECT COUNT(*) FROM stock_moves "
+                "WHERE ref=? AND reason='SIMULATED_SALE'", (invoice,)
+            ).fetchone()[0]
+            if staged != plan.line_count or staged_moves != len(needed):
+                raise RuntimeError("Staged invoice and stock ledger out of balance")
+            return SaleRehearsal(
+                invoice, total, staged, staged_stock_movements=staged_moves
+            )
         finally:
             # NEVER COMMIT, under any circumstances. This is the safety
             # guarantee and cannot be overridden with caller arguments.

@@ -903,14 +903,14 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
-    def test_audit_rejects_binary_completed_journal_reference(self):
+    def test_audit_rejects_malformed_completed_journal_reference(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)
             with database.db() as c:
                 c.execute(
                     "UPDATE main.v8_preview_request_journal "
                     "SET result_ref=? WHERE scope='sale' AND request_id=?",
-                    (b"invalid-journal-ref", args["request_id"])
+                    ("SBX-invalid", args["request_id"])
                 )
             audited = sandbox.reconcile_sandbox()
             assert not audited.balanced, audited

@@ -1,6 +1,9 @@
 """Disposable SQLite sale rehearsal crash recovery and idempotency tests."""
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import os
+import subprocess
+import sys
 import sqlite3
 import tempfile
 import unittest
@@ -324,6 +327,69 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
             self.journal.inspect(
                 request_id="durable-request-0001", lines=self.lines
             )
+
+    def test_crash_before_commit_rolls_back_row_and_sequence(self):
+        # Separate process terminates without closing the transaction.
+        # SQLite recovery must leave no half-written rehearsal.
+        script = """
+import os, sqlite3, sys
+conn = sqlite3.connect(sys.argv[1], isolation_level=None)
+conn.execute('BEGIN IMMEDIATE')
+conn.execute(
+    "INSERT INTO preview_rehearsals(request_id,fingerprint,reference) "
+    "VALUES (?,?,?)",
+    ('crashed-request-0001', 'a' * 64, 'REHEARSAL-00000001'))
+conn.execute('UPDATE preview_sequence SET next_number=2 WHERE singleton=1')
+os._exit(17)
+"""
+        child = subprocess.run(
+            [sys.executable, "-c", script, self.path],
+            capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(child.returncode, 17, child.stderr)
+        recovered = DurablePreviewSaleJournal(self.path)
+        result = recovered.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        self.assertEqual(result.reference, "REHEARSAL-00000001")
+        self.assertFalse(result.replayed)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                1,
+            )
+
+    def test_crash_after_commit_preserves_idempotent_replay(self):
+        script = """
+import os, sqlite3, sys
+conn = sqlite3.connect(sys.argv[1], isolation_level=None)
+conn.execute('BEGIN IMMEDIATE')
+conn.execute(
+    "INSERT INTO preview_rehearsals(request_id,fingerprint,reference) "
+    "VALUES (?,?,?)",
+    (sys.argv[2], sys.argv[3], 'REHEARSAL-00000001'))
+conn.execute('UPDATE preview_sequence SET next_number=2 WHERE singleton=1')
+conn.execute('COMMIT')
+os._exit(19)
+"""
+        from velopos_qt.sale_request_service import rehearse_sale_request
+        request_id = "durable-request-0001"
+        fingerprint = rehearse_sale_request(
+            request_id=request_id, lines=self.lines
+        ).fingerprint
+        child = subprocess.run(
+            [sys.executable, "-c", script, self.path, request_id, fingerprint],
+            capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(child.returncode, 19, child.stderr)
+        recovered = DurablePreviewSaleJournal(self.path)
+        replay = recovered.inspect(request_id=request_id, lines=self.lines)
+        self.assertTrue(replay.replayed)
+        self.assertEqual(replay.reference, "REHEARSAL-00000001")
+        next_result = recovered.inspect(
+            request_id="durable-request-0002", lines=self.lines
+        )
+        self.assertEqual(next_result.reference, "REHEARSAL-00000002")
 
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)

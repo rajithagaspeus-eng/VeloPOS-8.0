@@ -95,7 +95,8 @@ def plan_preview_sale(lines):
         barcode = item.get("barcode")
         if type(barcode) is not str or not 1 <= len(barcode) <= 80:
             raise ValueError("Invalid barcode")
-        if (not barcode.strip() or barcode != barcode.strip() or\n                not barcode.isprintable()):
+        if (not barcode.strip() or barcode != barcode.strip() or
+                not barcode.isprintable()):
             raise ValueError("Invalid barcode")
         qty = _finite_decimal(item.get("qty"))
         price = _finite_decimal(item.get("price"))

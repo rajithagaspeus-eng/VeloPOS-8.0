@@ -707,6 +707,9 @@ class BillingPage(QWidget):
                 try:
                     warnings = self.stock_reader.inspect(self.cart)
                 except (ValueError, OSError, RuntimeError) as exc:
+                    # A transient read failure must not be cached as a
+                    # successful stock inspection for this cart signature.
+                    self._last_stock_signature = None
                     self.stock_status.setText(f'{self.text("stock_check_error")}: {exc}')
                 else:
                     if not warnings:

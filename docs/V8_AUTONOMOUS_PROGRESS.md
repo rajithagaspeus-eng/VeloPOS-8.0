@@ -61,3 +61,22 @@ Never mutate `main` or real customer databases. Never rotate, generate or
 commit real Ed25519 private signing keys. Do not equate CI preview passes with
 commercial transaction release approval. Preserve the original V7 services
 until a reviewed, backward-compatible production integration plan exists.
+
+## Gate A combined authorization inspection — November 4, 2026
+
+`velopos_qt/combined_authorization.py` composes the existing preview
+transaction-scoped persisted cashier-role/shift/session check and a
+cryptographically signed machine/action/expiry entitlement inspection.
+The first check enforces an isolated canonical SQLite transaction;
+neither a valid signature nor a live Admin/Cashier session can turn
+`can_execute` on. `require()` always raises PermissionError.
+It does not trust UI privilege flags or modify installed V7 licensing.
+Disposable-db regressions cover valid-but-denied credentials, forged key,
+wrong role, password rotation/revocation, nontransaction access, bad
+actions and production-path rejection. This is an integration diagnostic,
+**not** commercial licensing, revocation, offline grace, trial enforcement,
+or authorization to post financial transactions. Gate A remains BLOCKED.
+
+Next: design signed entitlement policy with a trusted clock/server-backed
+revocation model, audit transaction boundary threats and atomic replay/
+stock batch consistency. No production transactions until every gate passes.

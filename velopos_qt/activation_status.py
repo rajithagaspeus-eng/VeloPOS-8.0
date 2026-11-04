@@ -101,8 +101,14 @@ class PreviewActivationStatusInspector:
         if last_seen_utc is not None:
             if not isinstance(last_seen_utc, datetime) or last_seen_utc.tzinfo is None:
                 raise ValueError("Last seen time must be timezone-aware")
-            if clock + timedelta(minutes=5) < last_seen_utc.astimezone(timezone.utc):
+            trusted_previous = last_seen_utc.astimezone(timezone.utc)
+            if clock + timedelta(minutes=5) < trusted_previous:
                 reasons.append("local_clock_rollback_suspected")
+            # A newly presented signed observation older than a previously
+            # accepted observation must not silently refresh offline grace.
+            # The caller-provided watermark is diagnostic, not tamper-proof.
+            if observed is not None and observed < trusted_previous:
+                reasons.append("activation_observation_replay_suspected")
         return PreviewActivationStatus(
             signature_valid=valid,
             current=valid and len(reasons) == 1,

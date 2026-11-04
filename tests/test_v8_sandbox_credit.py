@@ -65,9 +65,11 @@ def ctx(**overrides):
     d.update(overrides)
     return d
 def open_account(credit_limit="300",customer=customer_id,**kw):
+    admin_context = dict(identity=manager,shift_id=manager_shift)
+    admin_context.update(kw)
     return credit_service.open_test_account(
         customer_id=customer,credit_limit=credit_limit,
-        **ctx(identity=manager,shift_id=manager_shift,**kw)
+        **ctx(**admin_context)
     )
 def charge(ref,request_id="credit-charge-0001",customer=customer_id,**kw):
     return credit_service.attach_unpaid_invoice(

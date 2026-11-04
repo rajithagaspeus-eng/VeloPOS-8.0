@@ -147,6 +147,7 @@ QLabel#screenTitle { color:#edf6ff; font-size:21pt; font-weight:750; }
 QLabel#sectionTitle { color:#e9f6fc; font-size:13pt; font-weight:750; }
 QLabel#previewSafetyNotice { color:#f8d9a3; background:#3a3028; border:1px solid #695139; border-radius:9px; padding:11px 13px; }
 QLabel#catalogStatus { color:#91a8b9; font-size:9pt; }
+QLabel#billingSearchHelp { color:#9bcfc6; font-size:9pt; padding:4px 2px; }
 QLineEdit#barcodeSearch { background:#102235; border:2px solid #376b79; border-radius:11px; min-height:45px; font-size:12pt; padding-left:15px; }
 QLineEdit#barcodeSearch:focus { border:2px solid #49e4c0; }
 QTableWidget#catalogTable, QTableWidget#draftCartTable, QTableWidget#searchResults { border:1px solid #31495e; border-radius:12px; }
@@ -193,6 +194,7 @@ QLabel#screenTitle { color:#17384c; font-size:21pt; font-weight:750; }
 QLabel#sectionTitle { color:#173b4b; font-size:13pt; font-weight:750; }
 QLabel#previewSafetyNotice { color:#86561c; background:#fff5e8; border:1px solid #f2d4ac; border-radius:9px; padding:11px 13px; }
 QLabel#catalogStatus { color:#5e788c; font-size:9pt; }
+QLabel#billingSearchHelp { color:#26786f; font-size:9pt; padding:4px 2px; }
 QLineEdit#barcodeSearch { background:white; border:2px solid #a7cfcf; border-radius:11px; min-height:45px; font-size:12pt; padding-left:15px; }
 QLineEdit#barcodeSearch:focus { border:2px solid #059e87; }
 QTableWidget#catalogTable, QTableWidget#draftCartTable, QTableWidget#searchResults { border:1px solid #d7e3ec; border-radius:12px; }

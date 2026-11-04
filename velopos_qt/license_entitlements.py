@@ -155,7 +155,7 @@ class PreviewSignedEntitlementInspector:
                     if day > expiry:
                         reasons.append("signed_entitlement_expired")
                     else:
-                        entitled = matched
+                        entitled = matched and (expected_branch_id is None or signed_branch_id == expected_branch_id)
         return PreviewEntitlementDecision(
             action, verified, matched, entitled, tuple(reasons),
             signed_license_id=signed_license_id,

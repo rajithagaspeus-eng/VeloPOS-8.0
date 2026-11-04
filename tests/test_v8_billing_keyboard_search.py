@@ -219,6 +219,41 @@ class DraftBillingKeyboardSearchTests(unittest.TestCase):
         self.assertEqual(str(self.page.cart.subtotal()), "250.00")
         self.assertFalse(hasattr(self.page, "checkout_button"))
 
+    def test_read_only_sandbox_closeout_shows_balanced_and_blocked_states(self):
+        from types import SimpleNamespace
+
+        class FakeCloseout:
+            def __init__(self):
+                self.calls = 0
+                self.fail = False
+
+            def closeout(self):
+                self.calls += 1
+                if self.fail:
+                    return SimpleNamespace(balanced=False, reasons=("bad_stock",))
+                return SimpleNamespace(
+                    balanced=True, invoice_count=1, return_count=1,
+                    gross_cents=25000, declared_returns_cents=4500,
+                    net_after_declared_returns_cents=20500
+                )
+
+        reader = FakeCloseout()
+        self.page.sandbox_accounting = reader
+        self.page.sandbox_audit_button.setEnabled(True)
+        self.page.query.setText("RICE-B")
+        self.page.scan_or_add()
+        original = dict(self.page.cart.lines["RICE-B"])
+        self.page.sandbox_audit_button.click()
+        self.assertIn("205.00", self.page.sandbox_audit_status.text())
+        self.assertIn("NOT captured funds", self.page.sandbox_audit_status.text())
+        reader.fail = True
+        self.page.sandbox_audit_button.click()
+        self.assertIn("BLOCKED", self.page.sandbox_audit_status.text())
+        self.assertIn("bad_stock", self.page.sandbox_audit_status.text())
+        self.assertEqual(reader.calls, 2)
+        self.assertEqual(self.page.cart.lines["RICE-B"], original)
+        self.assertFalse(hasattr(self.page, "checkout_button"))
+
     def test_only_one_match_and_no_checkout_or_financial_writes(self):
         self.page.query.setText("RICE-B")
         self.assertEqual(self.page.results.rowCount(), 1)

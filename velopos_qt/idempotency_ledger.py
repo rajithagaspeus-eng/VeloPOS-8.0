@@ -23,6 +23,7 @@ _MAX_REQUEST_BYTES = 256 * 1024
 _MAX_REQUEST_NODES = 10000
 _SCOPES = frozenset({
     "sale", "return", "purchase", "supplier_payment", "credit_payment",
+    "credit_charge",
     "points_redemption", "shift_open", "shift_close",
 })
 

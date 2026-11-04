@@ -907,3 +907,16 @@ Acceptance and explicit commercial limits:
 `python run_v8_checks.py` (no failures/skips), then exact merged-head
 push CI. No commercial service, tax, payment, license, cloud,
 `main` or production V7 data modified. Gates A/B/C/D/E remain blocked.
+
+
+## Core input hardening — 2026-11-04
+
+**Branch:** `develop-v8` only. Starting HEAD `95dfb4863832b66695c1c1f6aebd7b50567c5b4a`, prior push Windows Actions [41828717755](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41828717755) SUCCESS for that previous SHA, not this batch.
+
+**Code** `2234f8ff9c15219d74f4d745a015fff6cf5fd6f3`: fail closed on nonprintable barcode identifiers in deterministic, rollback-only sale planning. This blocks embedded newline, tab, NUL and terminal escape characters from being accepted as transaction identity, preventing ambiguous printed/audited item identifiers. Existing normal printable barcodes remain valid.
+
+**Tests** `43f1e39eb6c4e955343a06f15b514da9b8df9e15`: four new adversarial inputs added to existing invalid-line regression; all still test-only. No real checkout or posting enabled.
+
+**Verification:** exact-head Windows push Actions and test count for this checkpoint still need inspection; do not inherit the preceding 226-test PASS result. Gate A/B/C/D/E remain blocked. No production DB, private signing keys, V7 services or main touched.
+
+**Next priority:** verify this checkpoint exact-head Windows CI and `run_v8_checks.py` no-skip result; then service-bound identity/shift/branch authorization, persistent idempotency and atomic transaction recovery in disposable schema before any financial writes.

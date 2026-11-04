@@ -632,7 +632,14 @@ class PreviewSandboxSaleLedger:
             tender_by_ref = {}
             for row in all_tenders:
                 tender_by_ref.setdefault(row["reference"], []).append(row)
-                if row["reference"] not in invoice_refs:
+                tender_ref = row["reference"]
+                if (type(tender_ref) is not str
+                        or not tender_ref.startswith("SBX-")
+                        or len(tender_ref) != 28
+                        or any(char not in "0123456789abcdef"
+                               for char in tender_ref[4:])):
+                    reasons.append("invalid_tender_invoice_reference")
+                if tender_ref not in invoice_refs:
                     reasons.append("orphan_tender_allocation")
                 if (row["method"] not in ("Cash","Card","QR")
                         or type(row["amount_cents"]) is not int
@@ -652,6 +659,14 @@ class PreviewSandboxSaleLedger:
                 "SELECT reference,declared,due_cents,cash_cents,noncash_cents,"
                 "change_cents FROM main.v8_preview_sandbox_settlements"
             ).fetchall()
+            for row in settlements:
+                settlement_ref = row["reference"]
+                if (type(settlement_ref) is not str
+                        or not settlement_ref.startswith("SBX-")
+                        or len(settlement_ref) != 28
+                        or any(char not in "0123456789abcdef"
+                               for char in settlement_ref[4:])):
+                    reasons.append("invalid_settlement_invoice_reference")
             settlement_by_ref = {row["reference"]: row for row in settlements}
             if len(settlement_by_ref) != len(settlements):
                 reasons.append("duplicate_settlement_record")

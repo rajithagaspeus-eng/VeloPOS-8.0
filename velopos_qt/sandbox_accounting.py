@@ -224,8 +224,8 @@ class PreviewSandboxAccounting:
                 "refund_cents,refund_mode FROM main.v8_preview_sandbox_returns"
             ).fetchall() if has_returns else [])
             ret_lines = (connection.execute(
-                "SELECT reference,sale_line_no,barcode,quantity,refund_cents "
-                "FROM main.v8_preview_sandbox_return_lines"
+                "SELECT reference,sale_line_no,barcode,quantity,refund_cents,"
+                "disposition,restocked FROM main.v8_preview_sandbox_return_lines"
             ).fetchall() if has_returns else [])
             ret_by_ref = {row["reference"]: row for row in ret_headers}
             refunded_per_sale_line = {}
@@ -246,6 +246,9 @@ class PreviewSandboxAccounting:
                     except Exception:
                         reasons.append("invalid_return_quantity")
                         continue
+                    if (row["disposition"] not in ("DAMAGED","DISCARDED")
+                            or row["restocked"] != 0):
+                        reasons.append("return_disposition_not_nonrestocking")
                     refunded_per_sale_line.setdefault(key, []).append((qty, row["refund_cents"]))
                     refunds_per_header[row["reference"]] = (
                         refunds_per_header.get(row["reference"], 0)

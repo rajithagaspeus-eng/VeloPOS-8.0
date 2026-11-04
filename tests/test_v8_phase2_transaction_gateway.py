@@ -30,7 +30,9 @@ class PreviewGatewayTests(unittest.TestCase):
             calls = (
                 "sale", "return_sale", "purchase", "supplier_payment",
                 "credit_payment", "redeem_points", "open_shift",
-                "close_shift", "print_receipt"
+                "close_shift", "print_receipt", "void_sale", "void_purchase",
+                "cash_move", "add_expense", "delete_expense", "adjust_stock",
+                "finalize_stock_take", "receive_batch",
             )
             identities = [
                 None, PreviewIdentity("cashier", "Cashier"),

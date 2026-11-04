@@ -93,6 +93,36 @@ class PreviewSmokeTests(unittest.TestCase):
         )
         self.assertEqual(page.table.item(0, 1).toolTip(), "Sample Rice")
 
+    def test_premium_inventory_and_billing_surfaces_keep_draft_only_behavior(self):
+        from PySide6.QtWidgets import QFrame
+        from velopos_qt.app import DARK, LIGHT
+        self.window.nav.setCurrentRow(1)
+        inventory = self.window._pages[1]
+        self.assertEqual(inventory.search_panel.objectName(), "searchPanel")
+        self.assertEqual(inventory.table.objectName(), "catalogTable")
+        self.assertEqual(inventory.status.objectName(), "catalogStatus")
+        self.assertEqual(inventory.table.rowCount(), 2)
+        self.assertEqual(inventory.table.item(0, 1).text(), "Sample Rice")
+        self.window.nav.setCurrentRow(2)
+        billing = self.window._pages[2]
+        self.assertEqual(billing.scan_panel.objectName(), "searchPanel")
+        self.assertEqual(billing.query.objectName(), "barcodeSearch")
+        self.assertEqual(billing.results.objectName(), "searchResults")
+        self.assertEqual(billing.cart_table.objectName(), "draftCartTable")
+        self.assertEqual(billing.notice.objectName(), "previewSafetyNotice")
+        self.assertTrue(billing.notice.text())
+        self.assertEqual(billing.cart_table.rowCount(), 0)
+        self.assertIsNone(self.window.transaction_gateway)
+        self.assertIsNone(self.window.checkout_preflight)
+        for stylesheet in (DARK, LIGHT):
+            self.assertIn("QFrame#searchPanel", stylesheet)
+            self.assertIn("QLineEdit#barcodeSearch:focus", stylesheet)
+            self.assertIn("QFrame#billingTotals", stylesheet)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(inventory.heading.text(), self.window.t("inventory"))
+        self.assertEqual(billing.heading.text(), self.window.t("billing"))
+        self.assertTrue(billing.notice.text())
+
     def test_preview_login_dialog_and_signout_gate(self):
         from PySide6.QtWidgets import QDialog
         from velopos_qt.login_dialog import PreviewLoginDialog

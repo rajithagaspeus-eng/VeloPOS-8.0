@@ -3,7 +3,8 @@
 This is a *diagnostic*, NOT permission to sell. A BEGIN IMMEDIATE transaction
 gives a consistent snapshot against concurrent SQLite writers; it is ALWAYS
 rolled back and the connection closed. No invoices, sales, stock, payment or
-idempotency entries are created. Actual checkout must rerun all decisions
+idempotency entries are created. Canonical inventory and account reads bind
+main.* rather than caller-created TEMP shadow tables. Actual checkout must rerun all decisions
 inside its own authenticated atomic write transaction.
 """
 from dataclasses import dataclass
@@ -96,7 +97,7 @@ class PreviewCheckoutPreflight:
             user = None
             if isinstance(username, str):
                 user = connection.execute(
-                    "SELECT role, pw_hash FROM users WHERE username=?", (username,)
+                    "SELECT role, pw_hash FROM main.users WHERE username=?", (username,)
                 ).fetchone()
             verified = verify_preview_session(self.database, identity, user)
             if not verified:
@@ -104,7 +105,7 @@ class PreviewCheckoutPreflight:
 
             if isinstance(shift_id, int) and not isinstance(shift_id, bool) and shift_id > 0:
                 shift = connection.execute(
-                    "SELECT status, cashier FROM shifts WHERE id=?", (shift_id,)
+                    "SELECT status, cashier FROM main.shifts WHERE id=?", (shift_id,)
                 ).fetchone()
                 if shift is None or shift["status"] != "OPEN":
                     reasons.append("shift_not_open")
@@ -113,7 +114,7 @@ class PreviewCheckoutPreflight:
 
             for barcode, qty in needed.items():
                 row = connection.execute(
-                    "SELECT stock_qty, selling_price, expiry_date FROM products "
+                    "SELECT stock_qty, selling_price, expiry_date FROM main.products "
                     "WHERE barcode=?", (barcode,)
                 ).fetchone()
                 if row is None:
@@ -125,7 +126,7 @@ class PreviewCheckoutPreflight:
                 if row["expiry_date"] and row["expiry_date"] < day.isoformat():
                     reasons.append(f"expired_product:{barcode}")
                 if connection.execute(
-                    "SELECT 1 FROM batches WHERE barcode=? AND qty_remaining>0 "
+                    "SELECT 1 FROM main.batches WHERE barcode=? AND qty_remaining>0 "
                     "AND expiry_date<>'' AND expiry_date<? LIMIT 1",
                     (barcode, day.isoformat()),
                 ).fetchone():
@@ -133,7 +134,7 @@ class PreviewCheckoutPreflight:
 
             for barcode, _, price in parsed:
                 row = connection.execute(
-                    "SELECT selling_price FROM products WHERE barcode=?", (barcode,)
+                    "SELECT selling_price FROM main.products WHERE barcode=?", (barcode,)
                 ).fetchone()
                 if row and _quantity(row["selling_price"]) != price:
                     reasons.append(f"price_changed:{barcode}")

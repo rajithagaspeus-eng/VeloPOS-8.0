@@ -514,6 +514,8 @@ class PreviewSandboxSaleLedger:
                     except (InvalidOperation, TypeError, ValueError):
                         reasons.append("invalid_invoice_line_quantity")
                         continue
+                    if raw_qty != canonical_decimal(qty):
+                        reasons.append("noncanonical_invoice_line_quantity")
                     line_quantities[key] = (
                         line_quantities.get(key, Decimal("0")) + qty
                     )
@@ -529,6 +531,8 @@ class PreviewSandboxSaleLedger:
                                 or price > Decimal("100000000")
                                 or (price != 0 and price.adjusted() < -18)):
                             raise ValueError("Invalid sandbox line price/quantity")
+                        if raw_price != canonical_decimal(price):
+                            reasons.append("noncanonical_invoice_line_price")
                         with localcontext(Context(prec=512, rounding=ROUND_HALF_UP)):
                             expected_cents = int(
                                 (qty * price).quantize(Decimal("0.01")) * 100

@@ -958,3 +958,14 @@ All commercial Gates A/B/C/D/E remain BLOCKED/INCOMPLETE.
 
 
 **Concurrent branch repair:** the existing `develop-v8` barcode hardening at `fc59ad3` contained an accidental literal `\n` in Python source that broke Windows compileall. On this successor feature branch it is repaired to an actual line break, and four barcode test inputs now contain real escaped control-character literals rather than double-backslash printable text. The original barcode safety check is preserved. This checkpoint needs exact feature-head Windows CI and post-merge verification.
+
+
+## Exact-head Windows CI reconciliation — 2026-11-04
+
+Read master roadmap, commercial release gates, durable progress and GitHub push Actions. Current develop-v8 head at inspection: `06a936dc4eb9a6f0f4a512a01cbcec3d2ea9bb8e` (integrated tender declaration / rollback-only return stock-ledger rehearsal plus barcode syntax repair).
+
+**Verified exact-head CI:** Windows push Actions [41834115875](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41834115875), completed **SUCCESS**. The job reports successful compileall and combined no-skip test-suite steps. Commit message reports 237/237 tests for an earlier head; do **not** attribute that count to this exact-head run without inspecting the run log. Exact-head pass/fail status is verified; exact-head numerical count is not independently verified here. Earlier barcode checkpoint `fc59ad3` had FAILED CI [41831836646](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41831836646); the later repair passed at `06a936d`.
+
+**This checkpoint batch:** CI evidence and next-task documentation only; no code or regression tests executed locally and no claim of new tests. All real transaction actions remain disabled; Gate A/B/C/D/E are still not commercially accepted.
+
+**Next highest-priority substantive batch:** inspect canonical session, branch, shift and license checks in `velopos_qt/atomic_sale_boundary.py` and original `velopos.services` entry points. Implement service-bound authorization and persistent transaction idempotency with disposable SQLite tests, including cross-branch, demotion, crash and retry cases; keep all production checkout/payment/stock mutations disabled. Require exact-head Windows CI after each code batch. Do not change main or V7 production data.

@@ -248,6 +248,14 @@ class BillingPage(QWidget):
         self.sandbox_audit_status.setObjectName("sandboxAuditStatus")
         self.sandbox_audit_status.setWordWrap(True)
         layout.addWidget(self.sandbox_audit_status)
+        self.sandbox_sale_button = QPushButton("Review sandbox sale input (no posting)")
+        self.sandbox_sale_button.setObjectName("sandboxSaleInputButton")
+        self.sandbox_sale_button.clicked.connect(self.review_sandbox_sale_input)
+        layout.addWidget(self.sandbox_sale_button)
+        self.sandbox_sale_status = QLabel()
+        self.sandbox_sale_status.setObjectName("sandboxSaleInputStatus")
+        self.sandbox_sale_status.setWordWrap(True)
+        layout.addWidget(self.sandbox_sale_status)
 
         self.totals_panel = QFrame()
         self.totals_panel.setObjectName("billingTotals")
@@ -658,6 +666,21 @@ class BillingPage(QWidget):
         actions.addWidget(close_button)
         layout.addLayout(actions)
         dialog.exec()
+
+    def review_sandbox_sale_input(self):
+        """Prepare only an in-memory sandbox request preview; no ledger writes."""
+        try:
+            lines = self.cart.sandbox_sale_lines()
+            subtotal = self.cart.subtotal()
+            self.sandbox_sale_status.setText(
+                "SANDBOX INPUT ONLY — not submitted or paid. "
+                f"{len(lines)} line(s); subtotal {subtotal:,.2f}. "
+                "Use signed sandbox integration tests for posting/reconciliation."
+            )
+        except (ValueError, KeyError, TypeError) as exc:
+            self.sandbox_sale_status.setText(
+                f"SANDBOX INPUT BLOCKED — {exc}"
+            )
 
     def inspect_sandbox_accounting(self):
         """Inspect a disposable sandbox ledger without posting this cart."""

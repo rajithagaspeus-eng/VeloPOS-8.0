@@ -36,10 +36,18 @@ _ACTION_ROLES = {
     "shift_open": ("Admin", "Cashier"),
     "shift_close": ("Admin", "Cashier"),
     "receipt_print": ("Admin", "Cashier"),
+    "sale_void": ("Admin",),
+    "purchase_void": ("Admin",),
+    "cash_move": ("Admin", "Cashier"),
+    "expense_add": ("Admin",),
+    "expense_delete": ("Admin",),
+    "stock_adjustment": ("Admin",),
+    "stock_take_finalize": ("Admin",),
+    "batch_receive": ("Admin",),
 }
 _SHIFT_ACTIONS = frozenset({
     "sale", "return", "supplier_payment", "credit_payment", "points_redemption",
-    "shift_close",
+    "shift_close", "sale_void", "cash_move", "expense_add", "expense_delete",
 })
 
 

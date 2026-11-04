@@ -478,10 +478,14 @@ Local preview storage is *not* trusted anti-rollback; entirely offline
 licensing on a customer-controlled PC can be reset/bypassed.
 All commercial Gates A/B/C/D/E remain blocked.
 
-**Verification:** New code has not yet passed exact-feature-head
-Windows CI at checkpoint creation. Required: `python run_v8_checks.py`
-in the PR run and a separate post-merge Windows push run.
-Never attribute prior CI success to unverified commits.
+**Verification:** GitHub Windows PR Actions
+[41806537819](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41806537819)
+completed SUCCESS for exact code SHA
+`28e0af49891c2a9734ac54162037ca65ff25404b`:
+**185 tests passed, 0 failures** (`python run_v8_checks.py`).
+This documentation-only checkpoint commit still needs its own exact-head
+Windows PR run. After merge, independently verify the merged SHA push CI.
+Never extrapolate an earlier PASS to an unverified commit.
 
 **Next:** verify and repair CI, then design authenticated server
 activation API and bounded/offline grace with careful key custody;

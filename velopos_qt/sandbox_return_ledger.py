@@ -33,6 +33,15 @@ class SandboxReturnEvidence:
     can_checkout: bool = False
 
 
+@dataclass(frozen=True)
+class SandboxReturnAudit:
+    balanced: bool
+    reasons: tuple[str, ...]
+    return_count: int
+    total_refund_cents: int
+    actual_refund_posted: bool = False
+
+
 class PreviewSandboxReturnLedger:
     """Service-owned return journal + refund declarations (no cash/stock writes)."""
 
@@ -262,6 +271,125 @@ class PreviewSandboxReturnLedger:
             connection.rollback()
             raise
         finally:
+            connection.close()
+
+    def reconcile_returns(self):
+        """Read-only independent audit of sandbox returns against sale lines.
+
+        Does not issue payments, restock goods or repair corrupt records.
+        """
+        _guard(self.database)
+        connection = self.database.connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            required = {
+                "v8_preview_sandbox_sales", "v8_preview_sandbox_sale_lines",
+                "v8_preview_sandbox_returns",
+                "v8_preview_sandbox_return_lines", "v8_preview_request_journal",
+            }
+            existing = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM main.sqlite_master WHERE type='table'"
+                )
+            }
+            if not required.issubset(existing):
+                return SandboxReturnAudit(
+                    False, ("sandbox_return_tables_missing",), 0, 0
+                )
+            reasons = []
+            headers = connection.execute(
+                "SELECT reference,request_id,original_ref,branch_id,"
+                "refund_mode,refund_cents FROM "
+                "main.v8_preview_sandbox_returns"
+            ).fetchall()
+            lines = connection.execute(
+                "SELECT reference,sale_line_no,barcode,quantity,refund_cents "
+                "FROM main.v8_preview_sandbox_return_lines"
+            ).fetchall()
+            invoice_map = {
+                row["reference"]: row for row in connection.execute(
+                    "SELECT reference,branch_id FROM "
+                    "main.v8_preview_sandbox_sales"
+                )
+            }
+            header_map = {row["reference"]: row for row in headers}
+            refunds_by_ref = {}
+            refunds_by_sale_line = {}
+            with localcontext(_CONTEXT):
+                for row in lines:
+                    refunds_by_ref.setdefault(row["reference"], []).append(row)
+                    header = header_map.get(row["reference"])
+                    if header is None:
+                        reasons.append("orphan_return_line")
+                        continue
+                    key = (header["original_ref"], row["sale_line_no"])
+                    refunds_by_sale_line.setdefault(key, []).append(row)
+                    original = connection.execute(
+                        "SELECT barcode FROM "
+                        "main.v8_preview_sandbox_sale_lines "
+                        "WHERE reference=? AND line_no=?", key
+                    ).fetchone()
+                    if original is None or original["barcode"] != row["barcode"]:
+                        reasons.append("return_original_line_mismatch")
+                    if (Decimal(row["quantity"]) <= 0
+                            or row["refund_cents"] < 0):
+                        reasons.append("invalid_return_line")
+                for (original_ref,line_no), entries in refunds_by_sale_line.items():
+                    original = connection.execute(
+                        "SELECT quantity,price,line_cents FROM "
+                        "main.v8_preview_sandbox_sale_lines "
+                        "WHERE reference=? AND line_no=?",
+                        (original_ref,line_no)
+                    ).fetchone()
+                    if original is None:
+                        continue
+                    quantity = sum(
+                        (Decimal(item["quantity"]) for item in entries),
+                        Decimal(0)
+                    )
+                    total = sum(item["refund_cents"] for item in entries)
+                    if quantity > Decimal(original["quantity"]):
+                        reasons.append("overreturned_sale_line")
+                    expected = int(
+                        (Decimal(original["price"]) * quantity)
+                        .quantize(_CENT,rounding=ROUND_HALF_UP) * 100
+                    )
+                    if total != min(original["line_cents"],expected):
+                        reasons.append("return_line_amount_mismatch")
+            for header in headers:
+                ref = header["reference"]
+                original = invoice_map.get(header["original_ref"])
+                if (original is None or
+                        original["branch_id"] != header["branch_id"]):
+                    reasons.append("return_invoice_branch_mismatch")
+                rows = refunds_by_ref.get(ref, ())
+                if not rows or sum(
+                    row["refund_cents"] for row in rows
+                ) != header["refund_cents"]:
+                    reasons.append("return_header_total_mismatch")
+                if header["refund_mode"] not in ("Cash","Card","QR"):
+                    reasons.append("return_method_invalid")
+                journal = connection.execute(
+                    "SELECT status,result_ref FROM "
+                    "main.v8_preview_request_journal "
+                    "WHERE scope='return' AND request_id=?",
+                    (header["request_id"],)
+                ).fetchone()
+                if (journal is None or journal["status"] != "COMPLETED"
+                        or journal["result_ref"] != ref):
+                    reasons.append("return_journal_mismatch")
+            for journal in connection.execute(
+                "SELECT result_ref FROM main.v8_preview_request_journal "
+                "WHERE scope='return' AND status='COMPLETED'"
+            ):
+                if journal["result_ref"] not in header_map:
+                    reasons.append("orphan_completed_return_journal")
+            return SandboxReturnAudit(
+                not reasons, tuple(dict.fromkeys(reasons)),
+                len(headers), sum(h["refund_cents"] for h in headers)
+            )
+        finally:
+            connection.rollback()
             connection.close()
 
     def require_real_refund(self, **_kwargs):

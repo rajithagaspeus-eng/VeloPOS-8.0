@@ -43,6 +43,7 @@ class SandboxCloseout:
     declared_credit_charges_cents: int = 0
     declared_credit_repayments_cents: int = 0
     outstanding_credit_cents: int = 0
+    declared_credit_notes_cents: int = 0
 
 
 class PreviewSandboxAccounting:
@@ -311,10 +312,12 @@ class PreviewSandboxAccounting:
                     reasons.append("return_header_reconciliation_mismatch")
             credit_charged = 0
             credit_repaid = 0
+            credit_notes = 0
             credit_tables = {
                 "v8_preview_sandbox_credit_accounts",
                 "v8_preview_sandbox_credit_charges",
                 "v8_preview_sandbox_credit_repayments",
+                "v8_preview_sandbox_credit_notes",
             }
             if credit_tables & found and not credit_tables.issubset(found):
                 reasons.append("sandbox_credit_schema_partial")
@@ -325,9 +328,14 @@ class PreviewSandboxAccounting:
                         "main.v8_preview_sandbox_credit_accounts"
                     )
                 }
-                balances = {cid: [0, 0] for cid in accounts}
+                balances = {cid: [0, 0, 0] for cid in accounts}
                 credit_charge_refs = set()
                 credit_repayment_refs = set()
+                credit_note_refs = set()
+                charge_by_ref = {row["reference"]: row for row in connection.execute(
+                    "SELECT reference,invoice_ref,customer_id,branch_id "
+                    "FROM main.v8_preview_sandbox_credit_charges"
+                )}
                 for charge in connection.execute(
                     "SELECT reference,request_id,invoice_ref,customer_id,"
                     "branch_id,amount_cents FROM "
@@ -335,7 +343,7 @@ class PreviewSandboxAccounting:
                 ):
                     credit_charge_refs.add(charge["reference"])
                     credit_charged += charge["amount_cents"]
-                    balances.setdefault(charge["customer_id"], [0, 0])[0] += charge["amount_cents"]
+                    balances.setdefault(charge["customer_id"], [0, 0, 0])[0] += charge["amount_cents"]
                     invoice = sale_by_ref.get(charge["invoice_ref"])
                     settlement = settlement_map.get(charge["invoice_ref"])
                     account = accounts.get(charge["customer_id"])
@@ -361,7 +369,7 @@ class PreviewSandboxAccounting:
                 ):
                     credit_repayment_refs.add(repayment["reference"])
                     credit_repaid += repayment["amount_cents"]
-                    balances.setdefault(repayment["customer_id"], [0, 0])[1] += repayment["amount_cents"]
+                    balances.setdefault(repayment["customer_id"], [0, 0, 0])[1] += repayment["amount_cents"]
                     account = accounts.get(repayment["customer_id"])
                     journal = connection.execute(
                         "SELECT status,result_ref FROM main.v8_preview_request_journal "
@@ -373,15 +381,58 @@ class PreviewSandboxAccounting:
                             or journal["status"] != "COMPLETED" or
                             journal["result_ref"] != repayment["reference"]):
                         reasons.append("sandbox_credit_repayment_reconciliation")
-                for cid, (charges, repayments) in balances.items():
+                note_lines = {}
+                for note in connection.execute(
+                    "SELECT reference,request_id,charge_ref,invoice_ref,customer_id,"
+                    "branch_id,sale_line_no,quantity,disposition,restocked,"
+                    "amount_cents FROM main.v8_preview_sandbox_credit_notes"
+                ):
+                    credit_note_refs.add(note["reference"])
+                    credit_notes += note["amount_cents"]
+                    balances.setdefault(note["customer_id"],[0,0,0])[2] += note["amount_cents"]
+                    charge = charge_by_ref.get(note["charge_ref"])
+                    line = line_map.get((note["invoice_ref"],note["sale_line_no"]))
+                    journal = connection.execute(
+                        "SELECT status,result_ref FROM main.v8_preview_request_journal "
+                        "WHERE scope='credit_note' AND request_id=?",
+                        (note["request_id"],)
+                    ).fetchone()
+                    if (charge is None or charge["invoice_ref"] != note["invoice_ref"]
+                            or charge["customer_id"] != note["customer_id"]
+                            or charge["branch_id"] != note["branch_id"]
+                            or note["disposition"] not in ("DAMAGED","DISCARDED")
+                            or note["restocked"] != 0 or note["amount_cents"] <= 0
+                            or line is None or journal is None
+                            or journal["status"] != "COMPLETED"
+                            or journal["result_ref"] != note["reference"]):
+                        reasons.append("sandbox_credit_note_reconciliation")
+                    if line is not None and charge is not None:
+                        note_lines.setdefault((note["invoice_ref"],note["sale_line_no"]),[]).append(note)
+                with localcontext(_CONTEXT):
+                    for key, credited_lines in note_lines.items():
+                        original = line_map[key]
+                        try:
+                            used = sum((Decimal(row["quantity"]) for row in credited_lines),Decimal("0"))
+                            cents = sum(row["amount_cents"] for row in credited_lines)
+                            expected = min(original["line_cents"],int(
+                                (used*Decimal(original["price"]))
+                                .quantize(_CENT,rounding=ROUND_HALF_UP)*100
+                            ))
+                            if (used <= 0 or used > Decimal(original["quantity"])
+                                    or cents != expected):
+                                reasons.append("sandbox_credit_note_quantity_mismatch")
+                        except Exception:
+                            reasons.append("sandbox_credit_note_invalid_quantity")
+                for cid, (charges, repayments, credited) in balances.items():
                     account = accounts.get(cid)
                     if (account is None or charges < 0 or repayments < 0
-                            or repayments > charges or
-                            charges - repayments > account["limit_cents"]):
+                            or repayments + credited > charges or
+                            charges - repayments - credited > account["limit_cents"]):
                         reasons.append("sandbox_credit_balance_or_limit_mismatch")
                 for scope, refs in (
                     ("credit_charge", credit_charge_refs),
                     ("credit_payment", credit_repayment_refs),
+                    ("credit_note", credit_note_refs),
                 ):
                     for row in connection.execute(
                         "SELECT status,result_ref FROM main.v8_preview_request_journal "
@@ -391,7 +442,7 @@ class PreviewSandboxAccounting:
                             reasons.append("sandbox_credit_orphan_journal")
             gross = sum(row["subtotal_cents"] for row in sales)
             returned = sum(row["refund_cents"] for row in ret_headers)
-            if returned > gross:
+            if returned + credit_notes > gross:
                 reasons.append("returns_exceed_gross")
             return SandboxCloseout(
                 balanced=not reasons,
@@ -400,7 +451,7 @@ class PreviewSandboxAccounting:
                 return_count=len(ret_headers),
                 gross_cents=gross,
                 declared_returns_cents=returned,
-                net_after_declared_returns_cents=gross - returned,
+                net_after_declared_returns_cents=gross - returned - credit_notes,
                 declared_cash_cents=sum(
                     row["cash_cents"] for row in settlements
                 ),
@@ -412,7 +463,8 @@ class PreviewSandboxAccounting:
                 ),
                 declared_credit_charges_cents=credit_charged,
                 declared_credit_repayments_cents=credit_repaid,
-                outstanding_credit_cents=credit_charged-credit_repaid,
+                outstanding_credit_cents=credit_charged-credit_repaid-credit_notes,
+                declared_credit_notes_cents=credit_notes,
             )
         finally:
             connection.rollback()

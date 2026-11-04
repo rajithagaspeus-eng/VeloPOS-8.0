@@ -78,6 +78,7 @@ class PreviewCombinedAuthorization:
     def inspect_with_activation(self, connection, *, server_public_key_b64,
                                 signed_status, license_id, now=None,
                                 last_seen_utc=None, max_offline_hours=24,
+                                last_accepted_sequence=None,
                                 **authorization_kwargs):
         """Compose three diagnostics; never treat unsigned license_id as proof.
 
@@ -93,6 +94,7 @@ class PreviewCombinedAuthorization:
             license_id=license_id,
             now=now, last_seen_utc=last_seen_utc,
             max_offline_hours=max_offline_hours,
+            last_accepted_sequence=last_accepted_sequence,
         )
         bound = (authorization.signature_valid and authorization.entitled
                  and authorization.signed_license_id is not None

@@ -53,6 +53,29 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
         self.assertEqual(len({r.reference for r in results}), 1)
         self.assertEqual(sum(not r.replayed for r in results), 1)
 
+    def test_concurrent_distinct_requests_have_gapless_references(self):
+        def worker(number):
+            request_id = f"parallel-unique-{number:04d}"
+            return DurablePreviewSaleJournal(self.path).inspect(
+                request_id=request_id, lines=self.lines
+            )
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(worker, range(24)))
+        self.assertEqual(sum(not item.replayed for item in results), 24)
+        self.assertEqual(
+            {item.reference for item in results},
+            {f"REHEARSAL-{number:08d}" for number in range(1, 25)},
+        )
+        reopened = DurablePreviewSaleJournal(self.path)
+        replay = reopened.inspect(
+            request_id="parallel-unique-0000", lines=self.lines
+        )
+        self.assertTrue(replay.replayed)
+        next_result = reopened.inspect(
+            request_id="parallel-unique-0024", lines=self.lines
+        )
+        self.assertEqual(next_result.reference, "REHEARSAL-00000025")
+
     def test_failed_validation_does_not_consume_sequence(self):
         with self.assertRaises(ValueError):
             self.journal.inspect(

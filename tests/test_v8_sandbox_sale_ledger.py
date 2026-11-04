@@ -1339,6 +1339,55 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_new_sale_refuses_balanced_stock_move_disagreeing_with_invoice(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET sold_qty='4',after_qty='6' "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock "
+                    "SET remaining_qty='6' WHERE barcode='RICE'"
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-stock-invoice-request-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Balanced but forged stock movement accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
+    def test_new_sale_refuses_stock_move_without_invoice_lines(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_sale_lines "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-stock-invoice-request-0002"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Stock move without invoice lines accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_second_valid_sandbox_sale_extends_verified_stock_chain(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

@@ -555,6 +555,8 @@ class PreviewSandboxSaleLedger:
             if set(expected_lines) - invoice_refs:
                 reasons.append("orphan_invoice_line")
             for ref, numbers in line_numbers.items():
+                if any(type(number) is not int or number <= 0 for number in numbers):
+                    reasons.append("invalid_invoice_line_number:" + ref)
                 if len(numbers) > 100:
                     reasons.append("invoice_line_count_exceeded:" + ref)
                 if numbers != list(range(1, len(numbers) + 1)):
@@ -593,6 +595,8 @@ class PreviewSandboxSaleLedger:
                         or type(row["amount_cents"]) is not int
                         or row["amount_cents"] <= 0):
                     reasons.append("invalid_tender_declaration")
+                if type(row["line_no"]) is not int or row["line_no"] <= 0:
+                    reasons.append("invalid_tender_line_number")
                 hint = row["reference_hint"]
                 if (type(hint) is not str or len(hint) > 80
                         or hint != hint.strip()

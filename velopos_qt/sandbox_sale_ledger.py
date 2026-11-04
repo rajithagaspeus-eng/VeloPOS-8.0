@@ -690,16 +690,30 @@ class PreviewSandboxSaleLedger:
                 for row in stock_rows:
                     barcode = row["barcode"]
                     try:
-                        start = Decimal(row["opening_qty"])
-                        remaining = Decimal(row["remaining_qty"])
+                        raw_balances = (
+                            row["opening_qty"], row["remaining_qty"],
+                        )
+                        if any(
+                            type(value) is not str or len(value) > 128
+                            for value in raw_balances
+                        ):
+                            raise ValueError("invalid stock balance encoding")
+                        start, remaining = map(Decimal, raw_balances)
                         if (not start.is_finite() or not remaining.is_finite()
                                 or start < 0 or remaining < 0):
                             raise ValueError("invalid stock balance")
                         current = start
                         for move in moves_by_barcode.get(barcode, ()):
-                            before = Decimal(move["before_qty"])
-                            sold = Decimal(move["sold_qty"])
-                            after = Decimal(move["after_qty"])
+                            raw_values = (
+                                move["before_qty"], move["sold_qty"],
+                                move["after_qty"],
+                            )
+                            if any(
+                                type(value) is not str or len(value) > 128
+                                for value in raw_values
+                            ):
+                                raise ValueError("invalid stock decimal encoding")
+                            before, sold, after = map(Decimal, raw_values)
                             if not all(v.is_finite() for v in (before, sold, after)):
                                 reasons.append("invalid_stock_decimal:" + barcode)
                                 continue

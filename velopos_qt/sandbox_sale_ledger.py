@@ -515,6 +515,14 @@ class PreviewSandboxSaleLedger:
             if (completed_pairs != invoice_pairs
                     or len(completed_journals) != len(invoices)):
                 reasons.append("completed_sale_journal_coverage_mismatch")
+            # Atomic sandbox posting cannot legitimately leave a PENDING
+            # sale request after commit. Never treat it as a fresh request.
+            pending = connection.execute(
+                "SELECT 1 FROM main.v8_preview_request_journal "
+                "WHERE scope='sale' AND status='PENDING' LIMIT 1"
+            ).fetchone()
+            if pending is not None:
+                reasons.append("pending_sale_journal_requires_reconciliation")
             if set(expected_lines) - invoice_refs:
                 reasons.append("orphan_invoice_line")
             for ref, numbers in line_numbers.items():
@@ -522,6 +530,8 @@ class PreviewSandboxSaleLedger:
                     reasons.append("invoice_line_sequence_mismatch:" + ref)
             for sale in invoices:
                 ref = sale["reference"]
+                if ref not in line_numbers:
+                    reasons.append("invoice_has_no_lines:" + ref)
                 if expected_lines.get(ref) != sale["subtotal_cents"]:
                     reasons.append("invoice_line_total_mismatch:" + ref)
                 journal = connection.execute(

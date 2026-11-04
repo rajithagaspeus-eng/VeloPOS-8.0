@@ -536,6 +536,28 @@ class PreviewSandboxSaleLedger:
                                     if line_cents != expected_cents:
                                         raise ValueError("historical line amount mismatch")
                                     invoice_quantity += line_qty
+                                # Every invoice touched by this stock chain
+                                # must also preserve its full posted subtotal.
+                                invoice_total = connection.execute(
+                                    "SELECT subtotal_cents FROM "
+                                    "main.v8_preview_sandbox_sales "
+                                    "WHERE reference=?", (move_ref,)
+                                ).fetchone()
+                                all_invoice_lines = connection.execute(
+                                    "SELECT line_cents FROM "
+                                    "main.v8_preview_sandbox_sale_lines "
+                                    "WHERE reference=?", (move_ref,)
+                                ).fetchall()
+                                if (invoice_total is None
+                                        or type(invoice_total["subtotal_cents"]) is not int
+                                        or not all_invoice_lines
+                                        or any(type(line["line_cents"]) is not int
+                                               or line["line_cents"] < 0
+                                               for line in all_invoice_lines)
+                                        or sum(line["line_cents"]
+                                               for line in all_invoice_lines)
+                                        != invoice_total["subtotal_cents"]):
+                                    raise ValueError("historical invoice subtotal mismatch")
                                 raw_move = (
                                     move["before_qty"], move["sold_qty"],
                                     move["after_qty"],

@@ -242,6 +242,32 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
                 1,
             )
 
+    def test_empty_existing_journal_with_missing_sequence_is_rejected(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DELETE FROM preview_sequence")
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+
+    def test_missing_reference_uniqueness_rejected(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute(
+                "CREATE TABLE preview_rehearsals "
+                "(request_id TEXT PRIMARY KEY, fingerprint TEXT, reference TEXT)"
+            )
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+
+    def test_missing_request_primary_key_rejected(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute(
+                "CREATE TABLE preview_rehearsals "
+                "(request_id TEXT, fingerprint TEXT, reference TEXT UNIQUE)"
+            )
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

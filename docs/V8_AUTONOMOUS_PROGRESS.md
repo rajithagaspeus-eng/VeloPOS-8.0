@@ -2500,3 +2500,12 @@ milestones as commercial security gates permit.
 **Verification limitation:** Changes and test definitions were committed but the exact-head Windows Actions push-run status is not visible through the connector (empty commit status and PR-only workflow runs). This checkpoint is NOT a green test report. Obtain Windows CI log output and fix any failures before accepting these milestones. The full Windows suite was not run locally in this session.
 
 **Release:** ~35% remains a rough legacy planning estimate; commercial gates 0/5 accepted. Remaining: verified CI, production-safe posting architecture, real fiscal return/refund flows, cloud sync, mobile dashboard, licensing, AI and release qualification.
+
+
+## Independent sandbox credit closeout consistency — 2026-11-04
+
+- Branch: `develop-v8` ONLY. Accounting closeout now detects persisted **mixed invoice-specific and legacy customer-level repayments** as `sandbox_credit_mixed_repayment_modes`, independently of the credit service's own `credit_mixed_repayment_modes` audit. Existing per-allocation cross-customer, branch, cents and invoice overallocation checks remain active. No real tender or refund posting is enabled.
+- Code commit: `53719eecedab51294a7c3b927084acc6ae54a77f`.
+- Regression commit: `bf8fea88bdc3efa804114fcbdddf87ff2098994f` adds three isolated disposable-data integration methods covering mixed-mode tamper detection in both audits, mismatched/overallocated allocation amounts, and an orphan allocation with no matching repayment. Sandbox credit suite now defines **29 test methods**; methods being present does NOT prove they pass.
+- Verification: GitHub connector commit-status and PR-only workflow queries cannot establish push-triggered Windows CI result. **No exact-head Windows pass verified**. Next operator action: inspect latest `develop-v8` GitHub Actions `V8 preview automated tests` and `V8 Windows preview checks`, and capture failing test tracebacks if red.
+- Release: estimated overall progress still ~35% (not measured against release gates); 0/5 commercial gates accepted. Preview sandbox operations only, V7 real business data untouched.

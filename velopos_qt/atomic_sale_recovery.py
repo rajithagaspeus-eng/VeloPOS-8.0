@@ -78,7 +78,12 @@ class PreviewAtomicSaleRecovery:
              "price": canonical_decimal(line.price)}
             for line in plan.lines
         )
-        stable_kwargs = dict(sale_kwargs, lines=frozen_lines)
+        # Resolve an omitted date once; midnight must not make the draft
+        # preflight and the durable request identity disagree.
+        frozen_day = PreviewAtomicSaleBoundary._day(
+            sale_kwargs.get("today")
+        ).isoformat()
+        stable_kwargs = dict(sale_kwargs, lines=frozen_lines, today=frozen_day)
         readiness = self.boundary.inspect_in_transaction(
             connection, **stable_kwargs
         )

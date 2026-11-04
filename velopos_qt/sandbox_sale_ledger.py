@@ -733,7 +733,16 @@ class PreviewSandboxSaleLedger:
                             reasons.append("stock_balance_mismatch:" + barcode)
                     except (InvalidOperation, TypeError, ValueError):
                         reasons.append("invalid_stock_decimal:" + barcode)
-            total_cents = sum(sale["subtotal_cents"] for sale in invoices)
+            # Corrupted SQLite values can have unexpected storage classes.
+            # Never let an audit crash or report a trusted monetary total.
+            valid_subtotals = [
+                sale["subtotal_cents"] for sale in invoices
+                if type(sale["subtotal_cents"]) is int
+                and sale["subtotal_cents"] >= 0
+            ]
+            if len(valid_subtotals) != len(invoices):
+                reasons.append("invalid_invoice_subtotal_encoding")
+            total_cents = sum(valid_subtotals)
             return SandboxReconciliation(
                 balanced=not reasons,
                 reasons=tuple(dict.fromkeys(reasons)),

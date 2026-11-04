@@ -16,6 +16,7 @@ from .checkout_preflight import _quantity, PreviewCheckoutPreflight
 from .idempotency_ledger import PreviewIdempotencyLedger
 from .service_authorization import PreviewServiceAuthorization
 from .sale_plan import plan_preview_sale
+from .tender_plan import plan_preview_tender
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,7 @@ class SaleRehearsal:
     staged_items: int
     persisted: bool = False
     staged_stock_movements: int = 0
+    tender_preview: object = None
 
 
 class RollbackOnlySaleRehearsal:
@@ -35,7 +37,7 @@ class RollbackOnlySaleRehearsal:
         self.preflight = PreviewCheckoutPreflight(database)
 
     def simulate(self, *, identity, shift_id, request_id, lines, today=None,
-                 inject_failure_at=None):
+                 inject_failure_at=None, tenders=None, customer_id=None):
         """Prove core transaction composition without committing anything.
 
         The only accepted actor must have a live persisted preview identity
@@ -55,6 +57,12 @@ class RollbackOnlySaleRehearsal:
         ]
         needed = dict(plan.quantities)
         total = plan.subtotal
+        # Optional tender declarations are validated but NEVER collected;
+        # there is no payment gateway, credit limit check, or receipt posting.
+        tender_plan = (
+            plan_preview_tender(total, tenders, customer_id=customer_id)
+            if tenders is not None else None
+        )
         # Keep fingerprint fully bound to immutable line quantities, dates,
         # identity and shift. This is still only a test-only claim.
         payload = {
@@ -62,6 +70,14 @@ class RollbackOnlySaleRehearsal:
             "shift": shift_id,
             "day": day.isoformat(),
             "items": plan.request_items(),
+            "tenders": (
+                [{"method": line.method,
+                  "amount": f"{line.amount:.2f}",
+                  "reference": line.reference}
+                 for line in tender_plan.tenders]
+                if tender_plan else None
+            ),
+            "customer": customer_id if tender_plan else None,
         }
         invoice = "SIM-" + sha256(str(request_id).encode("utf-8")).hexdigest()[:20]
         connection = self.database.connect()
@@ -168,7 +184,8 @@ class RollbackOnlySaleRehearsal:
             if staged != plan.line_count or staged_moves != len(needed):
                 raise RuntimeError("Staged invoice and stock ledger out of balance")
             return SaleRehearsal(
-                invoice, total, staged, staged_stock_movements=staged_moves
+                invoice, total, staged, staged_stock_movements=staged_moves,
+                tender_preview=tender_plan,
             )
         finally:
             # NEVER COMMIT, under any circumstances. This is the safety

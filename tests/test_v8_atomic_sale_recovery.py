@@ -196,6 +196,7 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
 
     def test_different_deep_precision_quantity_conflicts_even_if_totals_match(self):
         self.isolated("""
+            from velopos_qt.sale_plan import plan_preview_sale
             a = "0.123456789012345678901234567890123456"
             b = "0.123456789012345678901234567890123457"
             first = dict(args, lines=[

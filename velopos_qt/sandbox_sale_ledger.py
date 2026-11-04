@@ -154,9 +154,22 @@ class PreviewSandboxSaleLedger:
             for barcode, expected_qty in expected_moves.items():
                 move = recorded_moves[barcode]
                 try:
-                    before = Decimal(move["before_qty"])
-                    sold = Decimal(move["sold_qty"])
-                    after = Decimal(move["after_qty"])
+                    raw_values = (
+                        move["before_qty"], move["sold_qty"],
+                        move["after_qty"],
+                    )
+                    if any(
+                        type(value) is not str or len(value) > 128
+                        for value in raw_values
+                    ):
+                        raise ValueError("Invalid replay stock decimal encoding")
+                    before, sold, after = map(Decimal, raw_values)
+                    if any(
+                        value.is_finite() and value != 0
+                        and not -18 <= value.adjusted() <= 18
+                        for value in (before, sold, after)
+                    ):
+                        raise ValueError("Invalid replay stock decimal exponent")
                 except (InvalidOperation, TypeError, ValueError) as exc:
                     raise RuntimeError("Invalid sandbox stock movement") from exc
                 if (not all(v.is_finite() for v in (before, sold, after))

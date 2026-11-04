@@ -122,17 +122,17 @@ class PreviewSandboxSaleLedger:
         # Replays must verify the actual immutable lines, not merely their
         # count and invoice subtotal: equal-total substitutions are possible.
         recorded_lines = [
-            (row["barcode"], row["quantity"], row["price"], row["line_cents"])
+            (row["line_no"], row["barcode"], row["quantity"], row["price"], row["line_cents"])
             for row in connection.execute(
-                "SELECT barcode,quantity,price,line_cents FROM "
+                "SELECT line_no,barcode,quantity,price,line_cents FROM "
                 "main.v8_preview_sandbox_sale_lines WHERE reference=? "
                 "ORDER BY line_no", (reference,)
             )
         ]
         expected_lines = [
-            (line.barcode, canonical_decimal(line.qty),
+            (n, line.barcode, canonical_decimal(line.qty),
              canonical_decimal(line.price), int(line.line_total * 100))
-            for line in plan.lines
+            for n, line in enumerate(plan.lines, 1)
         ]
         if recorded_lines != expected_lines:
             raise RuntimeError("Sandbox invoice lines do not match replay")

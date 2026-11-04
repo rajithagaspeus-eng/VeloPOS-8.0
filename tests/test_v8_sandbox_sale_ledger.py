@@ -901,6 +901,26 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_replay_rejects_tampered_invoice_identity(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sales "
+                    "SET actor='intruder' WHERE reference=?", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "identity" in str(exc).lower(), exc
+            else:
+                raise AssertionError("Replay accepted a tampered invoice actor")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_audit_rejects_corrupt_invoice_actor_branch_and_shift(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

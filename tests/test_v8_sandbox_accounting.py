@@ -94,6 +94,65 @@ class SandboxCloseoutTests(unittest.TestCase):
                 ).fetchone()[0] == 10
         """)
 
+    def test_full_sale_tender_return_stock_and_accounting_lifecycle(self):
+        self.isolated("""
+            with database.db() as c:
+                original = snapshot(c)
+            options = dict(args, tenders=[
+                {"method":"Cash","amount":"120"},
+                {"method":"Card","amount":"100","reference":"SBX-CARD-001"},
+                {"method":"QR","amount":"50","reference":"SBX-QR-001"},
+            ])
+            sale = sale_service.simulate_commit(**options)
+            assert sale.subtotal_cents == 25000
+            assert sale.tender_declared and sale.change_cents == 2000
+            replay = sale_service.simulate_commit(**options)
+            assert replay.replayed and replay.reference == sale.reference
+            refund_options = new_return(
+                sale.reference, returns=[{"line_no":1,"qty":"1"}],
+                refund_mode="Card"
+            )
+            returned = return_service.simulate_return(**refund_options)
+            assert returned.refund_cents == 4500
+            assert return_service.simulate_return(**refund_options).replayed
+            assert sale_service.reconcile_sandbox().balanced
+            assert return_service.reconcile_returns().balanced
+            accounting = closeout.closeout()
+            assert accounting.balanced, accounting
+            assert (accounting.invoice_count, accounting.return_count) == (1, 1)
+            assert accounting.gross_cents == 25000
+            assert accounting.declared_returns_cents == 4500
+            assert accounting.net_after_declared_returns_cents == 20500
+            assert accounting.declared_cash_cents == 12000
+            assert accounting.declared_external_cents == 15000
+            assert accounting.declared_change_cents == 2000
+            assert accounting.captured_payment_cents == 0
+            assert accounting.actual_refunds_cents == 0
+            assert accounting.can_checkout is False
+            with database.db() as c:
+                after = snapshot(c)
+                for key in ("sales","sale_items","returns","stock",
+                            "moves","payments"):
+                    assert after[key] == original[key], (key, original, after)
+                remaining = {
+                    row["barcode"]: row["remaining_qty"]
+                    for row in c.execute(
+                        "SELECT barcode,remaining_qty FROM "
+                        "main.v8_preview_sandbox_stock"
+                    )
+                }
+                assert remaining == {"RICE":"5","SOAP":"3"}, remaining
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_returns"
+                ).fetchone()[0] == 1
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_tenders"
+                ).fetchone()[0] == 3
+        """)
+
     def test_two_partial_returns_on_original_line_reconcile_exact_cents(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

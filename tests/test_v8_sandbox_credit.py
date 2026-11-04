@@ -918,6 +918,67 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert credit_service.reconcile().balanced
         """)
 
+    def test_legacy_repayment_fingerprint_replays_after_allocation_upgrade(self):
+        self.isolated("""
+            from unittest.mock import patch
+            import velopos_qt.sandbox_credit_ledger as credit_module
+            original_fingerprint = credit_module.request_fingerprint
+            sale = sale_service.simulate_commit(**args)
+            open_account()
+            charge(sale.reference)
+            # Simulate the pre-allocation writer: charge_ref was absent from
+            # the immutable fingerprint, rather than present with null.
+            def legacy_fingerprint(payload):
+                if payload.get("action") == "sandbox_credit_repayment":
+                    payload = dict(payload)
+                    payload.pop("charge_ref", None)
+                return original_fingerprint(payload)
+            with patch.object(credit_module, "request_fingerprint", legacy_fingerprint):
+                first = repay("10",request_id="legacy-fingerprint-0001")
+            replay = repay("10",request_id="legacy-fingerprint-0001")
+            assert replay.replayed and replay.reference == first.reference
+            assert replay.outstanding_cents == first.outstanding_cents
+            # A mutated amount must still fail closed.
+            try:
+                repay("11",request_id="legacy-fingerprint-0001")
+            except (ValueError,PermissionError):
+                pass
+            else:
+                raise AssertionError("Mutated legacy repayment replay accepted")
+            assert credit_service.reconcile().balanced
+        """)
+
+    def test_credit_audit_uses_actual_owner_for_forged_allocation(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            open_account()
+            open_account("300",customer=other_customer)
+            issued = charge(sale.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-owner-0001",**ctx()
+            )
+            assert credit_service.reconcile().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_allocations "
+                    "SET customer_id=?",
+                    (other_customer,)
+                )
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_credit_repayments "
+                    "(reference,request_id,customer_id,branch_id,amount_cents,method) "
+                    "VALUES('CRP-forged-unallocated','forged-unallocated-0001',"
+                    "?,'BRANCH-001',100,'Cash')",
+                    (customer_id,)
+                )
+            audit = credit_service.reconcile()
+            assert not audit.balanced
+            assert "credit_repayment_allocation_mismatch" in audit.reasons
+            assert "credit_mixed_repayment_modes" in audit.reasons
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

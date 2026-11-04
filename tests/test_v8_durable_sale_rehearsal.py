@@ -86,6 +86,54 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
                 request_id="durable-request-0001", lines=self.lines
             )
 
+    def test_deleted_middle_record_is_detected_after_restart(self):
+        for i in range(3):
+            self.journal.inspect(
+                request_id=f"durable-request-{i:04d}", lines=self.lines
+            )
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "DELETE FROM preview_rehearsals WHERE request_id=?",
+                ("durable-request-0001",)
+            )
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path).inspect(
+                request_id="durable-request-0000", lines=self.lines
+            )
+
+    def test_sequence_rewind_refuses_replay(self):
+        self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE preview_sequence SET next_number=1 WHERE singleton=1"
+            )
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
+    def test_sequence_jump_refuses_new_request(self):
+        self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE preview_sequence SET next_number=100 WHERE singleton=1"
+            )
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0002", lines=self.lines
+            )
+
+    def test_forged_reference_chain_refuses_replay(self):
+        self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE preview_rehearsals SET reference='REHEARSAL-00000099'"
+            )
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

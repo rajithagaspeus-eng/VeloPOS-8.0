@@ -12,6 +12,7 @@ payment, fiscal receipt, or permission to transact; Gate A/B remain BLOCKED.
 from dataclasses import dataclass
 from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from hashlib import sha256
+import re
 
 from .auth_model import PreviewIdentity
 from .atomic_sale_boundary import PreviewAtomicSaleBoundary
@@ -568,8 +569,10 @@ class PreviewSandboxSaleLedger:
                         or any(char not in "0123456789abcdef" for char in ref[4:])):
                     reasons.append("invalid_sandbox_invoice_reference")
                 if (type(sale["request_id"]) is not str
-                        or not sale["request_id"].strip()
-                        or len(sale["request_id"]) > 128):
+                        or re.fullmatch(
+                            r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}",
+                            sale["request_id"],
+                        ) is None):
                     reasons.append("invalid_sandbox_invoice_request_id")
                 if (type(sale["subtotal_cents"]) is not int
                         or sale["subtotal_cents"] < 0):

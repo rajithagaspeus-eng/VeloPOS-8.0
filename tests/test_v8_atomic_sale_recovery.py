@@ -125,21 +125,29 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                 c.commit()
             finally:
                 c.close()
-            wrong = (
+            unauthorized = (
                 dict(args, expected_branch_id="BRANCH-002"),
                 dict(args, license_id="LIC-999"),
                 dict(args, machine_id="OTHER-MACHINE"),
                 dict(args, shift_id=shift + 99),
                 dict(args, identity=PreviewIdentity("someone", "Cashier", "fake")),
-                dict(args, lines=[{"barcode": "RICE", "qty": 1, "price": 45}]),
             )
-            for variant in wrong:
-                try:
-                    recovery.inspect(**variant)
-                except IdempotencyConflict:
-                    pass
-                else:
-                    raise AssertionError("Different transaction reused request key")
+            for variant in unauthorized:
+                observed = recovery.inspect(**variant)
+                assert observed.journal.state == "withheld_authorization_required"
+                assert observed.journal.result_ref is None
+                assert observed.can_checkout is False
+            # A changed, otherwise valid draft reaches the journal and
+            # must still detect immutable request-id reuse.
+            changed_draft = dict(
+                args, lines=[{"barcode": "RICE", "qty": 1, "price": 45}]
+            )
+            try:
+                recovery.inspect(**changed_draft)
+            except IdempotencyConflict:
+                pass
+            else:
+                raise AssertionError("Different valid draft reused request key")
             assert recovery.inspect(**args).journal.result_ref == "SIM-A"
         """)
 
@@ -156,7 +164,8 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                 c.execute("UPDATE v8_preview_branch_memberships SET active=0")
                 c.execute("UPDATE shifts SET status='CLOSED' WHERE id=?", (shift,))
             denied = recovery.inspect(**args)
-            assert denied.journal.state == "journal_completed_unverified"
+            assert denied.journal.state == "withheld_authorization_required"
+            assert denied.journal.result_ref is None
             assert denied.readiness.branch_verified is False
             assert denied.readiness.policy_consistent is False
             assert "shift_not_open" in denied.reasons
@@ -324,7 +333,8 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             with database.db() as c:
                 c.execute("UPDATE users SET role='Admin' WHERE username='cashier'")
             result = recovery.inspect(**args)
-            assert result.journal.state == "journal_completed_unverified"
+            assert result.journal.state == "withheld_authorization_required"
+            assert result.journal.result_ref is None
             assert not result.readiness.session_bound, result
             assert not result.readiness.policy_consistent, result
             assert "verified_session_required" in result.reasons
@@ -350,7 +360,8 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                 )
             blocked = recovery.inspect(**args)
             assert not blocked.readiness.session_bound
-            assert blocked.journal.state == "journal_completed_unverified"
+            assert blocked.journal.state == "withheld_authorization_required"
+            assert blocked.journal.result_ref is None
             with database.db() as c:
                 c.execute(
                     "UPDATE users SET pw_hash=? WHERE username='cashier'",
@@ -377,7 +388,8 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                     "WHERE shift_id=?", (shift,),
                 )
             result = recovery.inspect(**args)
-            assert result.journal.state == "journal_completed_unverified"
+            assert result.journal.state == "withheld_authorization_required"
+            assert result.journal.result_ref is None
             assert not result.readiness.branch_verified, result
             assert not result.readiness.policy_consistent, result
             assert "shift_branch_mismatch" in result.reasons

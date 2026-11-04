@@ -4,8 +4,8 @@ A draft cart never calls create_sale, prints receipts, or changes stock.
 """
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHeaderView, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QFrame, QHeaderView, QHBoxLayout, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 from .product_dialog import ProductDialog
 
@@ -18,10 +18,21 @@ class InventoryPage(QWidget):
         self.editor = editor
         self.products = []
         layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        self.eyebrow = QLabel("01  /  PRODUCT CATALOG")
+        self.eyebrow.setObjectName("pageEyebrow")
+        layout.addWidget(self.eyebrow)
         self.heading = QLabel()
-        self.heading.setStyleSheet("font-size:19pt; font-weight:650;")
+        self.heading.setObjectName("screenTitle")
         layout.addWidget(self.heading)
+
+        self.search_panel = QFrame()
+        self.search_panel.setObjectName("searchPanel")
+        search_layout = QVBoxLayout(self.search_panel)
+        search_layout.setContentsMargins(17, 15, 17, 15)
+        search_layout.setSpacing(12)
         row = QHBoxLayout()
+        row.setSpacing(10)
         self.query = QLineEdit()
         self.query.setClearButtonEnabled(True)
         self.query.textChanged.connect(self.refresh)
@@ -36,12 +47,15 @@ class InventoryPage(QWidget):
         row.addWidget(self.edit_product_button)
         self.add_product_button.setVisible(self.editor is not None)
         self.edit_product_button.setVisible(self.editor is not None)
-        layout.addLayout(row)
+        search_layout.addLayout(row)
+        layout.addWidget(self.search_panel)
         self.table = QTableWidget(0, 4)
+        self.table.setObjectName("catalogTable")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(40)
         # Let product names use remaining width instead of truncating after
         # only a few characters, while numeric columns remain compact.
         header = self.table.horizontalHeader()
@@ -52,6 +66,8 @@ class InventoryPage(QWidget):
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         layout.addWidget(self.table)
         self.status = QLabel()
+        self.status.setObjectName("catalogStatus")
+        self.status.setWordWrap(True)
         layout.addWidget(self.status)
         self.retranslate()
         self.refresh()

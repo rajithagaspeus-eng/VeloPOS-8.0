@@ -500,6 +500,14 @@ class PreviewSandboxSaleLedger:
                         or type(row["amount_cents"]) is not int
                         or row["amount_cents"] <= 0):
                     reasons.append("invalid_tender_declaration")
+                hint = row["reference_hint"]
+                if (type(hint) is not str or len(hint) > 80
+                        or hint != hint.strip()
+                        or any(ord(char) < 32 or ord(char) == 127
+                               for char in hint)
+                        or (row["method"] in ("Card", "QR") and len(hint) < 4)
+                        or (row["method"] == "Cash" and hint)):
+                    reasons.append("invalid_tender_reference")
             settlements = connection.execute(
                 "SELECT reference,declared,due_cents,cash_cents,noncash_cents,"
                 "change_cents FROM main.v8_preview_sandbox_settlements"

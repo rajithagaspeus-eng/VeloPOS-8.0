@@ -40,17 +40,23 @@ def request_fingerprint(payload):
     # JSON coerces integer object keys to strings. That would make distinct
     # caller payloads share one idempotency fingerprint (e.g. {1: "a"} and
     # {"1": "a"}). Reject ambiguous keys at every nesting level.
-    def validate_keys(value):
+    def validate_keys(value, ancestors, depth=0):
+        if depth > 64:
+            raise ValueError("Request payload nesting too deep")
+        if isinstance(value, (dict, list, tuple)):
+            if id(value) in ancestors:
+                raise ValueError("Cyclic request payload")
+            ancestors = ancestors | {id(value)}
         if isinstance(value, dict):
             if any(type(key) is not str for key in value):
                 raise ValueError("Request payload keys must be strings")
             for child in value.values():
-                validate_keys(child)
+                validate_keys(child, ancestors, depth + 1)
         elif isinstance(value, (list, tuple)):
             for child in value:
-                validate_keys(child)
+                validate_keys(child, ancestors, depth + 1)
 
-    validate_keys(payload)
+    validate_keys(payload, frozenset())
     try:
         serialized = json.dumps(
             payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"),

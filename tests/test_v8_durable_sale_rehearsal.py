@@ -183,6 +183,35 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_deleted_pinned_database_is_never_recreated(self):
+        self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        Path(self.path).unlink()
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0002", lines=self.lines
+            )
+        self.assertFalse(Path(self.path).exists())
+
+    def test_open_pinned_journal_uses_readwrite_without_create(self):
+        from unittest.mock import patch
+        original_connect = sqlite3.connect
+        seen = []
+
+        def capture_connect(database, *args, **kwargs):
+            seen.append((str(database), kwargs.get("uri", False)))
+            return original_connect(database, *args, **kwargs)
+
+        with patch("velopos_qt.durable_sale_rehearsal.sqlite3.connect",
+                   side_effect=capture_connect):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+        self.assertEqual(len(seen), 1)
+        self.assertTrue(seen[0][1])
+        self.assertTrue(seen[0][0].endswith("?mode=rw"))
+
     def test_failed_validation_does_not_consume_sequence(self):
         with self.assertRaises(ValueError):
             self.journal.inspect(

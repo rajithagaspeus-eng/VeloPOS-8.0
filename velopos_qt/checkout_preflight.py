@@ -69,7 +69,12 @@ class PreviewCheckoutPreflight:
         reasons = ["preview_checkout_disabled"]
         # No real idempotency reservation or verified license/shift gateway
         # exists yet; a valid-looking request ID is NOT evidence of uniqueness.
-        if not isinstance(request_id, str) or not 8 <= len(request_id) <= 128:
+        # The preview journal uses a stricter canonical request-id format
+        # than a length check. Deny malformed IDs here, before the recovery
+        # diagnostic can inspect or expose journal information.
+        try:
+            PreviewIdempotencyLedger._validate_identity("sale", request_id)
+        except ValueError:
             reasons.append("invalid_request_id")
         reasons.append("idempotency_not_implemented")
         reasons.append("license_not_verified")

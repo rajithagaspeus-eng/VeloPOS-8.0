@@ -213,6 +213,54 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_hostile_decimal_exponents(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET quantity='1E-999999999' "
+                    "WHERE reference=? AND line_no=1", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_quantity" in audited.reasons, audited
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET quantity='1',price='1E-999999999' "
+                    "WHERE reference=? AND line_no=1", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_price" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_oversized_persisted_decimal_text(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET quantity=? WHERE reference=? AND line_no=1",
+                    ("1" * 129, first.reference)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_quantity" in audited.reasons, audited
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET quantity='1',price=? WHERE reference=? AND line_no=1",
+                    ("1" * 129, first.reference)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_price" in audited.reasons, audited
+        """)
+
     def test_audit_rejects_invalid_invoice_price_without_crashing(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

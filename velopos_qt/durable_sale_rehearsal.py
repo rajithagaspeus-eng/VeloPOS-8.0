@@ -138,6 +138,13 @@ class DurablePreviewSaleJournal:
                 raise PermissionError("Hidden or generated preview schema columns")
             if conn.execute(f"PRAGMA foreign_key_list({table})").fetchall():
                 raise PermissionError("Unexpected preview foreign keys")
+        for table, expected_types in (
+            ("preview_rehearsals", ("TEXT", "TEXT", "TEXT")),
+            ("preview_sequence", ("INTEGER", "INTEGER")),
+        ):
+            columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
+            if tuple(column[2].upper() for column in columns) != expected_types:
+                raise PermissionError("Unexpected preview SQLite column types")
         for table, key in (
             ("preview_rehearsals", "request_id"),
             ("preview_sequence", "singleton"),

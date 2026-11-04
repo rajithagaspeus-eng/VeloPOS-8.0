@@ -74,6 +74,34 @@ class ThreeWayAuthorizationTests(unittest.TestCase):
                     assert "activation_not_active" in revoked.activation_reasons
                     forged = policy.inspect_with_activation(conn, signed_status="bad", **args)
                     assert not forged.activation_signature_valid
+                    # Duplicate signed claims must never be interpreted by
+                    # last-key-wins JSON parsers, even with a valid signature.
+                    def sign_raw(raw):
+                        payload = raw.encode("utf-8")
+                        return enc(payload) + "." + enc(key.sign(payload))
+                    duplicate_license = sign_raw(
+                        '{"v":8,"license_id":"OTHER","license_id":"LICENSE",'
+                        '"m":"MACHINE","actions":["sale"],"expires":"2030-01-01"}')
+                    ambiguous = policy.inspect_with_activation(
+                        conn, signed_status=status,
+                        **dict(args, license_key=duplicate_license))
+                    assert not ambiguous.authorization.signature_valid
+                    assert "invalid_license_signature" in ambiguous.authorization.license_reasons
+                    duplicate_status = sign_raw(
+                        '{"machine_id":"MACHINE","license_id":"LICENSE",'
+                        '"status":"revoked","status":"active",'
+                        '"observed_utc":"2026-11-04T02:00:00Z"}')
+                    ambiguous_status = policy.inspect_with_activation(
+                        conn, signed_status=duplicate_status, **args)
+                    assert not ambiguous_status.activation_signature_valid
+                    assert "activation_status_signature_invalid" in ambiguous_status.activation_reasons
+                    boolean_version = policy.inspect_with_activation(
+                        conn, signed_status=status,
+                        **dict(args, license_key=sign(dict(
+                            v=True, license_id="LICENSE", m="MACHINE",
+                            actions=["sale"], expires="2030-01-01"))))
+                    assert "signed_license_id_binding_unverified" in boolean_version.activation_reasons
+                    assert not boolean_version.can_execute
                     try:
                         policy.require_with_activation(conn, signed_status=status, **args)
                     except PermissionError:

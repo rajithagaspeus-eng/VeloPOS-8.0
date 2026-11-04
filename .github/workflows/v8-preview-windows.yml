@@ -2,11 +2,10 @@
 # This workflow runs only for develop-v8 and never uses production secrets.
 name: V8 Windows preview checks
 
+# The primary .github/workflows/v8-preview-tests.yml already runs on every
+# develop-v8 push/PR. Keep this extended diagnostic job manual-only, otherwise
+# two identical Windows suites consume free runner minutes per commit.
 on:
-  push:
-    branches: [develop-v8]
-  pull_request:
-    branches: [develop-v8]
   workflow_dispatch:
 
 permissions:

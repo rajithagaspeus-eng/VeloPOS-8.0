@@ -2540,3 +2540,11 @@ milestones as commercial security gates permit.
 - `622e49f3a1d618bf618650c9047f4fe074770e48`: CI now runs `python run_v8_checks.py --verbose`, tees full output to `v8-preview-test-results.txt`, preserves the Python test exit code, and uploads the text with `actions/upload-artifact@v4` under `v8-preview-windows-test-output` even when the test step fails. This provides reproducible per-test names and tracebacks for future Windows runs; it does **not** imply a successful run.
 - The original return negative quantity test was preserved correctly in the previous checkpoint; original line #1 has 2 units. Positive fractional return coverage was added separately.
 - Follow-up required: inspect exact SHA Actions job and its artifact; fix actual tracebacks before further commercial promotion. All V8 finance remains sandbox-only, 0/5 gates accepted, ~35% rough planning estimate.
+
+
+## CI fail-closed test discovery — 2026-11-04
+
+- `7781e530c2e864c49c2f830bbd4b2365f96efaef`: `run_v8_checks.py` now prints discovered test count and exits nonzero if unittest discovers **zero** `test_v8_*.py` tests. Prevents accidental false-green CI if test directory/pattern changes.
+- `d5845b602e4f5acb794326e50c8a16424648f366`: adds `tests/test_v8_check_runner.py` with two regression methods: empty discovery returns failure and nested successful suite returns success.
+- A local Python smoke check verified `unittest.TestSuite.countTestCases()` returns 0 for empty and 1 for nested single-test suites. **Full repository test execution was not possible** in the available container (GitHub host DNS unavailable); no Windows CI pass/fail job log was accessible via the GitHub connector.
+- Next: inspect actual Windows workflow run and verbose artifact for exact-head failures; do not promote to production until release gates. `develop-v8` sandbox-only; 0/5 commercial gates, ~35% planning estimate.

@@ -31,6 +31,7 @@ class PreviewEntitlementDecision:
     entitled: bool
     reasons: tuple[str, ...]
     can_execute: bool = False
+    signed_license_id: str | None = None
 
 
 def _decode(encoded, *, limit):
@@ -70,6 +71,7 @@ class PreviewSignedEntitlementInspector:
         reasons = ["preview_transactions_disabled"]
         verified, matched, entitled = False, False, False
         data = None
+        signed_license_id = None
         try:
             if not isinstance(license_key, str) or len(license_key) > _MAX_KEY_CHARS:
                 raise ValueError("Malformed license")
@@ -91,6 +93,14 @@ class PreviewSignedEntitlementInspector:
                 InvalidSignature, json.JSONDecodeError):
             reasons.append("invalid_license_signature")
         if verified:
+            # V8 activation binding requires a versioned, signed identifier.
+            # Existing V7 envelopes remain inspectable but never gain one.
+            identifier = data.get('license_id')
+            if data.get('v') == 8 and isinstance(identifier, str) and (
+                1 <= len(identifier) <= 120 and identifier == identifier.strip()
+                and all(c.isascii() and (c.isalnum() or c in '-_') for c in identifier)
+            ):
+                signed_license_id = identifier
             matched = data.get("m") == machine_id
             if not matched:
                 reasons.append("license_machine_mismatch")
@@ -118,4 +128,5 @@ class PreviewSignedEntitlementInspector:
                         entitled = matched
         return PreviewEntitlementDecision(
             action, verified, matched, entitled, tuple(reasons),
+            signed_license_id=signed_license_id,
         )

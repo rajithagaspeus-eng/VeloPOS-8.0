@@ -737,7 +737,7 @@ class PreviewSandboxCreditLedger:
                             journal["status"] != "COMPLETED" or
                             journal["result_ref"] != note["reference"]):
                         issues.append("credit_note_link_or_journal_mismatch")
-                    if original_line is not None:
+                    if original_line is not None and original_charge is not None:
                         key = (note["charge_ref"], note["sale_line_no"])
                         by_sale_line.setdefault(key,[]).append(note)
                 for (charge_ref,line_no), entries in by_sale_line.items():

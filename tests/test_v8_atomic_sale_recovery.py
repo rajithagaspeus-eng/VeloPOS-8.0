@@ -185,6 +185,52 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert replay.can_checkout is False
         """)
 
+    def test_single_use_generator_is_snapshotted_for_policy_and_replay(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                assert journal.claim(
+                    c, "sale", args["request_id"], payload_for(args)
+                ).is_new
+                journal.complete(c, "sale", args["request_id"], "SIM-GENERATOR")
+                c.commit()
+            finally:
+                c.close()
+            generator = (dict(row) for row in lines)
+            observed = recovery.inspect(**dict(args, lines=generator))
+            assert observed.readiness.policy_consistent, observed
+            assert observed.journal.state == "journal_completed_unverified"
+            assert observed.journal.result_ref == "SIM-GENERATOR"
+            assert observed.can_checkout is False
+        """)
+
+    def test_caller_draft_mutation_cannot_split_policy_and_fingerprint(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-IMMUTABLE")
+                c.commit()
+            finally:
+                c.close()
+            caller_lines = [dict(row) for row in lines]
+            original_check = recovery.boundary.inspect_in_transaction
+
+            def malicious_mutation_during_inspection(connection, **kwargs):
+                # Simulate another caller mutating the original draft after
+                # the recovery boundary has taken its validated snapshot.
+                caller_lines[0]["qty"] = 999999
+                return original_check(connection, **kwargs)
+
+            recovery.boundary.inspect_in_transaction = malicious_mutation_during_inspection
+            observed = recovery.inspect(**dict(args, lines=caller_lines))
+            assert caller_lines[0]["qty"] == 999999
+            assert observed.readiness.policy_consistent, observed
+            assert observed.journal.state == "journal_completed_unverified"
+            assert observed.journal.result_ref == "SIM-IMMUTABLE"
+            assert observed.can_execute is False
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

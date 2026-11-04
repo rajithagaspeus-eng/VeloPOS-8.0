@@ -1330,9 +1330,31 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             try:
                 sandbox.simulate_commit(**second_args)
             except PermissionError as exc:
-                assert "remaining quantity" in str(exc), exc
+                assert "stock balance" in str(exc), exc
             else:
                 raise AssertionError("Corrupted stock was accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
+    def test_new_sale_refuses_corrupted_opening_stock(self):
+        self.isolated("""
+            sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock "
+                    "SET opening_qty='NaN' WHERE barcode='RICE'"
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-stock-request-0003"
+                ))
+            except PermissionError as exc:
+                assert "stock balance" in str(exc), exc
+            else:
+                raise AssertionError("Corrupted opening stock was accepted")
             with database.db() as c:
                 assert c.execute(
                     "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
@@ -1352,7 +1374,7 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                     args, request_id="second-stock-request-0002"
                 ))
             except PermissionError as exc:
-                assert "remaining quantity" in str(exc), exc
+                assert "stock balance" in str(exc), exc
             else:
                 raise AssertionError("Noncanonical stock was accepted")
             with database.db() as c:

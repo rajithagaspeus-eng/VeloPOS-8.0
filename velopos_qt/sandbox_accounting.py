@@ -383,10 +383,14 @@ class PreviewSandboxAccounting:
                             journal["result_ref"] != repayment["reference"]):
                         reasons.append("sandbox_credit_repayment_reconciliation")
                 allocated_by_charge = {}
+                allocated_payment_refs = set()
+                customers_with_allocations = set()
                 for allocation in connection.execute(
                     "SELECT repayment_ref,charge_ref,customer_id,branch_id,amount_cents "
                     "FROM main.v8_preview_sandbox_credit_allocations"
                 ):
+                    allocated_payment_refs.add(allocation["repayment_ref"])
+                    customers_with_allocations.add(allocation["customer_id"])
                     repayment = connection.execute(
                         "SELECT customer_id,branch_id,amount_cents FROM "
                         "main.v8_preview_sandbox_credit_repayments WHERE reference=?",
@@ -404,6 +408,14 @@ class PreviewSandboxAccounting:
                         allocated_by_charge.get(allocation["charge_ref"],0)
                         + allocation["amount_cents"]
                     )
+                if customers_with_allocations:
+                    for repayment in connection.execute(
+                        "SELECT reference,customer_id FROM "
+                        "main.v8_preview_sandbox_credit_repayments"
+                    ):
+                        if (repayment["customer_id"] in customers_with_allocations
+                                and repayment["reference"] not in allocated_payment_refs):
+                            reasons.append("sandbox_credit_mixed_repayment_modes")
                 note_totals_by_charge = {}
                 note_lines = {}
                 for note in connection.execute(

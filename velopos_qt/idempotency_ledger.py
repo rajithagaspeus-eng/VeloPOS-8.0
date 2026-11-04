@@ -171,8 +171,12 @@ class PreviewIdempotencyLedger:
             "CHECK(status IN ('PENDING','COMPLETED')), "
             "result_ref TEXT, "
             "CHECK((status='PENDING' AND result_ref IS NULL) OR "
-            "(status='COMPLETED' AND result_ref IS NOT NULL "
-            "AND length(result_ref)>0)), "
+            "(status='COMPLETED' AND typeof(result_ref)='text' "
+            "AND length(result_ref) BETWEEN 1 AND 128 "
+            "AND result_ref=trim(result_ref) "
+            "AND instr(result_ref,char(10))=0 "
+            "AND instr(result_ref,char(13))=0 "
+            "AND instr(result_ref,char(9))=0)), "
             "PRIMARY KEY(scope,request_id))"
         )
         row = connection.execute(
@@ -196,8 +200,7 @@ class PreviewIdempotencyLedger:
     def complete(self, connection, scope, request_id, result_ref):
         """Attach the result of work in the SAME uncommitted transaction."""
         self._check_connection(connection)
-        if scope not in _SCOPES:
-            raise ValueError("Unknown idempotency scope")
+        self._validate_identity(scope, request_id)
         if not _valid_result_ref(result_ref):
             raise ValueError("Invalid result reference")
         updated = connection.execute(

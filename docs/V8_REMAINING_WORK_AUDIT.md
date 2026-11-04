@@ -241,3 +241,25 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   GitHub API allowlist, and direct checkout failed DNS resolution. Therefore
   runner root cause and application regression PASS remain unverified.
 - No V7/main, commercial checkout, or production database changes.
+
+## Journal CAS, multi-process idempotency and SQLite schema filter (2026-11-05)
+
+- Sequence advancement now uses a guarded `UPDATE ... WHERE next_number=?`
+  and checks `rowcount == 1`, aborting on a failed compare-and-swap.
+- Added a 24-writer distinct-request concurrency/restart regression and a
+  four-subprocess same-request idempotency regression. These are application
+  tests committed to the branch, **not yet executed**.
+- Corrected `sqlite_master` filtering from `NOT LIKE 'sqlite_%'` to
+  `NOT GLOB 'sqlite_*'`. SQLite LIKE treats underscore as a wildcard,
+  allowing a `sqliteX...` table to evade the old object allowlist.
+  A direct local sqlite3 reproduction confirmed the old predicate missed
+  the table and the new predicate found it; this is a standalone SQL
+  reproduction, not a full application regression run.
+- Added strict TEXT/INTEGER column declaration validation and tests for
+  altered BLOB fingerprint columns and `sqliteX` extra objects.
+- GitHub Actions run `41927393618` failed before runner allocation:
+  runner empty, steps zero; Linux run `41927391264` failed with no jobs.
+  Runner failure cause remains unknown because administrative diagnostic
+  endpoints are blocked by the GitHub connector. Git clone cannot resolve
+  github.com in the available container, preventing repository suite execution.
+- Preview only. No main/V7/production changes and no commercial posting.

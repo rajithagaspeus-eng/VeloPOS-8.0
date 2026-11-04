@@ -6,6 +6,8 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "navigation_toggle": "Show or hide sidebar",
+        "navigation_toggle_hint": "Show or hide page sidebar · Ctrl+B",
         "quick_jump_title": "Quick navigation",
         "quick_jump_action": "Find page · Ctrl+K",
         "quick_jump_placeholder": "Search pages by name…",
@@ -224,6 +226,8 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "navigation_toggle": "පැති මෙනුව පෙන්වන්න හෝ සඟවන්න",
+        "navigation_toggle_hint": "පිටු මෙනුව පෙන්වන්න / සඟවන්න · Ctrl+B",
         "quick_jump_title": "ඉක්මන් පිටු මාරුව",
         "quick_jump_action": "පිටුව සොයන්න · Ctrl+K",
         "quick_jump_placeholder": "පිටුවේ නම සොයන්න…",
@@ -442,6 +446,8 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "navigation_toggle": "பக்கப்பட்டியைக் காட்டு அல்லது மறை",
+        "navigation_toggle_hint": "பக்கப்பட்டியைக் காட்டு / மறை · Ctrl+B",
         "quick_jump_title": "விரைவு வழிசெலுத்தல்",
         "quick_jump_action": "பக்கத்தைத் தேடு · Ctrl+K",
         "quick_jump_placeholder": "பக்கத்தின் பெயரைத் தேடுங்கள்…",

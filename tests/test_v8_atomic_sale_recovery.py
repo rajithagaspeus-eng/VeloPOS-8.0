@@ -396,6 +396,58 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert result.can_checkout is False
         """)
 
+    def test_unverified_actor_never_even_queries_prior_journal(self):
+        self.isolated("""
+            from velopos_qt.auth_model import PreviewIdentity
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-PRIVATE")
+                c.commit()
+            finally:
+                c.close()
+            called = []
+            def forbid_journal_access(*_args, **_kwargs):
+                called.append(True)
+                raise AssertionError("Denied client queried transaction history")
+            recovery.journal.inspect_request = forbid_journal_access
+            bad = dict(args, identity=PreviewIdentity(
+                user.username, "Admin", user.credential_tag
+            ))
+            result = recovery.inspect(**bad)
+            assert not called, called
+            assert result.journal.state == "withheld_authorization_required"
+            assert result.journal.result_ref is None
+            assert not result.readiness.session_bound
+            assert result.can_checkout is False
+        """)
+
+    def test_invalid_price_and_bad_license_hide_completed_journal_details(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-PRIVATE")
+                c.commit()
+            finally:
+                c.close()
+            changed_price = [
+                {"barcode": "RICE", "qty": 2, "price": 44},
+                {"barcode": "RICE", "qty": 3, "price": 44},
+                {"barcode": "SOAP", "qty": 1, "price": 25},
+            ]
+            for invalid in (
+                dict(args, lines=changed_price),
+                dict(args, license_key="not-a-valid-signed-license"),
+                dict(args, request_id="invalid id!"),
+            ):
+                result = recovery.inspect(**invalid)
+                assert result.journal.state == "withheld_authorization_required", result
+                assert result.journal.result_ref is None
+                assert result.can_execute is False
+                assert result.can_checkout is False
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

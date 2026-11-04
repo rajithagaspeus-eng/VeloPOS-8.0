@@ -107,6 +107,14 @@ class PreviewSandboxAccounting:
                     if (not qty.is_finite() or not price.is_finite()
                             or qty <= 0 or price < 0 or line["line_cents"] < 0):
                         reasons.append("invalid_sale_line_amount")
+                    else:
+                        expected_line_cents = int(
+                            (qty * price).quantize(
+                                _CENT, rounding=ROUND_HALF_UP
+                            ) * 100
+                        )
+                        if line["line_cents"] != expected_line_cents:
+                            reasons.append("sale_price_quantity_mismatch")
                     sold_quantities[key] = sold_quantities.get(
                         key, Decimal("0")
                     ) + qty

@@ -951,6 +951,22 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 assert "invalid_invoice_line_quantity" in result.reasons, result
         """)
 
+    def test_audit_rejects_hostile_stock_sold_decimal(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET sold_qty='1E-999999999' "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_stock_move_quantity" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_corrupt_stock_move_and_balance_decimals_fail_closed(self):
         self.isolated("""
             sandbox.simulate_commit(**args)

@@ -38,7 +38,7 @@ class ActivationStatusTests(unittest.TestCase):
             now = datetime(2026, 11, 4, 3, 0, tzinfo=timezone.utc)
             def sign(**changes):
                 data = dict(machine_id="MACHINE-A", license_id="LICENSE-A",
-                            status="active", observed_utc="2026-11-04T02:00:00Z")
+                            status="active", sequence=10, observed_utc="2026-11-04T02:00:00Z")
                 data.update(changes)
                 payload = json.dumps(data, sort_keys=True).encode()
                 return enc(payload) + "." + enc(key.sign(payload))
@@ -49,8 +49,22 @@ class ActivationStatusTests(unittest.TestCase):
                 )
             valid = check(sign())
             assert valid.signature_valid and valid.current, valid
+            assert valid.signed_sequence == 10
             assert valid.can_execute is False
             assert valid.reasons == ("preview_transactions_disabled",)
+            assert "activation_signed_sequence_replay_suspected" in check(
+                sign(sequence=9), last_accepted_sequence=10).reasons
+            assert check(sign(sequence=10), last_accepted_sequence=10).current
+            for invalid_sequence in (None, True, -1, 1.5, "10", 9223372036854775808):
+                assert "activation_signed_sequence_invalid" in check(
+                    sign(sequence=invalid_sequence)).reasons
+            for invalid_watermark in (True, -1, "10"):
+                try:
+                    check(sign(), last_accepted_sequence=invalid_watermark)
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError("Invalid sequence watermark accepted")
             assert "activation_status_stale" in check(
                 sign(observed_utc="2026-11-01T02:00:00Z")
             ).reasons

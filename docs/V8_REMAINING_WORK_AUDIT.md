@@ -99,3 +99,19 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   Do not classify this as a Python test failure or claim passing tests.
 - This journal is **not** a production transaction ledger: it contains only
   disposable rehearsal references and cannot post sales.
+
+## Preview journal schema-hardening batch (2026-11-05)
+
+- Added strict SQLite schema-object allowlisting to the disposable durable
+  rehearsal journal. Unexpected triggers, views, tables and columns are
+  rejected both at initialization and before each journal transaction.
+- Added regression tests for a pre-existing trigger, extra view/table,
+  altered columns, and a trigger injected after journal construction.
+- Retried Windows Actions run `41921621446`. Attempt 2 again finished
+  `failure` with `runner_name=""` and `steps=[]`; therefore **no Python
+  test was executed in that job**. A prior job-log download returned 404
+  (missing log blob). This is not evidence of an application assertion failure.
+- Next CI diagnostic requires Actions job/check annotations and repository
+  runner/account eligibility information not exposed by the current job
+  metadata. Do not declare a runner/billing root cause without those details.
+- The durable journal remains **test-only** and cannot authorize checkout.

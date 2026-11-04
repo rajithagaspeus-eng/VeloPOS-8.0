@@ -1531,7 +1531,8 @@ class SandboxSaleLedgerTests(unittest.TestCase):
         self.isolated("""
             first = sandbox.simulate_commit(**args)
             second = sandbox.simulate_commit(**dict(
-                args, request_id="middle-stock-request-0001"
+                args, request_id="middle-stock-request-0001",
+                lines=[{"barcode": "RICE", "qty": 1, "price": 45}]
             ))
             with database.db() as c:
                 c.execute(
@@ -1540,7 +1541,8 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 )
             try:
                 sandbox.simulate_commit(**dict(
-                    args, request_id="third-stock-request-0001"
+                    args, request_id="third-stock-request-0001",
+                    lines=[{"barcode": "RICE", "qty": 1, "price": 45}]
                 ))
             except PermissionError as exc:
                 assert "movement coverage" in str(exc), exc

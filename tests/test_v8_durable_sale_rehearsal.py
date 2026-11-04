@@ -291,6 +291,27 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
                 request_id="durable-request-0001", lines=self.lines
             )
 
+    def test_missing_not_null_constraint_rejected(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute(
+                "CREATE TABLE preview_rehearsals "
+                "(request_id TEXT PRIMARY KEY, fingerprint TEXT, "
+                "reference TEXT NOT NULL UNIQUE)"
+            )
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+
+    def test_post_commit_identity_error_is_not_masked_by_rollback(self):
+        from unittest.mock import patch
+        replacement = str(Path(tempfile.gettempdir()) /
+                          ("v8-preview-rehearsal-" + uuid4().hex + ".sqlite"))
+        self.addCleanup(lambda: Path(replacement).unlink(missing_ok=True))
+        with patch.object(DurablePreviewSaleJournal, "_identity",
+                          side_effect=PermissionError("identity check refused")):
+            with self.assertRaisesRegex(PermissionError, "identity check refused"):
+                DurablePreviewSaleJournal(replacement)
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

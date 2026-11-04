@@ -50,10 +50,14 @@ class DurablePreviewSaleJournal:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 self._initialize(conn)
+                # Validate the file before committing, while the write lock
+                # is still held; never attempt ROLLBACK after COMMIT.
+                identity = self._identity()
                 conn.execute("COMMIT")
-                self._file_identity = self._identity()
+                self._file_identity = identity
             except BaseException:
-                conn.execute("ROLLBACK")
+                if conn.in_transaction:
+                    conn.execute("ROLLBACK")
                 raise
 
     def _initialize(self, conn):
@@ -266,7 +270,8 @@ class DurablePreviewSaleJournal:
                 conn.execute("COMMIT")
                 return result
             except BaseException:
-                conn.execute("ROLLBACK")
+                if conn.in_transaction:
+                    conn.execute("ROLLBACK")
                 raise
 
     def commit(self, **_claims):

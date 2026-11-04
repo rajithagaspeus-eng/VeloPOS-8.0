@@ -1339,6 +1339,51 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_new_sale_refuses_corrupted_existing_stock_movement(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET before_qty='999' WHERE reference=? AND barcode='RICE'",
+                    (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-stock-chain-request-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Corrupted stock chain was accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
+    def test_new_sale_refuses_missing_existing_stock_movement(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_stock_moves "
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-stock-chain-request-0002"
+                ))
+            except PermissionError as exc:
+                assert "history missing" in str(exc), exc
+            else:
+                raise AssertionError("Missing stock history was accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_new_sale_refuses_corrupted_opening_stock(self):
         self.isolated("""
             sandbox.simulate_commit(**args)

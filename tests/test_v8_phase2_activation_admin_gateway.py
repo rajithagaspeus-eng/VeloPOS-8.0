@@ -241,9 +241,9 @@ class PreviewSignedAdminGatewayTests(unittest.TestCase):
             from velopos_qt.activation_admin_gateway import PreviewSignedActivationGateway
             from velopos_qt.server_activation_reference import PreviewServerActivationAuthority
             database.init_db()
-            auth = PreviewServerActivationAuthority(database,
-                                                    signing_key=Ed25519PrivateKey.generate())
             try:
+                auth = PreviewServerActivationAuthority(
+                    database, signing_key=Ed25519PrivateKey.generate())
                 PreviewSignedActivationGateway(database, authority=auth)
             except RuntimeError:
                 pass

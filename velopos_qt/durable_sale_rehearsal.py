@@ -14,6 +14,7 @@ from .sale_request_service import rehearse_sale_request
 
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _REFERENCE = re.compile(r"REHEARSAL-[0-9]{8,}\Z")
+_STORED_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}\Z")
 
 
 @dataclass(frozen=True)
@@ -212,10 +213,12 @@ class DurablePreviewSaleJournal:
                 # Verify the complete disposable journal before returning any
                 # replay, including entries unrelated to the current request.
                 rows = conn.execute(
-                    "SELECT fingerprint,reference FROM preview_rehearsals"
+                    "SELECT request_id,fingerprint,reference FROM preview_rehearsals"
                 ).fetchall()
-                for stored_fingerprint, stored_reference in rows:
-                    if (type(stored_fingerprint) is not str or
+                for stored_id, stored_fingerprint, stored_reference in rows:
+                    if (type(stored_id) is not str or
+                            _STORED_ID.fullmatch(stored_id) is None or
+                            type(stored_fingerprint) is not str or
                             _DIGEST.fullmatch(stored_fingerprint) is None or
                             type(stored_reference) is not str or
                             _REFERENCE.fullmatch(stored_reference) is None):
@@ -230,7 +233,7 @@ class DurablePreviewSaleJournal:
                         not 1 <= sequence_rows[0][1] <= 100000000):
                     raise PermissionError("Corrupt preview sequence")
                 seen_refs = set()
-                for index, (stored_fingerprint, stored_reference) in enumerate(rows, 1):
+                for index, (stored_id, stored_fingerprint, stored_reference) in enumerate(rows, 1):
                     if stored_reference in seen_refs:
                         raise PermissionError("Duplicate preview reference")
                     seen_refs.add(stored_reference)

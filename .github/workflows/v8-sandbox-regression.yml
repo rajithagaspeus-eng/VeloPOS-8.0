@@ -33,6 +33,18 @@ jobs:
         run: python -m compileall -q velopos_qt/sandbox_sale_ledger.py velopos_qt/idempotency_ledger.py tests/test_v8_sandbox_sale_ledger.py tests/test_v8_phase2_atomic_sale_boundary.py
       - name: Check installed preview dependencies
         run: python -m pip check
+      - name: Verify commercial release gates remain closed
+        run: |
+          python -m unittest -v tests.test_v8_release_readiness
+          python -m velopos_qt.release_readiness > v8-release-readiness.json
+      - name: Preserve release readiness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-release-readiness
+          path: v8-release-readiness.json
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Run isolated sandbox and atomic boundary regression suites
         shell: bash
         run: |

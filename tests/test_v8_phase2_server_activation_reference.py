@@ -70,6 +70,12 @@ class PreviewServerActivationTests(unittest.TestCase):
                 assert current.receipt_matches_server_state, current
                 assert current.reasons == ("preview_transactions_disabled",)
                 assert not current.can_execute
+                rollback_clock = authority.inspect_current(
+                    server, signed_status=second.signed_status,
+                    **dict(kwargs, server_now=now(9)))
+                assert not rollback_clock.receipt_matches_server_state
+                assert "server_observation_clock_rollback" in rollback_clock.reasons
+                assert not rollback_clock.can_execute
                 prior = authority.inspect_current(
                     server, signed_status=first.signed_status, **kwargs)
                 assert not prior.receipt_matches_server_state

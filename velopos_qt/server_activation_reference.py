@@ -196,6 +196,9 @@ class PreviewServerActivationAuthority:
             reasons.append("server_license_revoked")
         if row is not None and clock > _utc(row["expires_utc"]):
             reasons.append("server_license_expired")
+        if (row is not None and row["last_observed_utc"] is not None
+                and clock < _utc(row["last_observed_utc"])):
+            reasons.append("server_observation_clock_rollback")
         try:
             if (type(signed_status) is not str or len(signed_status) > 8192
                     or signed_status.count(".") != 1):

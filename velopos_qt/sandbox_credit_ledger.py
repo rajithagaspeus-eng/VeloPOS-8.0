@@ -622,6 +622,7 @@ class PreviewSandboxCreditLedger:
                 "v8_preview_sandbox_credit_accounts",
                 "v8_preview_sandbox_credit_charges",
                 "v8_preview_sandbox_credit_repayments",
+                "v8_preview_sandbox_credit_notes",
                 "v8_preview_sandbox_sales",
                 "v8_preview_sandbox_settlements",
                 "v8_preview_request_journal",
@@ -645,9 +646,16 @@ class PreviewSandboxCreditLedger:
                 "SELECT reference,request_id,customer_id,branch_id,"
                 "amount_cents,method FROM main.v8_preview_sandbox_credit_repayments"
             ).fetchall()
-            totals = {customer_id:[0,0] for customer_id in accounts}
+            notes = c.execute(
+                "SELECT reference,request_id,charge_ref,invoice_ref,customer_id,"
+                "branch_id,sale_line_no,quantity,disposition,restocked,"
+                "amount_cents FROM main.v8_preview_sandbox_credit_notes"
+            ).fetchall()
+            totals = {customer_id:[0,0,0] for customer_id in accounts}
             charge_refs = {row["reference"] for row in charges}
             payment_refs = {row["reference"] for row in payments}
+            note_refs = {row["reference"] for row in notes}
+            charges_by_ref = {row["reference"]:row for row in charges}
             for row in charges:
                 cid = row["customer_id"]
                 account = accounts.get(cid)
@@ -686,7 +694,7 @@ class PreviewSandboxCreditLedger:
                 if (journal is None or journal["status"] != "COMPLETED"
                         or journal["result_ref"] != row["reference"]):
                     issues.append("credit_charge_journal_mismatch")
-                totals.setdefault(cid,[0,0])[0] += row["amount_cents"]
+                totals.setdefault(cid,[0,0,0])[0] += row["amount_cents"]
             for row in payments:
                 cid = row["customer_id"]
                 account = accounts.get(cid)
@@ -701,16 +709,67 @@ class PreviewSandboxCreditLedger:
                 if (journal is None or journal["status"] != "COMPLETED"
                         or journal["result_ref"] != row["reference"]):
                     issues.append("credit_payment_journal_mismatch")
-                totals.setdefault(cid,[0,0])[1] += row["amount_cents"]
-            for cid, (charged, repaid) in totals.items():
+                totals.setdefault(cid,[0,0,0])[1] += row["amount_cents"]
+            by_sale_line = {}
+            with localcontext(_CONTEXT):
+                for note in notes:
+                    cid = note["customer_id"]
+                    totals.setdefault(cid,[0,0,0])[2] += note["amount_cents"]
+                    original_charge = charges_by_ref.get(note["charge_ref"])
+                    original_line = c.execute(
+                        "SELECT quantity,price,line_cents FROM "
+                        "main.v8_preview_sandbox_sale_lines "
+                        "WHERE reference=? AND line_no=?",
+                        (note["invoice_ref"],note["sale_line_no"])
+                    ).fetchone()
+                    journal = c.execute(
+                        "SELECT status,result_ref FROM main.v8_preview_request_journal "
+                        "WHERE scope='credit_note' AND request_id=?",
+                        (note["request_id"],)
+                    ).fetchone()
+                    if (original_charge is None or
+                            original_charge["invoice_ref"] != note["invoice_ref"] or
+                            original_charge["customer_id"] != cid or
+                            original_charge["branch_id"] != note["branch_id"] or
+                            note["disposition"] not in ("DAMAGED","DISCARDED") or
+                            note["restocked"] != 0 or note["amount_cents"] <= 0 or
+                            original_line is None or journal is None or
+                            journal["status"] != "COMPLETED" or
+                            journal["result_ref"] != note["reference"]):
+                        issues.append("credit_note_link_or_journal_mismatch")
+                    if original_line is not None:
+                        key = (note["charge_ref"], note["sale_line_no"])
+                        by_sale_line.setdefault(key,[]).append(note)
+                for (charge_ref,line_no), entries in by_sale_line.items():
+                    invoice_ref = charges_by_ref[charge_ref]["invoice_ref"]
+                    original = c.execute(
+                        "SELECT quantity,price,line_cents FROM "
+                        "main.v8_preview_sandbox_sale_lines "
+                        "WHERE reference=? AND line_no=?",
+                        (invoice_ref,line_no)
+                    ).fetchone()
+                    try:
+                        used = sum((Decimal(row["quantity"]) for row in entries),Decimal("0"))
+                        amount = sum(row["amount_cents"] for row in entries)
+                        expected = min(original["line_cents"],int(
+                            (used * Decimal(original["price"]))
+                            .quantize(_CENT,rounding=ROUND_HALF_UP)*100
+                        ))
+                        if (used <= 0 or used > Decimal(original["quantity"])
+                                or amount != expected):
+                            issues.append("credit_note_quantity_or_amount_mismatch")
+                    except Exception:
+                        issues.append("credit_note_quantity_or_amount_invalid")
+            for cid, (charged, repaid, credited) in totals.items():
                 account = accounts.get(cid)
                 if (account is None or charged < 0 or repaid < 0
-                        or repaid > charged):
+                        or credited < 0 or repaid + credited > charged):
                     issues.append("credit_balance_invalid")
-                elif (charged - repaid > account["limit_cents"]):
+                elif (charged - repaid - credited > account["limit_cents"]):
                     issues.append("credit_limit_exceeded")
             for scope, refs in (("credit_charge",charge_refs),
-                                ("credit_payment",payment_refs)):
+                                ("credit_payment",payment_refs),
+                                ("credit_note",note_refs)):
                 for journal in c.execute(
                     "SELECT status,result_ref FROM main.v8_preview_request_journal "
                     "WHERE scope=?", (scope,)
@@ -719,9 +778,11 @@ class PreviewSandboxCreditLedger:
                         issues.append("orphan_credit_journal")
             charged = sum(row["amount_cents"] for row in charges)
             repaid = sum(row["amount_cents"] for row in payments)
+            credited = sum(row["amount_cents"] for row in notes)
             return SandboxCreditAudit(
                 not issues,tuple(dict.fromkeys(issues)),len(accounts),
-                charged,repaid,charged-repaid
+                charged,repaid,charged-repaid-credited,
+                total_credit_notes_cents=credited,
             )
         finally:
             c.rollback()

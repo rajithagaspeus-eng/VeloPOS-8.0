@@ -2575,3 +2575,11 @@ milestones as commercial security gates permit.
 - Fix commit `cb9270df5c2d8e41f40c834e20f3e8a64dea5217`: classify nonfinite stock movement values explicitly as invalid decimals, rather than treating them as an ordinary arithmetic chain mismatch; malformed Decimal exceptions still fail closed. No production writes.
 - **Verification pending:** inspect Windows Actions for this fix and subsequent checkpoint HEAD; no new passing test count claimed until exact-head logs confirm. If failures persist, fix traceback before further feature work.
 - **Next priority:** complete exact-head Windows CI verification, then Gate A trusted service-bound authorization and Gate B cross-ledger accounting/stock/journal integrity; preserve preview-only isolation. 0/5 commercial gates accepted; no real checkout, payments or stock posting.
+
+## Commercial financial-action proof inventory — 2026-11-05
+
+- Reviewed master roadmap, release gates, existing checkpoint, recent develop-v8 commits and Actions runs before edits.
+- Windows Actions runs 41919020715 and 41919017637 for `0e01bec47e` report failure. The available job endpoint exposed no step details, and the job-log retrieval failed; no test traceback or confirmed code defect can be asserted. No diagnostic artifacts were returned. Later commits already existed on develop-v8 when inspected.
+- `abb1ef1f6106c1cf1ed8aec7a44b3a43e70a0206`: expanded strictly read-only, fail-closed commercial boundary proof inventory for credit payment, supplier payment, sale void and stock adjustment. Each now explicitly requires action-specific accounting/stock evidence, atomic commit and idempotent recovery. No authorization is granted.
+- `cfb6e7233951b25226ad1704a4b8c2b43fc97d5b`: regression tests verify action-specific proof completeness and that forged complete evidence still cannot enable posting. Test execution and exact-head Windows result pending.
+- **Next priority:** retrieve Windows job failure annotations/logs or reproduce locally; repair only confirmed failure. Then implement trusted service-bound authorization and independently reconciled financial events, retaining Gate A/B hard denial. 0/5 release gates accepted; no production writes or main branch changes.

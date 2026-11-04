@@ -7,6 +7,7 @@ license revocation, device binding and transaction posting remain unresolved.
 """
 from dataclasses import dataclass
 
+from .activation_status import PreviewActivationStatusInspector
 from .license_entitlements import PreviewSignedEntitlementInspector
 from .service_authorization import PreviewServiceAuthorization
 
@@ -20,6 +21,15 @@ class PreviewCombinedDecision:
     license_reasons: tuple[str, ...]
     signature_valid: bool
     entitled: bool
+    can_execute: bool = False
+
+
+@dataclass(frozen=True)
+class PreviewActivationCombinedDecision:
+    authorization: PreviewCombinedDecision
+    activation_reasons: tuple[str, ...]
+    activation_signature_valid: bool
+    activation_current: bool
     can_execute: bool = False
 
 
@@ -62,3 +72,38 @@ class PreviewCombinedAuthorization:
                 (*decision.session_reasons, *decision.license_reasons)
             ))
         )
+
+    def inspect_with_activation(self, connection, *, server_public_key_b64,
+                                signed_status, license_id, now=None,
+                                last_seen_utc=None, max_offline_hours=24,
+                                **authorization_kwargs):
+        """Compose three diagnostics; never treat unsigned license_id as proof.
+
+        The entitlement envelope currently lacks a signed license identifier,
+        so activation-to-entitlement binding is NOT established. This is an
+        explicit release blocker even when all three individual checks pass.
+        """
+        authorization = self.inspect(connection, **authorization_kwargs)
+        status = PreviewActivationStatusInspector(
+            self.service.database, server_public_key_b64=server_public_key_b64
+        ).inspect(
+            signed_status=signed_status,
+            machine_id=authorization_kwargs.get("machine_id"),
+            license_id=license_id,
+            now=now, last_seen_utc=last_seen_utc,
+            max_offline_hours=max_offline_hours,
+        )
+        return PreviewActivationCombinedDecision(
+            authorization=authorization,
+            activation_reasons=(*status.reasons, "signed_license_id_binding_unverified"),
+            activation_signature_valid=status.signature_valid,
+            activation_current=status.current,
+        )
+
+    def require_with_activation(self, connection, **kwargs):
+        decision = self.inspect_with_activation(connection, **kwargs)
+        raise PermissionError("; ".join(dict.fromkeys(
+            (*decision.authorization.session_reasons,
+             *decision.authorization.license_reasons,
+             *decision.activation_reasons)
+        )))

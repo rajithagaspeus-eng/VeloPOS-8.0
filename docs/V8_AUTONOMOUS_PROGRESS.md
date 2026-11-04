@@ -2486,3 +2486,17 @@ milestones as commercial security gates permit.
 - Commits: `656218a0f541a2b9d75aedacf5fdec20f1a243e1`, `f6b18ecd0dc1ddc86c05a17c2ea7ceb744588777`, `200cbc06c107edf6a5311b7a19910c152aba20eb`, `c395aaa094f760a4e7c1afc684e19e6bd70e0a2d`, `af1cf73a4f15e9c4bd8984b928d04c82575fbd31`. Three additional disposable integration tests were written (21 sandbox credit test methods total).
 - **CI status is unverified**: GitHub connector combined-status returns no check entries and its workflow-run endpoint only reports PR-triggered runs. An empty result is not a green Actions pass. No exact-head hosted Windows or local Python suite result is claimed. This is code-committed but not release-validated.
 - Overall legacy ~35% is a rough planning estimate, not measured delivery; **0/5 commercial gates accepted**. Next: obtain exact-head Windows Actions logs, fix any failures, test mixed legacy/allocated repayments and recovery, and continue commercial gating before any real payment authority.
+
+
+## Invoice repayment mixed-mode and recovery hardening — 2026-11-04
+
+**Scope:** `develop-v8` sandbox ONLY; no V7 production data, actual tender collection or cash refunds. The previous invoice-specific allocation milestone left a reverse mixing loophole: after an allocated repayment, a caller could still submit an unallocated legacy repayment. `a5b5d4c514a23043323a5877593fe32eca180f1e` now fails closed on this direction too. Existing legacy-first -> allocated denial remains in force. Replays of prior completed requests remain idempotent.
+
+**Tests added (5 new methods; 26 total sandbox credit test methods):**
+- `ebc1b9ff402a27f6a407741980dfd8315f60fb49`: both mixing directions, failpoint rollback at `after_claim`, `after_post`, `after_complete` with zero orphan allocations/repayments/journal entries, and strict replay/tamper checks.
+- `eebfed40a1e728c7abbbeeb8b292f222a8250448`: independent credit reconciliation reports `credit_mixed_repayment_modes` if the persisted records mix allocation styles.
+- `c66ee35a4cf7b9ede84bd8dea8d7fcae48a710cd`: audit forged legacy row after allocations and refuse repayment allocation to another customer's charge.
+
+**Verification limitation:** Changes and test definitions were committed but the exact-head Windows Actions push-run status is not visible through the connector (empty commit status and PR-only workflow runs). This checkpoint is NOT a green test report. Obtain Windows CI log output and fix any failures before accepting these milestones. The full Windows suite was not run locally in this session.
+
+**Release:** ~35% remains a rough legacy planning estimate; commercial gates 0/5 accepted. Remaining: verified CI, production-safe posting architecture, real fiscal return/refund flows, cloud sync, mobile dashboard, licensing, AI and release qualification.

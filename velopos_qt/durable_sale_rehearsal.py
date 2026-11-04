@@ -239,8 +239,22 @@ class DurablePreviewSaleJournal:
             raise PermissionError("Preview database hard link refused")
         return (stat.st_dev, stat.st_ino)
 
+    def _check_sidecars(self):
+        # SQLite may read/write a pre-existing rollback journal before the
+        # application can inspect its schema. Never follow attacker-provided
+        # symlinks or hard links to files outside this disposable preview.
+        for suffix in ("-journal", "-wal", "-shm"):
+            sidecar = Path(self.path + suffix)
+            if sidecar.is_symlink():
+                raise PermissionError("Preview SQLite sidecar symlink refused")
+            if sidecar.exists():
+                stat = sidecar.stat()
+                if not sidecar.is_file() or stat.st_nlink != 1:
+                    raise PermissionError("Preview SQLite sidecar refused")
+
     @contextmanager
     def _connect(self):
+        self._check_sidecars()
         if self._file_identity is not None and self._identity() != self._file_identity:
             raise PermissionError("Preview database file replaced")
         # Once initialized, open read-write without CREATE. A deleted or

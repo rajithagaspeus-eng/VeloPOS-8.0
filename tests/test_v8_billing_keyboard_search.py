@@ -105,6 +105,14 @@ class DraftBillingKeyboardSearchTests(unittest.TestCase):
         self.assertEqual(list(self.page.cart.lines), ["RICE-A"])
         self.assertEqual(str(self.page.cart.subtotal()), "245.00")
 
+    def test_case_insensitive_exact_scan_wins_over_name_matches(self):
+        self.page.query.setText("rice-a")
+        self.assertEqual(self.page.results.rowCount(), 2)
+        self.page.scan_or_add()
+        self.assertEqual(list(self.page.cart.lines), ["RICE-A"])
+        self.assertEqual(str(self.page.cart.subtotal()), "245.00")
+        self.assertFalse(hasattr(self.page, "checkout_button"))
+
     def test_mouse_selected_ambiguous_result_and_search_reset(self):
         self.page.query.setText("Rice")
         self.page.results.setCurrentCell(2, 0)

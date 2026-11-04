@@ -8,6 +8,7 @@ license revocation, device binding and transaction posting remain unresolved.
 from dataclasses import dataclass
 
 from .activation_status import PreviewActivationStatusInspector
+from .branch_authorization import PreviewBranchAuthorization
 from .license_entitlements import PreviewSignedEntitlementInspector
 from .service_authorization import PreviewServiceAuthorization
 
@@ -35,11 +36,20 @@ class PreviewActivationCombinedDecision:
     can_execute: bool = False
 
 
+@dataclass(frozen=True)
+class PreviewCanonicalBranchDecision:
+    authorization: PreviewCombinedDecision
+    branch_reasons: tuple[str, ...]
+    branch_verified: bool
+    can_execute: bool = False
+
+
 class PreviewCombinedAuthorization:
     """Fail-closed, test-DB-only inspection inside a caller-owned transaction."""
 
     def __init__(self, database, *, public_key_b64):
         self.service = PreviewServiceAuthorization(database)
+        self.branches = PreviewBranchAuthorization(database)
         self.entitlements = PreviewSignedEntitlementInspector(
             database, public_key_b64=public_key_b64
         )
@@ -78,6 +88,40 @@ class PreviewCombinedAuthorization:
                 (*decision.session_reasons, *decision.license_reasons)
             ))
         )
+
+
+    def inspect_with_branch_registry(self, connection, *, action,
+                                     expected_branch_id, identity=None,
+                                     shift_id=None, license_key=None,
+                                     machine_id=None, today=None):
+        """Inspect signed scope AND persisted branch bindings in one TX.
+
+        expected_branch_id is untrusted client input. Matching a signed
+        claim alone does not establish canonical actor or shift membership.
+        This method is diagnostic-only and can_execute always remains False.
+        """
+        authorization = self.inspect(
+            connection, action=action, identity=identity, shift_id=shift_id,
+            license_key=license_key, machine_id=machine_id, today=today,
+            expected_branch_id=expected_branch_id,
+        )
+        branch = self.branches.inspect(
+            connection, action=action, actor=authorization.actor,
+            branch_id=expected_branch_id, shift_id=shift_id,
+        )
+        return PreviewCanonicalBranchDecision(
+            authorization=authorization,
+            branch_reasons=branch.reasons,
+            branch_verified=branch.branch_verified,
+        )
+
+    def require_with_branch_registry(self, connection, **kwargs):
+        decision = self.inspect_with_branch_registry(connection, **kwargs)
+        raise PermissionError("; ".join(dict.fromkeys(
+            (*decision.authorization.session_reasons,
+             *decision.authorization.license_reasons,
+             *decision.branch_reasons)
+        )))
 
     def inspect_with_activation(self, connection, *, server_public_key_b64,
                                 signed_status, license_id, now=None,

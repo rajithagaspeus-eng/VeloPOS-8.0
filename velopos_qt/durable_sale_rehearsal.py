@@ -143,6 +143,17 @@ class DurablePreviewSaleJournal:
             for col in columns:
                 if col[1] in required and col[3] != 1:
                     raise PermissionError("Missing preview NOT NULL constraint")
+        # A forged table can retain identical columns but remove CHECK rules.
+        sequence_sql = conn.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type='table' AND name='preview_sequence'"
+        ).fetchone()
+        if (sequence_sql is None or type(sequence_sql[0]) is not str or
+                re.search(r"CHECK\s*\(\s*singleton\s*=\s*1\s*\)",
+                          sequence_sql[0], re.IGNORECASE) is None or
+                re.search(r"CHECK\s*\(\s*next_number\s*>\s*0\s*\)",
+                          sequence_sql[0], re.IGNORECASE) is None):
+            raise PermissionError("Missing preview sequence CHECK constraints")
         indexes = conn.execute(
             "PRAGMA index_list(preview_rehearsals)"
         ).fetchall()

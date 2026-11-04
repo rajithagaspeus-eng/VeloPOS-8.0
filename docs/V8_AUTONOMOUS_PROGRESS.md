@@ -340,3 +340,35 @@ exact-head PR check before merge.
 registry provenance and initialization lifecycle; design a trusted
 persistent activation and service-bound branch policy. Gates A/B/C/D/E
 remain blocked; never enable commercial checkout on preview.
+
+
+## Canonical branch role/shift fail-closed correction — November 4, 2026
+
+Reviewed roadmap, commercial gates, previous Windows Actions evidence and
+canonical branch diagnostics on `develop-v8`. Found a correctness gap:
+`PreviewBranchAuthorization.inspect()` could return `branch_verified=True`
+for an active branch membership despite a persisted Cashier role being denied
+the requested Admin-only action, or a missing/invalid cashier shift. The
+service authorization reasons were discarded when computing the branch result.
+
+The branch diagnostic now carries all non-permanent service denial reasons
+into its branch reasons, while preserving the explicit preview/commercial
+hard-deny independently. Regression tests in
+`tests/test_v8_phase2_canonical_branch.py` cover a Cashier attempting
+Admin-only purchasing with otherwise valid branch membership, and a member
+attempting a sale without an assigned shift. No financial writes enabled.
+
+Code: `212af3c7f960ff9f976483360b09955619fc9f95`.
+Regression: `d9c2a403fed5dc684013e844348b386fbb6e0eb3`.
+**Verification:** tests have NOT been executed in this run. PR-filtered
+exact-head workflow lookup for regression SHA returned no runs; it cannot
+establish push-triggered CI. The previous known Windows PR run
+[41800587777](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41800587777)
+reported 177 passing tests for the earlier `3c50abfe...` code head only.
+Do not attribute that success to this patch.
+
+**Next priority:** verify exact-head Windows push/PR Actions execution and
+repair failures. Then audit persisted branch registry schema provenance,
+revocation lifecycle and cross-branch authorization before any production
+service integration. Gate A/B/C/D/E remain blocked; all preview financial
+operations remain denied.

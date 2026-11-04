@@ -123,6 +123,38 @@ class PreviewSmokeTests(unittest.TestCase):
         self.assertEqual(billing.heading.text(), self.window.t("billing"))
         self.assertTrue(billing.notice.text())
 
+    def test_premium_directory_surfaces_keep_readonly_and_localized_views(self):
+        from velopos_qt.app import DARK, LIGHT
+        from velopos_qt.directory_pages import DirectoryPage
+
+        for index, kind, expected in (
+            (3, "customers", "Demo Customer"),
+            (4, "suppliers", "Demo Supplier"),
+        ):
+            self.window.nav.setCurrentRow(index)
+            page = self.window._pages[index]
+            self.assertIsInstance(page, DirectoryPage)
+            self.assertEqual(page.kind, kind)
+            self.assertEqual(page.search_panel.objectName(), "directorySearchPanel")
+            self.assertEqual(page.search.objectName(), "directorySearch")
+            self.assertEqual(page.table.objectName(), "directoryTable")
+            self.assertEqual(page.notice.objectName(), "directoryNotice")
+            self.assertEqual(page.table.rowCount(), 1)
+            self.assertEqual(page.table.item(0, 0).text(), expected)
+            self.assertIsNone(page.editor)
+            self.assertFalse(page.new_button.isVisible())
+            self.assertFalse(page.edit_button.isVisible())
+            self.window.locale_combo.setCurrentIndex(1)
+            self.assertEqual(page.heading.text(), self.window.t(kind))
+            self.window.locale_combo.setCurrentIndex(2)
+            self.assertEqual(page.heading.text(), self.window.t(kind))
+            self.window.locale_combo.setCurrentIndex(0)
+            self.assertEqual(page.heading.text(), self.window.t(kind))
+        for theme in (DARK, LIGHT):
+            self.assertIn("QFrame#directorySearchPanel", theme)
+            self.assertIn("QLineEdit#directorySearch:focus", theme)
+            self.assertIn("QTableWidget#directoryTable", theme)
+
     def test_preview_login_dialog_and_signout_gate(self):
         from PySide6.QtWidgets import QDialog
         from velopos_qt.login_dialog import PreviewLoginDialog

@@ -4,6 +4,7 @@ This is a policy *foundation*, never an approval or executable entitlement.
 Even a valid persisted session with an open shift has license_verified=False,
 and can_execute=False. Original V7 services are not covered by this checker.
 
+All user and shift lookups explicitly target main.*, never TEMP shadow tables.
 Call only inside the caller's own BEGIN IMMEDIATE transaction, and repeat the
 checks inside any eventual commercial mutation before writing any financial
 row. No external role/license booleans can turn the preview into checkout.
@@ -72,7 +73,7 @@ class PreviewServiceAuthorization:
         row = None
         if isinstance(username, str):
             row = connection.execute(
-                "SELECT role,pw_hash FROM users WHERE username=?", (username,)
+                "SELECT role,pw_hash FROM main.users WHERE username=?", (username,)
             ).fetchone()
         actor, role = None, None
         if verify_preview_session(self.database, identity, row):
@@ -88,7 +89,7 @@ class PreviewServiceAuthorization:
                 reasons.append("open_assigned_shift_required")
             else:
                 row = connection.execute(
-                    "SELECT status,cashier FROM shifts WHERE id=?", (shift_id,)
+                    "SELECT status,cashier FROM main.shifts WHERE id=?", (shift_id,)
                 ).fetchone()
                 if row is None or row["status"] != "OPEN":
                     reasons.append("shift_not_open")

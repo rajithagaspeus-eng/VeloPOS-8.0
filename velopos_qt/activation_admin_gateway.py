@@ -4,7 +4,7 @@ NOT a hosted HTTP API, production authentication gateway or shop-client SDK.
 Never expose provision_operator/dispatch as unprotected public endpoints.
 The operator public-key roster and license watermark must reside on a trusted
 server, not on the cashier PC. All signing private keys here are TEST keys.
-No real licenses, transaction posting, renewals or production data are used.
+No real licenses, transaction posting or production data are used.
 """
 import binascii
 import hashlib
@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from .activation_chain import _identifier, _utc
 from .idempotency_ledger import _REQUEST_ID
 from .license_entitlements import _decode, _unique_json_object
+from .license_recovery_reference import PreviewLicenseRecoveryReference
 from .server_activation_reference import (
     PreviewServerActivationAuthority, _clock, _stamp,
 )
@@ -26,6 +27,11 @@ _OPERATIONS = {
     "register": frozenset({"license_id", "machine_id", "branch_id", "expires_utc"}),
     "revoke": frozenset({"license_id"}),
     "issue": frozenset({"license_id", "machine_id", "branch_id"}),
+    "renew": frozenset({"license_id", "expected_sequence", "new_expires_utc"}),
+    "transfer": frozenset({
+        "license_id", "expected_sequence", "expected_machine_id",
+        "expected_branch_id", "new_machine_id", "new_branch_id",
+    }),
 }
 _ENVELOPE_FIELDS = frozenset({
     "v", "operator_id", "request_id", "operation", "issued_utc",
@@ -55,6 +61,7 @@ class PreviewSignedActivationGateway:
             raise TypeError("Preview server activation authority required")
         self.database = database
         self.authority = authority
+        self.recovery = PreviewLicenseRecoveryReference(authority)
         if self.authority.database is not database:
             raise ValueError("Gateway and authority must share canonical DB")
 
@@ -152,7 +159,7 @@ class PreviewSignedActivationGateway:
         ).fetchone()
         if not roster or roster["active"] != 1:
             raise PermissionError("Operator not active on server")
-        if operation in ("register", "revoke") and roster["role"] != "Admin":
+        if operation in ("register", "revoke", "renew", "transfer") and roster["role"] != "Admin":
             raise PermissionError("Server administrator role required")
         if roster["role"] not in ("Admin", "Issuer"):
             raise PermissionError("Operator role denied")
@@ -198,6 +205,21 @@ class PreviewSignedActivationGateway:
                 )
                 if not decision.receipt_matches_server_state:
                     raise PermissionError("Previously issued receipt is no longer current")
+            if operation in ("renew", "transfer"):
+                # Replayed recovery success is never fresh authorization.
+                state = connection.execute(
+                    "SELECT status,expires_utc,machine_id,branch_id,last_sequence "
+                    "FROM v8_preview_server_license_state WHERE license_id=?",
+                    (payload["license_id"],),
+                ).fetchone()
+                if (state is None or state["status"] != "active"
+                        or state["expires_utc"] != result["new_expires_utc"]
+                        or state["machine_id"] != result["machine_id"]
+                        or state["branch_id"] != result["branch_id"]
+                        or state["last_sequence"] != result["last_sequence"]):
+                    raise PermissionError(
+                        "Previously completed recovery no longer matches server state"
+                    )
             return PreviewAdminResponse(operation, result, retry=True)
 
         if operation == "register":
@@ -206,6 +228,26 @@ class PreviewSignedActivationGateway:
         elif operation == "revoke":
             self.authority.revoke(connection, **payload)
             result = {"status": "revoked", "license_id": payload["license_id"]}
+        elif operation == "renew":
+            decision = self.recovery.renew(
+                connection, server_now=clock, **payload)
+            result = {
+                "license_id": decision.license_id,
+                "new_expires_utc": decision.new_expires_utc,
+                "machine_id": decision.machine_id,
+                "branch_id": decision.branch_id,
+                "last_sequence": decision.last_sequence,
+            }
+        elif operation == "transfer":
+            decision = self.recovery.transfer(
+                connection, server_now=clock, **payload)
+            result = {
+                "license_id": decision.license_id,
+                "new_expires_utc": decision.new_expires_utc,
+                "machine_id": decision.machine_id,
+                "branch_id": decision.branch_id,
+                "last_sequence": decision.last_sequence,
+            }
         else:
             receipt = self.authority.issue(
                 connection, server_now=clock, **payload)

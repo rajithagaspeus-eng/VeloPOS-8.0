@@ -2532,3 +2532,11 @@ milestones as commercial security gates permit.
 - Reviewed the credit-note and return regression fixtures together. Credit-note tests refer to a 5-unit aggregated RICE invoice quantity; sandbox return tests refer to **sale line #1 with 2 units**. The return negative test's original 1 + 1 + 0.01 rejection is correct. An intermediate edit mistakenly changed that rejection quantity to 1 (`4b276e5d599736363b150e51fa363c2621bdaf4c`); it was restored immediately in `567978a5c73cdc75891d5e92fd644e6eeedd5448`. No behavior change to the original negative test remains.
 - Added a positive return fractional-quantity regression (`4405d877c6900a637d9eb61eb53dd8a921d69aa1`): 1 + 0.01 of the original 2 units is valid, with return reconciliation expected to remain balanced. Test method exists but has not been executed here.
 - GitHub Actions exact-head Windows push CI remains unverified. No failures or green checks are asserted without job logs. All changes confined to `develop-v8`, disposable preview tests; 0/5 commercial release gates accepted, ~35% planning estimate.
+
+
+## Windows CI failure evidence capture — 2026-11-04
+
+- Inspected `.github/workflows/v8-preview-tests.yml`: existing Windows-latest Python 3.12 job installs dependencies, compiles preview modules and runs `python run_v8_checks.py`. No proof of an exact-head passing job was available through the exposed connector.
+- `622e49f3a1d618bf618650c9047f4fe074770e48`: CI now runs `python run_v8_checks.py --verbose`, tees full output to `v8-preview-test-results.txt`, preserves the Python test exit code, and uploads the text with `actions/upload-artifact@v4` under `v8-preview-windows-test-output` even when the test step fails. This provides reproducible per-test names and tracebacks for future Windows runs; it does **not** imply a successful run.
+- The original return negative quantity test was preserved correctly in the previous checkpoint; original line #1 has 2 units. Positive fractional return coverage was added separately.
+- Follow-up required: inspect exact SHA Actions job and its artifact; fix actual tracebacks before further commercial promotion. All V8 finance remains sandbox-only, 0/5 gates accepted, ~35% rough planning estimate.

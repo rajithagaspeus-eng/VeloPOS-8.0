@@ -17,6 +17,8 @@ from .product_editor import _guard
 
 
 _REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}\Z")
+_MAX_REQUEST_BYTES = 256 * 1024
+_MAX_REQUEST_NODES = 10000
 _SCOPES = frozenset({
     "sale", "return", "purchase", "supplier_payment", "credit_payment",
     "points_redemption", "shift_open", "shift_close",
@@ -40,7 +42,13 @@ def request_fingerprint(payload):
     # JSON coerces integer object keys to strings. That would make distinct
     # caller payloads share one idempotency fingerprint (e.g. {1: "a"} and
     # {"1": "a"}). Reject ambiguous keys at every nesting level.
+    remaining_nodes = _MAX_REQUEST_NODES
+
     def validate_keys(value, ancestors, depth=0):
+        nonlocal remaining_nodes
+        remaining_nodes -= 1
+        if remaining_nodes < 0:
+            raise ValueError("Request payload has too many nodes")
         if depth > 64:
             raise ValueError("Request payload nesting too deep")
         if isinstance(value, (dict, list, tuple)):
@@ -50,11 +58,15 @@ def request_fingerprint(payload):
         if isinstance(value, dict):
             if any(type(key) is not str for key in value):
                 raise ValueError("Request payload keys must be strings")
+            if any(len(key) > _MAX_REQUEST_BYTES for key in value):
+                raise ValueError("Request payload too large")
             for child in value.values():
                 validate_keys(child, ancestors, depth + 1)
         elif isinstance(value, (list, tuple)):
             for child in value:
                 validate_keys(child, ancestors, depth + 1)
+        elif isinstance(value, str) and len(value) > _MAX_REQUEST_BYTES:
+            raise ValueError("Request payload too large")
 
     validate_keys(payload, frozenset())
     try:
@@ -64,7 +76,13 @@ def request_fingerprint(payload):
         )
     except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError("Unsupported request payload") from exc
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    try:
+        encoded = serialized.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("Unsupported request payload encoding") from exc
+    if len(encoded) > _MAX_REQUEST_BYTES:
+        raise ValueError("Request payload too large")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True)

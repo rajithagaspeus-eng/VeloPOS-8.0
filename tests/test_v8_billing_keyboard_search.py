@@ -145,6 +145,17 @@ class DraftBillingKeyboardSearchTests(unittest.TestCase):
         self.assertIn("QLabel#billingSearchHelp", DARK)
         self.assertIn("QLabel#billingSearchHelp", LIGHT)
 
+    def test_corrupt_catalog_price_does_not_crash_product_lookup(self):
+        self.inventory.records[0]["selling_price"] = "NaN"
+        self.inventory.records[1]["selling_price"] = "bad-price"
+        self.page.query.setText("Rice")
+        self.assertEqual(self.page.results.rowCount(), 3)
+        self.assertEqual(self.page.results.item(0, 2).text(), "—")
+        self.assertEqual(self.page.results.item(1, 2).text(), "—")
+        self.assertEqual(self.page.results.item(2, 2).text(), "500.00")
+        self.assertEqual(self.page.cart.lines, {})
+        self.assertFalse(hasattr(self.page, "checkout_button"))
+
     def test_draft_cart_rejects_malformed_quantity_without_mutation(self):
         self.page.query.setText("RICE-B")
         self.page.scan_or_add()

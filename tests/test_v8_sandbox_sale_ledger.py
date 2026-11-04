@@ -817,6 +817,41 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 raise AssertionError("Tampered allocation passed replay")
         """)
 
+    def test_audit_handles_malformed_persisted_tender_amount(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_tenders "
+                    "SET amount_cents='invalid' WHERE reference=?",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_tender_declaration" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_unknown_tender_method(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_tenders "
+                    "SET method='Unknown' WHERE reference=?",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_tender_declaration" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_negative_settlement_values(self):
         self.isolated("""
             first = sandbox.simulate_commit(**dict(

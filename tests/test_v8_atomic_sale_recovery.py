@@ -194,6 +194,40 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert replay.can_checkout is False
         """)
 
+    def test_different_deep_precision_quantity_conflicts_even_if_totals_match(self):
+        self.isolated("""
+            a = "0.123456789012345678901234567890123456"
+            b = "0.123456789012345678901234567890123457"
+            first = dict(args, lines=[
+                {"barcode": "RICE", "qty": a, "price": 45},
+            ])
+            changed = dict(args, lines=[
+                {"barcode": "RICE", "qty": b, "price": 45},
+            ])
+            assert plan_preview_sale(first["lines"]).subtotal == (
+                plan_preview_sale(changed["lines"]).subtotal
+            )
+            assert payload_for(first) != payload_for(changed)
+            c = journal_tx()
+            try:
+                assert journal.claim(
+                    c, "sale", args["request_id"], payload_for(first)
+                ).is_new
+                journal.complete(c, "sale", args["request_id"], "SIM-PRECISION")
+                c.commit()
+            finally:
+                c.close()
+            # A matching request can inspect its unverified completed journal,
+            # but a single changed low-order decimal digit must never alias.
+            assert recovery.inspect(**first).journal.result_ref == "SIM-PRECISION"
+            try:
+                recovery.inspect(**changed)
+            except IdempotencyConflict:
+                pass
+            else:
+                raise AssertionError("Deep-precision quantity aliased the same key")
+        """)
+
     def test_single_use_generator_is_snapshotted_for_policy_and_replay(self):
         self.isolated("""
             c = journal_tx()

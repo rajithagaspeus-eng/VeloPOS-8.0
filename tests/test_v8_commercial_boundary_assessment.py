@@ -38,6 +38,30 @@ class CommercialBoundaryAssessmentTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     assess_commercial_boundary("sale", evidence)
 
+    def test_financial_mutations_require_action_specific_accounting_proofs(self):
+        expectations = {
+            "credit_payment": ("customer_revalidation", "receivable_reconciliation",
+                               "tender_reconciliation"),
+            "supplier_payment": ("supplier_revalidation", "payable_reconciliation",
+                                 "tender_reconciliation"),
+            "sale_void": ("original_invoice", "reversal_reconciliation",
+                          "stock_revalidation"),
+            "stock_adjustment": ("stock_revalidation", "batch_reconciliation",
+                                 "audit_reason"),
+        }
+        for action, required in expectations.items():
+            with self.subTest(action=action):
+                assessment = assess_commercial_boundary(action)
+                self.assertTrue(set(required).issubset(assessment.required_proofs))
+                self.assertIn("atomic_commit", assessment.required_proofs)
+                self.assertIn("idempotent_recovery", assessment.required_proofs)
+                self.assertFalse(assessment.can_execute)
+                forged = assess_commercial_boundary(
+                    action, dict.fromkeys(assessment.required_proofs, True)
+                )
+                self.assertFalse(forged.production_ready)
+                self.assertEqual(forged.unverified_proofs, assessment.required_proofs)
+
     def test_assessment_is_immutable(self):
         result = assess_commercial_boundary("sale")
         with self.assertRaises(FrozenInstanceError):

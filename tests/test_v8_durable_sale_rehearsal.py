@@ -667,7 +667,9 @@ os._exit(19)
 
         def fail_on_precommit():
             calls[0] += 1
-            if calls[0] == 3:
+            # _connect checks the pinned inode once; inspect checks again
+            # immediately before COMMIT. Fail on that second check.
+            if calls[0] == 2:
                 raise PermissionError("Simulated file replacement before commit")
             return actual_identity()
 

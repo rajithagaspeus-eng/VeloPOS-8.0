@@ -189,3 +189,27 @@ status for exact head; fix any regressions. Then harden license and
 activation canonical claim schemas, signed server observation continuity,
 and transaction-scoped branch authorization. All Gate A/B/C/D/E release
 requirements remain outstanding; checkout stays disabled.
+
+
+## Signed activation identity type hardening — November 4, 2026
+
+Hardened `velopos_qt/activation_status.py` so caller-supplied license IDs
+must be bounded ASCII alphanumeric/underscore/hyphen strings, matching the
+V8 signed entitlement identifier grammar. Signed activation machine/license
+identities must be actual JSON strings, never booleans, numbers, arrays or
+objects. A non-string signed status cannot satisfy `active`. The existing
+disposable-db activation test now covers these malformed and substituted
+claims and rejects malformed caller IDs.
+
+Code commit: `b0aec15bff3fab0542e0087af296bb7ad58a5737`.
+Test commit: `69296f4a56d0090185bb3c57e44e8a8408f1445a`.
+**Verification:** no test runner was executed in this session. Combined
+commit-status lookup returned no statuses; the available workflow lookup
+returned no PR-triggered runs. Neither establishes whether push-triggered
+Windows CI ran. Exact-head Windows acceptance remains **UNVERIFIED**.
+
+**Next priority:** verify push-triggered Windows Actions CI with a reliable
+all-event run listing or Windows runner, then strengthen signed activation
+continuity/revocation against clock rollback and replay. Develop
+transaction-scoped branch identity and service-bound checks on isolated
+preview DB only. Gate A/B/C/D/E remain blocked; no financial posting.

@@ -73,6 +73,21 @@ class PreviewSalePlanTests(unittest.TestCase):
         self.assertEqual(plan.quantities, (("RICE", Decimal("10.0")),))
         self.assertEqual(plan.subtotal, Decimal("1.00"))
 
+    def test_extreme_decimal_exponents_refused_before_plain_string_expansion(self):
+        for raw in ("1E-999999999", "1E+999999999", "9" * 129):
+            with self.subTest(value=raw[:32]):
+                with self.assertRaises(ValueError):
+                    canonical_decimal(raw)
+                with self.assertRaises(ValueError):
+                    plan_preview_sale([
+                        {"barcode": "SAFE", "qty": raw, "price": "1"}
+                    ])
+        self.assertEqual(
+            canonical_decimal(Decimal("1E-18")),
+            "0.000000000000000001",
+        )
+        self.assertEqual(canonical_decimal("1E+3"), "1000")
+
     def test_invalid_lines_and_limits_fail_closed(self):
         good = {"barcode": "RICE", "qty": 1, "price": "25.00"}
         for bad in (

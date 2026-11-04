@@ -136,6 +136,53 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 2,
             )
 
+    def test_independent_processes_distinct_requests_are_gapless(self):
+        script = """
+import sys
+from velopos_qt.durable_sale_rehearsal import DurablePreviewSaleJournal
+journal = DurablePreviewSaleJournal(sys.argv[1])
+result = journal.inspect(
+    request_id='multiprocess-distinct-' + sys.argv[2].zfill(4),
+    lines=[{'barcode':'SOAP','qty':'2','price':'0.50'}])
+print(result.reference + '|' + str(result.replayed), flush=True)
+"""
+        workers = [
+            subprocess.Popen(
+                [sys.executable, "-c", script, self.path, str(i)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            for i in range(8)
+        ]
+        outputs = []
+        for worker in workers:
+            try:
+                stdout, stderr = worker.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                for pending in workers:
+                    if pending.poll() is None:
+                        pending.kill()
+                        pending.communicate()
+                self.fail("Preview distinct multiprocess requests deadlocked")
+            self.assertEqual(worker.returncode, 0, stderr)
+            outputs.append(stdout.strip())
+        self.assertEqual(
+            sorted(outputs),
+            [f"REHEARSAL-{i:08d}|False" for i in range(1, 9)],
+        )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                8,
+            )
+            self.assertEqual(
+                conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
+                9,
+            )
+        replay = DurablePreviewSaleJournal(self.path).inspect(
+            request_id="multiprocess-distinct-0000", lines=self.lines
+        )
+        self.assertTrue(replay.replayed)
+
     def test_failed_validation_does_not_consume_sequence(self):
         with self.assertRaises(ValueError):
             self.journal.inspect(

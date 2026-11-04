@@ -61,6 +61,7 @@ class PreviewServerActivationTests(unittest.TestCase):
                 server.close()
 
             with database.db() as server:
+                server.execute("BEGIN IMMEDIATE")
                 kwargs = dict(
                     license_id="LIC-A", machine_id="MACHINE-A",
                     branch_id="BRANCH-A", server_now=now(11))
@@ -209,6 +210,7 @@ class PreviewServerActivationTests(unittest.TestCase):
             finally:
                 c.close()
             with database.db() as c:
+                c.execute("BEGIN IMMEDIATE")
                 replay = authority.inspect_current(
                     c, signed_status=rolled_back.signed_status,
                     license_id="LIC-A", machine_id="MACHINE-A",

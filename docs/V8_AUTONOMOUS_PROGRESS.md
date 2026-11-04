@@ -213,3 +213,26 @@ all-event run listing or Windows runner, then strengthen signed activation
 continuity/revocation against clock rollback and replay. Develop
 transaction-scoped branch identity and service-bound checks on isolated
 preview DB only. Gate A/B/C/D/E remain blocked; no financial posting.
+
+
+## Signed activation replay-watermark diagnostic — November 4, 2026
+
+The preview activation inspector now flags
+`activation_observation_replay_suspected` when a cryptographically signed
+observation predates the caller-provided `last_seen_utc` watermark.
+Previously, the watermark only detected local-clock rollback and could
+silently accept older signed observations as current. Equal observation
+timestamps remain valid. The existing disposable-db activation regression
+now checks older observation rejection and equality acceptance.
+
+Code: `5dd407b580a5a418d0fdba62b264f6da8f11fb78`.
+Regression: `07f14bbba51dd49a999b4a9c7f5ee5637d8d1e1c`.
+**Verification: not run locally; Windows exact-head CI remains unverified.**
+This is NOT anti-replay protection against an attacker who can alter the
+local watermark: it is caller-supplied and has no trusted storage, server
+attestation or monotonic counter. `can_execute` remains False; Gate A/D
+blocked. No V7 production service or financial posting path was touched.
+
+**Next priority:** obtain push-triggered Windows CI evidence for exact head,
+then add a trusted signed server sequence/watermark continuity contract and
+adversarial tests, followed by transaction-scoped branch authorization.

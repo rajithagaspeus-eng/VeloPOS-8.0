@@ -285,6 +285,148 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert checked.can_checkout is False
         """)
 
+    def test_cash_tender_allocation_commits_only_sandbox_declaration(self):
+        self.isolated("""
+            with database.db() as c:
+                original = main_counts(c)
+            tendered = dict(
+                args, tenders=[{"method":"Cash","amount":"300.00"}]
+            )
+            first = sandbox.simulate_commit(**tendered)
+            assert first.tender_declared and first.change_cents == 5000
+            assert first.actual_invoice_posted is False
+            assert first.payment_captured is False
+            assert first.can_checkout is False
+            replay = sandbox.simulate_commit(**tendered)
+            assert replay.replayed and replay.reference == first.reference
+            assert replay.change_cents == 5000
+            checked = sandbox.reconcile_sandbox()
+            assert checked.balanced, checked
+            with database.db() as c:
+                now = main_counts(c)
+                for key in ("sales","sale_items","stock","moves","payments"):
+                    assert original[key] == now[key], key
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_tenders"
+                ).fetchone()[0] == 1
+                declared = c.execute(
+                    "SELECT declared,due_cents,cash_cents,noncash_cents,"
+                    "change_cents FROM main.v8_preview_sandbox_settlements"
+                ).fetchone()
+                assert tuple(declared) == (1,25000,30000,0,5000), tuple(declared)
+        """)
+
+    def test_mixed_cash_card_qr_are_declarations_not_confirmed_payments(self):
+        self.isolated("""
+            tendered = [
+                {"method":"Card","amount":"100","reference":"AUTH-TEST-01"},
+                {"method":"QR","amount":"50","reference":"QR-TEST-02"},
+                {"method":"Cash","amount":"120"},
+            ]
+            first = sandbox.simulate_commit(**dict(args,tenders=tendered))
+            assert first.change_cents == 2000
+            assert first.payment_captured is False
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                recorded = c.execute(
+                    "SELECT method,amount_cents FROM "
+                    "main.v8_preview_sandbox_tenders ORDER BY line_no"
+                ).fetchall()
+                assert [tuple(row) for row in recorded] == [
+                    ("Card",10000),("QR",5000),("Cash",12000)
+                ]
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.supplier_payments"
+                ).fetchone()[0] == 0
+        """)
+
+    def test_same_request_changed_tender_declaration_is_idempotency_conflict(self):
+        self.isolated("""
+            original = [
+                {"method":"Cash","amount":"250"}
+            ]
+            sandbox.simulate_commit(**dict(args,tenders=original))
+            altered = [
+                {"method":"Cash","amount":"300"}
+            ]
+            for variant in (
+                dict(args,tenders=altered),
+                dict(args),
+            ):
+                try:
+                    sandbox.simulate_commit(**variant)
+                except IdempotencyConflict:
+                    pass
+                else:
+                    raise AssertionError("Changed tender allocation reused a key")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+                assert sandbox_stock(c) == {"RICE":"5","SOAP":"3"}
+        """)
+
+    def test_invalid_or_insufficient_tender_never_writes_sandbox_rows(self):
+        self.isolated("""
+            attempts = (
+                [{"method":"Cash","amount":"10"}],
+                [{"method":"Cash","amount":"250.001"}],
+                [{"method":"Card","amount":"250","reference":""}],
+                [{"method":"Credit","amount":"250"}],
+            )
+            with database.db() as c:
+                before = main_counts(c)
+            for attempt in attempts:
+                try:
+                    sandbox.simulate_commit(**dict(args,tenders=attempt))
+                except (PermissionError,ValueError):
+                    pass
+                else:
+                    raise AssertionError("Invalid settlement allocated")
+            with database.db() as c:
+                assert main_counts(c) == before
+                assert not c.execute(
+                    "SELECT 1 FROM main.sqlite_master "
+                    "WHERE name='v8_preview_sandbox_sales'"
+                ).fetchone()
+        """)
+
+    def test_tender_integrity_audit_detects_tampered_allocation(self):
+        self.isolated("""
+            sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"270"}]
+            ))
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_tenders "
+                    "SET amount_cents=26000"
+                )
+            checked = sandbox.reconcile_sandbox()
+            assert not checked.balanced
+            assert "settlement_tender_total_mismatch:" in " ".join(checked.reasons)
+            assert checked.can_checkout is False
+        """)
+
+    def test_replay_refuses_missing_or_changed_tender_rows(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**dict(
+                args,tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_tenders"
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args,tenders=[{"method":"Cash","amount":"250"}]
+                ))
+            except RuntimeError as exc:
+                assert "tender mismatch" in str(exc).lower(), exc
+            else:
+                raise AssertionError("Tampered allocation passed replay")
+        """)
+
     def test_two_sequential_sandbox_sales_reconcile_invoice_and_remaining_stock(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

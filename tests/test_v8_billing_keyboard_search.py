@@ -145,6 +145,27 @@ class DraftBillingKeyboardSearchTests(unittest.TestCase):
         self.assertIn("QLabel#billingSearchHelp", DARK)
         self.assertIn("QLabel#billingSearchHelp", LIGHT)
 
+    def test_resumed_draft_forces_fresh_stock_inspection(self):
+        class CountingStock:
+            def __init__(self):
+                self.calls = 0
+
+            def inspect(self, cart):
+                self.calls += 1
+                return []
+
+        reader = CountingStock()
+        self.page.stock_reader = reader
+        self.page.query.setText("RICE-B")
+        self.page.scan_or_add()
+        self.assertEqual(reader.calls, 1)
+        self.page.hold_draft()
+        self.assertEqual(self.page.cart.lines, {})
+        self.page.resume_draft()
+        self.assertEqual(list(self.page.cart.lines), ["RICE-B"])
+        self.assertEqual(reader.calls, 2)
+        self.assertFalse(hasattr(self.page, "checkout_button"))
+
     def test_corrupt_catalog_price_does_not_crash_product_lookup(self):
         self.inventory.records[0]["selling_price"] = "NaN"
         self.inventory.records[1]["selling_price"] = "bad-price"

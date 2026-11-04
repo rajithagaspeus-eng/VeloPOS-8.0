@@ -903,6 +903,29 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_replay_rejects_nonmatching_completed_journal_reference(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            forged = "SBX-" + "a" * 24
+            assert forged != first.reference
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_request_journal "
+                    "SET result_ref=? WHERE scope='sale' AND request_id=?",
+                    (forged, args["request_id"])
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "reference" in str(exc).lower(), exc
+            else:
+                raise AssertionError("Replay accepted a forged journal result")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_audit_rejects_changed_completed_journal_fingerprint(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

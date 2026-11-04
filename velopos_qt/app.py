@@ -108,6 +108,56 @@ QHeaderView::section { background:#ecf3fa; color:#425a71; padding:9px;
   border:0; border-bottom:1px solid #d7e3f0; font-weight:650; }
 """
 
+
+# Premium visual hierarchy for the 2026 preview shell. This changes paint
+# only; no transaction or backend behavior.
+DARK += """
+QFrame#navigationPanel { background:#101c2d; border:1px solid #26394c; border-radius:20px; }
+QFrame#workspacePanel { background:#111d2d; border:1px solid #283a50; border-radius:20px; }
+QLabel#sideBrand { color:#e6fcf9; font-size:17pt; font-weight:800; letter-spacing:1px; }
+QLabel#sideCaption { color:#8ba7b9; font-size:9pt; }
+QLabel#sideFooter { color:#83a4aa; font-size:8.5pt; }
+QLabel#pageEyebrow { color:#54d8bd; font-size:9pt; font-weight:750; letter-spacing:1px; }
+QFrame#heroPanel { background:#143345; border:1px solid #236175; border-radius:16px; }
+QLabel#heroTitle { color:#f0ffff; font-size:19pt; font-weight:750; }
+QLabel#heroDescription { color:#c6e4e5; font-size:10.5pt; }
+QLabel#dashboardSection { color:#f0f6ff; font-size:14pt; font-weight:750; }
+QListWidget#mainNavigation { background:transparent; border:none; outline:none; }
+QListWidget#mainNavigation::item { padding:13px 15px; margin:3px 1px; border-radius:11px; color:#bdd0df; }
+QListWidget#mainNavigation::item:selected { background:#1e5c5b; color:#e4fff7; font-weight:750; border-left:3px solid #57e0bb; }
+QListWidget#mainNavigation::item:hover:!selected { background:#223850; color:#ffffff; }
+QFrame#metricCard { background:#192f40; border:1px solid #2b4a5e; border-radius:16px; }
+QPushButton#quickAction { background:#183e4c; color:#e0fbf6; border:1px solid #2a6c73; border-radius:12px; text-align:left; padding-left:17px; font-weight:700; }
+QPushButton#quickAction:hover { background:#205362; }
+QPushButton:disabled { background:#253342; color:#798899; }
+QScrollBar:vertical { background:#111d2d; width:10px; margin:3px; }
+QScrollBar::handle:vertical { background:#40576c; border-radius:5px; min-height:36px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+"""
+LIGHT += """
+QFrame#navigationPanel { background:#ffffff; border:1px solid #d9e4ed; border-radius:20px; }
+QFrame#workspacePanel { background:#ffffff; border:1px solid #dce6ef; border-radius:20px; }
+QLabel#sideBrand { color:#133447; font-size:17pt; font-weight:800; letter-spacing:1px; }
+QLabel#sideCaption { color:#678392; font-size:9pt; }
+QLabel#sideFooter { color:#63818e; font-size:8.5pt; }
+QLabel#pageEyebrow { color:#0d9285; font-size:9pt; font-weight:750; letter-spacing:1px; }
+QFrame#heroPanel { background:#e2f6f2; border:1px solid #a8dcd3; border-radius:16px; }
+QLabel#heroTitle { color:#12514f; font-size:19pt; font-weight:750; }
+QLabel#heroDescription { color:#39716d; font-size:10.5pt; }
+QLabel#dashboardSection { color:#18374b; font-size:14pt; font-weight:750; }
+QListWidget#mainNavigation { background:transparent; border:none; outline:none; }
+QListWidget#mainNavigation::item { padding:13px 15px; margin:3px 1px; border-radius:11px; color:#3e6074; }
+QListWidget#mainNavigation::item:selected { background:#d8f4ed; color:#086b5d; font-weight:750; border-left:3px solid #0c9c88; }
+QListWidget#mainNavigation::item:hover:!selected { background:#eff6fa; color:#103f53; }
+QFrame#metricCard { background:#f8fcff; border:1px solid #d4e7ec; border-radius:16px; }
+QPushButton#quickAction { background:#edf8f6; color:#125e5b; border:1px solid #b9ddd6; border-radius:12px; text-align:left; padding-left:17px; font-weight:700; }
+QPushButton#quickAction:hover { background:#d9f0eb; }
+QPushButton:disabled { background:#e8edf2; color:#8da0ab; }
+QScrollBar:vertical { background:#ffffff; width:10px; margin:3px; }
+QScrollBar::handle:vertical { background:#c4d4df; border-radius:5px; min-height:36px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+"""
+
 class SettingsPreview(QMainWindow):
     def __init__(self, adapter: SettingsAdapter, preferences=None, inventory=None):
         super().__init__()
@@ -145,13 +195,14 @@ class SettingsPreview(QMainWindow):
         self.translatable_labels = []
         self.save_buttons = []
         self.setWindowTitle("VeloPOS 8.0 | Modern Preview — TEST DATA")
-        self.resize(1020, 680)
+        self.resize(1220, 780)
         self.setMinimumSize(760, 520)
 
         root = QWidget()
         self.setCentralWidget(root)
         outer = QVBoxLayout(root)
-        outer.setContentsMargins(22, 20, 22, 20)
+        outer.setContentsMargins(20, 18, 20, 18)
+        outer.setSpacing(14)
         brand_bar = QFrame()
         brand_bar.setObjectName("brandBar")
         brand_row = QHBoxLayout(brand_bar)
@@ -197,9 +248,18 @@ class SettingsPreview(QMainWindow):
         body = QHBoxLayout()
         outer.addLayout(body, 1)
         navpanel = QFrame()
-        navpanel.setObjectName("panel")
+        navpanel.setObjectName("navigationPanel")
         navlayout = QVBoxLayout(navpanel)
+        navlayout.setContentsMargins(15, 19, 15, 17)
+        navlayout.setSpacing(9)
+        side_brand = QLabel("VELO  /  POS")
+        side_brand.setObjectName("sideBrand")
+        navlayout.addWidget(side_brand)
+        side_caption = QLabel("8.0  ·  WORKSPACE")
+        side_caption.setObjectName("sideCaption")
+        navlayout.addWidget(side_caption)
         self.nav = QListWidget()
+        self.nav.setObjectName("mainNavigation")
         self.nav.addItems([self.t(key) for key in self.nav_keys])
         # Sinhala/Tamil labels can be wider than English. Avoid the
         # unprofessional horizontal scrollbar and retain keyboard navigation.
@@ -208,12 +268,16 @@ class SettingsPreview(QMainWindow):
         for index, key in enumerate(self.nav_keys):
             self.nav.item(index).setToolTip(self.t(key))
         navlayout.addWidget(self.nav)
-        navpanel.setFixedWidth(265)
+        footer = QLabel("PREVIEW  •  NO LIVE CHECKOUT")
+        footer.setObjectName("sideFooter")
+        footer.setWordWrap(True)
+        navlayout.addWidget(footer)
+        navpanel.setFixedWidth(244)
         body.addWidget(navpanel)
         content = QFrame()
-        content.setObjectName("panel")
+        content.setObjectName("workspacePanel")
         contentlayout = QVBoxLayout(content)
-        contentlayout.setContentsMargins(26, 26, 26, 22)
+        contentlayout.setContentsMargins(27, 24, 27, 22)
         self.pages = QStackedWidget()
         contentlayout.addWidget(self.pages)
         body.addWidget(content, 1)
@@ -391,6 +455,9 @@ class SettingsPreview(QMainWindow):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setSpacing(14)
+        eyebrow = QLabel("VELOPOS  /  TEST WORKSPACE")
+        eyebrow.setObjectName("pageEyebrow")
+        layout.addWidget(eyebrow)
         heading = QLabel(self.t(self.nav_keys[index]))
         self.translatable_labels.append((heading, self.nav_keys[index]))
         heading.setStyleSheet("font-size:19pt; font-weight:650;")
@@ -402,8 +469,16 @@ class SettingsPreview(QMainWindow):
             self.dashboard_intro.setWordWrap(True)
             self.dashboard_hint = QLabel(self.t("dashboard_hint"))
             self.dashboard_hint.setWordWrap(True)
-            layout.addWidget(self.dashboard_intro)
-            layout.addWidget(self.dashboard_hint)
+            hero = QFrame()
+            hero.setObjectName("heroPanel")
+            hero_layout = QVBoxLayout(hero)
+            hero_layout.setContentsMargins(22, 18, 22, 18)
+            hero_layout.setSpacing(7)
+            self.dashboard_intro.setObjectName("heroTitle")
+            self.dashboard_hint.setObjectName("heroDescription")
+            hero_layout.addWidget(self.dashboard_intro)
+            hero_layout.addWidget(self.dashboard_hint)
+            layout.addWidget(hero)
             # One-click access to the most frequent cashier preview tasks.
             self.quick_buttons = []
             quick_row = QHBoxLayout()
@@ -413,7 +488,7 @@ class SettingsPreview(QMainWindow):
                 ("open_customers", 3),
             ):
                 action = QPushButton(self.t(key))
-                action.setObjectName("secondaryAction")
+                action.setObjectName("quickAction")
                 action.setMinimumHeight(54)
                 action.clicked.connect(lambda _checked=False, idx=destination: self.nav.setCurrentRow(idx))
                 quick_row.addWidget(action)

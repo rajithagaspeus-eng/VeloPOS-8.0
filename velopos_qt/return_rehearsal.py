@@ -12,12 +12,13 @@ unimplemented: this harness cannot be used as a commercial return engine.
 """
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from hashlib import sha256
 
 from .checkout_preflight import _quantity
 from .idempotency_ledger import PreviewIdempotencyLedger
 from .service_authorization import PreviewServiceAuthorization
+from .sale_plan import canonical_decimal
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class ReturnRehearsal:
     amount: Decimal
     staged_items: int
     persisted: bool = False
+    staged_stock_movements: int = 0
 
 
 class RollbackOnlyReturnRehearsal:
@@ -54,13 +56,17 @@ class RollbackOnlyReturnRehearsal:
             qty = _quantity(item.get("qty"))
             if not Decimal(0) < qty <= Decimal(1000000):
                 raise ValueError("Invalid return quantity")
-            quantities[item_id] = quantities.get(item_id, Decimal(0)) + qty
+            combined = quantities.get(item_id, Decimal(0)) + qty
+            if combined > Decimal(1000000):
+                raise ValueError("Combined return quantity out of range")
+            quantities[item_id] = combined
 
         payload = {
             "actor": getattr(identity, "username", None),
             "shift": shift_id, "invoice": invoice_no,
             "day": day.isoformat(),
-            "items": [{"id": i, "qty": str(q)} for i, q in sorted(quantities.items())],
+            "items": [{"id": i, "qty": canonical_decimal(q)}
+                      for i, q in sorted(quantities.items())],
         }
         return_no = "SIM-RET-" + sha256(str(request_id).encode("utf-8")).hexdigest()[:18]
         connection = self.database.connect()
@@ -106,7 +112,9 @@ class RollbackOnlyReturnRehearsal:
                 price = _quantity(original["selling_price"])
                 if price < 0:
                     raise ValueError("Invalid original selling price")
-                line_total = (qty * price).quantize(Decimal("0.01"))
+                line_total = (qty * price).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
                 amount += line_total
                 rows.append((sale_item_id, original["barcode"], original["item_name"],
                              qty, price, line_total))
@@ -120,6 +128,21 @@ class RollbackOnlyReturnRehearsal:
                 )
                 if changed.rowcount != 1:
                     raise ValueError("Original product not available for restoration")
+                # A synthetic movement is staged alongside the restoration
+                # within the SAME doomed transaction. Not a real stock return.
+                after = connection.execute(
+                    "SELECT stock_qty FROM products WHERE barcode=?", (barcode,)
+                ).fetchone()["stock_qty"]
+                connection.execute(
+                    "INSERT INTO stock_moves "
+                    "(ts,barcode,qty_change,qty_after,reason,ref,user,note) "
+                    "VALUES(?,?,?,?,?,?,?,?)",
+                    (day.isoformat() + "T00:00:00", barcode, float(qty),
+                     after, "SIMULATED_RETURN", return_no, authorization.actor,
+                     "ROLLBACK-ONLY V8 TEST - never persisted"),
+                )
+            if inject_failure_at == "after_stock_ledger":
+                raise RuntimeError("Injected return failure after stock ledger")
             if inject_failure_at == "after_stock":
                 raise RuntimeError("Injected return failure after stock restoration")
             amount = amount.quantize(Decimal("0.01"))
@@ -140,10 +163,24 @@ class RollbackOnlyReturnRehearsal:
             if inject_failure_at == "after_return":
                 raise RuntimeError("Injected return failure after return records")
             self.journal.complete(connection, "return", request_id, return_no)
+            if inject_failure_at == "after_journal_complete":
+                raise RuntimeError("Injected return failure after claim completion")
+            replay = self.journal.claim(connection, "return", request_id, payload)
+            if replay.is_new or replay.result_ref != return_no:
+                raise RuntimeError("Return idempotency replay verification failed")
             staged = connection.execute(
                 "SELECT COUNT(*) FROM return_items WHERE return_no=?", (return_no,)
             ).fetchone()[0]
-            return ReturnRehearsal(return_no, amount, staged)
+            staged_moves = connection.execute(
+                "SELECT COUNT(*) FROM stock_moves "
+                "WHERE ref=? AND reason='SIMULATED_RETURN'", (return_no,)
+            ).fetchone()[0]
+            if staged != len(rows) or staged_moves != len(needed):
+                raise RuntimeError("Staged return and stock ledger out of balance")
+            return ReturnRehearsal(
+                return_no, amount, staged,
+                staged_stock_movements=staged_moves,
+            )
         finally:
             # This unconditional rollback is the key safety property.
             connection.rollback()

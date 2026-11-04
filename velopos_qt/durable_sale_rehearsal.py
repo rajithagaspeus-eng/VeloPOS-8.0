@@ -3,6 +3,7 @@
 No production DB connection, real invoice, stock movement, or financial posting.
 Only explicitly named databases in the system temporary directory are allowed.
 """
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -40,6 +41,8 @@ class DurablePreviewSaleJournal:
                 not re.fullmatch(r"v8-preview-rehearsal-[A-Za-z0-9_-]{1,60}\.sqlite",
                                  candidate.name)):
             raise PermissionError("Only disposable V8 preview databases are allowed")
+        if candidate.exists() and (not candidate.is_file() or candidate.stat().st_nlink != 1):
+            raise PermissionError("Shared or nonregular preview database refused")
         self.path = str(candidate)
         self.max_requests = max_requests
         with self._connect() as conn:
@@ -56,10 +59,14 @@ class DurablePreviewSaleJournal:
                 "INSERT OR IGNORE INTO preview_sequence(singleton,next_number) VALUES (1,1)"
             )
 
+    @contextmanager
     def _connect(self):
         conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
-        conn.execute("PRAGMA busy_timeout=10000")
-        return conn
+        try:
+            conn.execute("PRAGMA busy_timeout=10000")
+            yield conn
+        finally:
+            conn.close()
 
     def inspect(self, *, request_id, lines):
         draft = rehearse_sale_request(request_id=request_id, lines=lines)

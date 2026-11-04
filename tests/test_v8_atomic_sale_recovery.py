@@ -1,0 +1,198 @@
+"""Atomic sale policy + immutable recovery status, disposable V8 databases.
+
+No test is authorized to post an actual sale or stock movement. The fixture
+uses random disposable Ed25519 keys, and rolls back all owned inspections.
+"""
+import os
+import subprocess
+import sys
+import tempfile
+import textwrap
+import unittest
+from pathlib import Path
+
+from tests.test_v8_phase2_atomic_sale_boundary import FIXTURE
+
+EXTENSION = """
+from velopos_qt.atomic_sale_recovery import (
+    PreviewAtomicSaleRecovery, canonical_sale_recovery_payload,
+)
+from velopos_qt.idempotency_ledger import (
+    PreviewIdempotencyLedger, IdempotencyConflict,
+)
+recovery = PreviewAtomicSaleRecovery(
+    database, license_public_key_b64=pub(license_signer)
+)
+journal = PreviewIdempotencyLedger(database)
+def payload_for(values):
+    return canonical_sale_recovery_payload(
+        identity=values["identity"], shift_id=values["shift_id"],
+        lines=values["lines"],
+        expected_branch_id=values["expected_branch_id"],
+        license_id=values["license_id"],
+        machine_id=values["machine_id"], today=values["today"],
+    )
+def journal_tx():
+    c = database.connect()
+    c.execute("BEGIN IMMEDIATE")
+    return c
+"""
+
+
+class AtomicSaleRecoveryTests(unittest.TestCase):
+    def isolated(self, source):
+        with tempfile.TemporaryDirectory(prefix="v8_atomic_recovery_") as root:
+            env = os.environ.copy()
+            env["VELOPOS_HOME"] = str(Path(root) / "VeloPOS8PreviewData")
+            result = subprocess.run(
+                [sys.executable, "-c", FIXTURE + EXTENSION + textwrap.dedent(source)],
+                env=env, capture_output=True, text=True, timeout=80,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_valid_policy_and_missing_journal_are_never_checkout_authority(self):
+        self.isolated("""
+            from dataclasses import FrozenInstanceError
+            with database.db() as c:
+                before = snapshot(c)
+            result = recovery.inspect(**args)
+            assert result.readiness.policy_consistent, result
+            assert result.journal.state == "not_recorded", result
+            assert result.can_execute is False and result.can_checkout is False
+            assert "sale_recovery_diagnostic_only" in result.reasons
+            try:
+                result.can_checkout = True
+            except FrozenInstanceError:
+                pass
+            else:
+                raise AssertionError("Readiness object was mutable")
+            try:
+                recovery.require(**args)
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Diagnostic authorized commerce")
+            with database.db() as c:
+                assert snapshot(c) == before
+        """)
+
+    def test_pending_claim_then_completed_journal_still_no_sale(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                assert journal.claim(
+                    c, "sale", args["request_id"], payload_for(args)
+                ).is_new
+                c.commit()  # intentionally simulate orphan PENDING
+            finally:
+                c.close()
+            pending = recovery.inspect(**args)
+            assert pending.journal.state == "pending_manual_reconciliation"
+            assert "journal_pending_manual_reconciliation" in pending.reasons
+            assert pending.can_checkout is False
+            c = journal_tx()
+            try:
+                journal.complete(c, "sale", args["request_id"], "SIM-ONLY-123")
+                c.commit()
+            finally:
+                c.close()
+            completed = recovery.inspect(**args)
+            assert completed.journal.state == "journal_completed_unverified"
+            assert completed.journal.result_ref == "SIM-ONLY-123"
+            assert completed.can_checkout is False
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+                assert c.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0] == 2
+        """)
+
+    def test_same_key_cannot_cross_branch_device_actor_shift_or_draft(self):
+        self.isolated("""
+            from velopos_qt.auth_model import PreviewIdentity
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-A")
+                c.commit()
+            finally:
+                c.close()
+            wrong = (
+                dict(args, expected_branch_id="BRANCH-002"),
+                dict(args, license_id="LIC-999"),
+                dict(args, machine_id="OTHER-MACHINE"),
+                dict(args, shift_id=shift + 99),
+                dict(args, identity=PreviewIdentity("someone", "Cashier", "fake")),
+                dict(args, lines=[{"barcode": "RICE", "qty": 1, "price": 45}]),
+            )
+            for variant in wrong:
+                try:
+                    recovery.inspect(**variant)
+                except IdempotencyConflict:
+                    pass
+                else:
+                    raise AssertionError("Different transaction reused request key")
+            assert recovery.inspect(**args).journal.result_ref == "SIM-A"
+        """)
+
+    def test_revocation_or_closed_shift_stays_denied_after_journal_completion(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-REVOKED")
+                c.commit()
+            finally:
+                c.close()
+            with database.db() as c:
+                c.execute("UPDATE v8_preview_branch_memberships SET active=0")
+                c.execute("UPDATE shifts SET status='CLOSED' WHERE id=?", (shift,))
+            denied = recovery.inspect(**args)
+            assert denied.journal.state == "journal_completed_unverified"
+            assert denied.readiness.branch_verified is False
+            assert denied.readiness.policy_consistent is False
+            assert "shift_not_open" in denied.reasons
+            assert denied.can_checkout is False
+        """)
+
+    def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
+        self.isolated("""
+            import sqlite3
+            c = database.connect()
+            try:
+                try:
+                    recovery.inspect_in_transaction(c, **args)
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError("Transaction was optional")
+                c.execute("BEGIN IMMEDIATE")
+                c.execute("CREATE TABLE caller_uncommitted_marker (x INT)")
+                c.execute("INSERT INTO caller_uncommitted_marker VALUES(123)")
+                result = recovery.inspect_in_transaction(c, **args)
+                assert result.journal.state == "not_recorded"
+                assert c.in_transaction
+                assert c.execute(
+                    "SELECT x FROM caller_uncommitted_marker"
+                ).fetchone()[0] == 123
+                c.rollback()
+            finally:
+                c.close()
+            with database.db() as check:
+                assert not check.execute(
+                    "SELECT 1 FROM sqlite_master WHERE name='caller_uncommitted_marker'"
+                ).fetchone()
+            foreign = sqlite3.connect(":memory:")
+            try:
+                foreign.execute("BEGIN IMMEDIATE")
+                try:
+                    recovery.inspect_in_transaction(foreign, **args)
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError("Foreign connection was trusted")
+            finally:
+                foreign.close()
+        """)
+
+
+if __name__ == "__main__":
+    unittest.main()

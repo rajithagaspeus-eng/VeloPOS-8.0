@@ -115,3 +115,21 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   runner/account eligibility information not exposed by the current job
   metadata. Do not declare a runner/billing root cause without those details.
 - The durable journal remains **test-only** and cannot authorize checkout.
+
+## Atomic journal initialization and recovery follow-up (2026-11-05)
+
+- Journal initialization now runs in an explicit `BEGIN IMMEDIATE`
+  transaction with commit/rollback and prevalidates existing column layouts
+  before any initialization writes.
+- Existing rehearsals with a missing sequence row are rejected rather than
+  silently repaired. New regressions check lost sequence, malformed schema,
+  conflicting request rollback, and corrupted sequence rollback.
+- GitHub Actions run `41922033188` was retried via the connected API.
+  Attempt 2 completed with `failure`, no assigned runner, and zero job
+  steps. Actual repository regression tests **did not execute on Actions**.
+  Local GitHub checkout was also unavailable in this environment because
+  the container could not resolve github.com.
+- The exact runner failure root cause is still unknown; it requires access
+  to Actions account/organization policy, usage, and run annotations.
+- Do not interpret this test-only rehearsal ledger as certified production
+  crash recovery or permission to enable checkout.

@@ -39,6 +39,8 @@ jobs:
       - name: Compile preview Python modules and tests
         shell: pwsh
         run: python -m compileall -q velopos_qt tests
+      - name: Run dependency-free SQLite crash recovery contract
+        run: python -m unittest -v tests.test_v8_sqlite_crash_contract
       - name: Verify fail-closed release and transaction proof contracts
         shell: pwsh
         run: python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment tests.test_v8_sale_request_service tests.test_v8_sale_rehearsal_journal tests.test_v8_durable_sale_rehearsal

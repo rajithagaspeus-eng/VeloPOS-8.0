@@ -6,6 +6,10 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "draft_receipt_preview": "Preview draft receipt",
+        "draft_receipt_title": "Draft receipt — NOT A SALE",
+        "draft_receipt_copy": "Copy draft text",
+        "draft_receipt_close": "Close",
         "billing_product_lookup": "Scan barcode or search draft product",
         "billing_search_results": "Draft product matches",
         "billing_search_none": "No matching demo products. Try another barcode or name.",
@@ -231,6 +235,10 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "draft_receipt_preview": "කෙටුම්පත් රිසිට්පත බලන්න",
+        "draft_receipt_title": "කෙටුම්පත් රිසිට්පත — විකිණීමක් නොවේ",
+        "draft_receipt_copy": "කෙටුම්පත පිටපත් කරන්න",
+        "draft_receipt_close": "වසන්න",
         "billing_product_lookup": "බාර්කෝඩ් හෝ කෙටුම්පත් භාණ්ඩය සොයන්න",
         "billing_search_results": "ගැළපෙන භාණ්ඩ ලැයිස්තුව",
         "billing_search_none": "ගැළපෙන නියැදි භාණ්ඩ නැත. වෙනත් නමක් හෝ බාර්කෝඩ් එකක් යොදන්න.",
@@ -456,6 +464,10 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "draft_receipt_preview": "வரைவு ரசீதைப் பார்க்க",
+        "draft_receipt_title": "வரைவு ரசீது — விற்பனை அல்ல",
+        "draft_receipt_copy": "வரைவு உரையை நகலெடு",
+        "draft_receipt_close": "மூடு",
         "billing_product_lookup": "பார்கோடு அல்லது வரைவு பொருளைத் தேடுங்கள்",
         "billing_search_results": "பொருந்தும் வரைவு பொருட்கள்",
         "billing_search_none": "பொருந்தும் மாதிரி பொருட்கள் இல்லை. வேறு பெயர் அல்லது பார்கோடு தேடுங்கள்.",

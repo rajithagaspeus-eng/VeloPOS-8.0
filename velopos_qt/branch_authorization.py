@@ -47,8 +47,7 @@ class PreviewBranchAuthorization:
             connection, action=action, identity=identity, shift_id=shift_id
         )
         actor = service.actor
-        reasons = []
-        valid_branch = (
+        # A valid branch membership is insufficient when the persisted actor\n        # lacks permission for this action or the assigned shift is invalid.\n        # Propagate service denials into the branch decision, rather than\n        # presenting branch_verified=True for an unauthorized operation.\n        reasons = [reason for reason in service.reasons\n                   if reason not in ("preview_transactions_disabled",\n                                     "commercial_license_unverified")]\n        valid_branch = (
             type(branch_id) is str
             and 1 <= len(branch_id) <= 120
             and all(c.isascii() and (c.isalnum() or c in "-_")

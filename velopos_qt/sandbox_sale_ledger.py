@@ -119,12 +119,36 @@ class PreviewSandboxSaleLedger:
         expected_cents = int(plan.subtotal * 100)
         if row["subtotal_cents"] != expected_cents:
             raise RuntimeError("Journal/sandbox invoice reconciliation failed")
-        count = connection.execute(
-            "SELECT COUNT(*) FROM main.v8_preview_sandbox_sale_lines "
-            "WHERE reference=?", (reference,)
-        ).fetchone()[0]
-        if count != len(plan.lines):
-            raise RuntimeError("Sandbox invoice line count mismatch")
+        # Replays must verify the actual immutable lines, not merely their
+        # count and invoice subtotal: equal-total substitutions are possible.
+        recorded_lines = [
+            (row["barcode"], row["quantity"], row["price"], row["line_cents"])
+            for row in connection.execute(
+                "SELECT barcode,quantity,price,line_cents FROM "
+                "main.v8_preview_sandbox_sale_lines WHERE reference=? "
+                "ORDER BY line_no", (reference,)
+            )
+        ]
+        expected_lines = [
+            (line.barcode, canonical_decimal(line.qty),
+             canonical_decimal(line.price), int(line.line_total * 100))
+            for line in plan.lines
+        ]
+        if recorded_lines != expected_lines:
+            raise RuntimeError("Sandbox invoice lines do not match replay")
+        count = len(recorded_lines)
+        recorded_moves = {
+            row["barcode"]: row["sold_qty"]
+            for row in connection.execute(
+                "SELECT barcode,sold_qty FROM main.v8_preview_sandbox_stock_moves "
+                "WHERE reference=?", (reference,)
+            )
+        }
+        expected_moves = {
+            barcode: canonical_decimal(qty) for barcode, qty in plan.quantities
+        }
+        if recorded_moves != expected_moves:
+            raise RuntimeError("Sandbox stock movements do not match replay")
         # An older sandbox database may predate tender tables. Never
         # silently treat its completed journal as a settled invoice.
         required = {"v8_preview_sandbox_settlements",

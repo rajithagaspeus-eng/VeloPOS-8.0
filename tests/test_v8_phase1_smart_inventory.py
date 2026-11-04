@@ -85,7 +85,11 @@ class SmartInventoryIntegrationTests(unittest.TestCase):
             state["allowed"] = True
             reader.snapshot()
             for kwargs in ({"low_level": -1}, {"expiry_days": 366},
-                           {"low_level": "bad"}, {"today": "2026-02-30"}):
+                           {"low_level": "bad"}, {"today": "2026-02-30"},
+                           {"low_level": True}, {"low_level": 2.5},
+                           {"expiry_days": float("nan")},
+                           {"limit": float("inf")}, {"limit": False},
+                           {"limit": "2.5"}):
                 try:
                     reader.snapshot(**kwargs)
                 except ValueError:

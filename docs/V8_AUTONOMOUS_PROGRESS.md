@@ -561,3 +561,26 @@ and post-merge `develop-v8` SHA requires its own push CI.
 semantics; design a real authenticated activation service, server-owned
 key storage, operator onboarding, and offline grace/recovery separately.
 See `docs/V8_ACTIVATION_ADMIN_COMMAND_CONTRACT.md`.
+
+
+## Integrated concurrent server clock rollback hardening — November 4, 2026
+
+During PR #7 review `develop-v8` advanced to SHA
+`c50fcfb22bfc586205522d58c2a3fd97c7eeeded` with extra reference
+server clock rollback enforcement and its regression. The feature PR
+became temporarily unmergeable. Resolved by a two-parent integration
+commit `2c7b0a50a6d8f766ca099e2d3ec1fc3d2b787721` that preserved
+*both* branch histories and kept the concurrent base implementation,
+new signed-command gateway, compileall CI and both progress sections.
+
+Base SHA `c50fcfb...` has successful Windows push Actions run
+[41809697777](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41809697777).
+The earlier feature SHA `605e127...` passed 187/187 tests in
+[PR CI 41809490960](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41809490960).
+Neither result establishes the combined merge commit's success.
+
+**Verification:** CI for the new integration-plus-checkpoint head is
+UNVERIFIED at this moment. Run the Windows preview suite on the exact
+new PR SHA and check mergeability before merging. Post-merge
+`develop-v8` push CI must also pass. Commercial checkout remains
+permanently disabled in this preview code.

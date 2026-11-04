@@ -329,3 +329,24 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   GitHub connector provides file APIs but no executable checkout/test
   runner. Consequently the current application regression suite remains
   UNEXECUTED, not PASS. Production/V7/main unchanged.
+
+## SQLite transaction contract and runner investigation (2026-11-05)
+
+- Fixed a prior incorrect change to the precommit fault-injection test:
+  `_connect` checks inode identity before and after opening the DB, so
+  the actual pre-COMMIT check is the THIRD `_identity()` call.
+- Added `tests/test_v8_sqlite_transaction_contract.py` with four
+  dependency-free SQLite checks: WAL mode detection, atomic rollback
+  of insert+sequence, abrupt subprocess exit before COMMIT, and
+  `sqlite_stat1` metadata detection. Added it to both V8 CI workflows.
+- A locally executed equivalent standalone SQLite script completed
+  **4 tests PASS, 0 failures**. The GitHub-committed test file itself
+  has not been executed on a checked-out repository; do not conflate
+  equivalent local tests with actual application regression suite.
+- GitHub Actions private repository metadata confirms admin access and
+  that the repository is neither disabled nor archived. The latest
+  Windows jobs have empty runner_name and zero steps, while Linux
+  workflow runs have no jobs. Root cause cannot be confirmed without
+  GitHub Actions account/billing/runner or workflow-validation diagnostics.
+- Full VeloPOS application regression suite still not executed in this
+  environment. No changes to main, V7 or production data.

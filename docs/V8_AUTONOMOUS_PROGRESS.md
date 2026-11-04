@@ -2088,3 +2088,86 @@ tender declarations, invoice settlement and
 reconciliation, while refusing real commercial posting
 until Gates A/B are accepted. Avoid asking the owner
 to manually run routine tests.
+
+
+## Phase 2 sandbox tender declaration, replay and settlement reconciliation — 2026-11-04
+
+**Milestone delivery:** Extended the previously persisted
+isolated TEST-only sandbox invoice + stock + request-journal transaction
+into an integrated **declared tender / estimated settlement** slice.
+Only `develop-v8` was changed. This is NOT a real POS checkout:
+no payments were captured, card/QR confirmations verified, credit
+limits checked, tax/COGS/returns posted, real receipts generated,
+original `sales`, `products`, `stock_moves`, customer balances,
+V7 data, signing keys or stable `main` touched.
+
+**Core code**:
+- `542a091c493471ef5dea9c8eb6e559b0c45c094e` upgrades
+  `velopos_qt/sandbox_sale_ledger.py` to accept optional 1..10
+  test-only tender declarations via the existing deterministic
+  `plan_preview_tender()` validator. Supports Cash, Card, QR
+  reference declarations; **Credit denied** until a verified
+  customer-credit ledger exists. Cash/noncash allocation must
+  cover exactly the amount due plus cash-only change.
+  No payment capture or issuing processor action occurs.
+- The *complete frozen tender allocation* and cash change become
+  part of the immutable V8 request-journal fingerprint so same
+  request ID with changed tenders conflicts. The locked authorization
+  boundary is still revalidated before lookup. Replay verifies
+  a persisted matching sandbox invoice, settlement totals and
+  individual tender declarations. It does not deduct stock again.
+  Existing tender-absent sandbox requests remain supported with
+  explicit `declared=0`.
+- Sandbox-only `v8_preview_sandbox_tenders` and
+  `v8_preview_sandbox_settlements` tables are created, inserted
+  and committed **in the same BEGIN IMMEDIATE transaction** as
+  sandbox invoice, stock moves and request-journal completion.
+  The immutable evidence carries `tender_declared` and
+  `change_cents`, while `payment_captured=False`,
+  `actual_invoice_posted=False` and `can_checkout=False`.
+- `4bb9ff41ecc647947b9f3dc8843b4b9a220e0947`
+  adds independent settlement audit: every sandbox invoice must
+  have a linked allocation record; sums of cash/noncash tender
+  declarations must match the ledger, and declared change must
+  reconcile to amount due with no noncash overpayment. Orphans,
+  inconsistencies and tampered amounts fail closed. The audit
+  does NOT claim funds were received.
+- `65f2e60b4d064e0543e9cdcf1f378888d488276a`
+  explicitly refuses unimplemented Credit and requires manual
+  reconciliation when older completed sandbox journal records
+  lack the new tender tables. Never silently migrate, auto-credit,
+  auto-approve or replay unverifiable old data.
+
+**Regression coverage:** `79609de74f43347797926df51b2c466423581948`
+adds 6 disposable subprocess SQLite tests: cash with change and
+exact replay; mixed cash/card/QR declarations; changed tender key
+conflict; insufficient, fractional, missing-reference and credit
+denials; altered settlement amounts; tampered allocation on replay.
+`e6087c6e98d9408d420c20c36f8436ebcc5b4062`
+adds 2 tests for tender rollback after the journal-complete failpoint
+and old tenderless sandbox tables requiring reconciliation.
+**8 new test methods** in `tests/test_v8_sandbox_sale_ledger.py`,
+now 18 in that module. All tests committed, NOT executed
+on Windows in this run. An independent local sqlite3 SQL syntax
+smoke showed creation and insertion of sandbox tender/settlement
+tables succeeds in `BEGIN IMMEDIATE`, but is not repository
+test evidence.
+
+**Evidence / open gates:** The most recent owner-confirmed local
+Windows suite remains code SHA `da535008b708511fbb8cf64529e5c9d2fc983ebd`,
+296/296 OK, 0 skipped, exit 0. Do not attribute that result to
+the new sandbox tender code. GitHub Actions workflow is committed
+for Windows push CI, but hosted success not yet independently
+verified by the available connector. Phase 1 remains IN PROGRESS,
+Phase 2 only a partial disposable sandbox milestone,
+**0/5 commercial gates accepted**. A/B require a trusted
+server-authoritative commercial boundary, exact financial tax,
+COGS, stock/batch, customer/credit, audit, payment and refund
+invariants before real posting. C/D/E are outstanding.
+
+**Next priority:** Independently get exact-head hosted Actions
+status and remediate any red test. Continue integrated sandbox
+customer-credit/returns/accounting workflows with original service
+review, avoiding repeated owner PowerShell requests. Once the
+end-to-end core is solid, seek actual acceptance against Gates A/B;
+never enable commercial posting based on sandbox-only tests.

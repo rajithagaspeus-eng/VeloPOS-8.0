@@ -437,6 +437,29 @@ class PreviewSandboxSaleLedger:
                                 ).fetchone()
                                 if invoice is None:
                                     raise ValueError("orphan stock movement")
+                                # A forged but numerically balanced stock move
+                                # must match the actual persisted invoice lines.
+                                invoice_lines = connection.execute(
+                                    "SELECT quantity FROM "
+                                    "main.v8_preview_sandbox_sale_lines "
+                                    "WHERE reference=? AND barcode=?",
+                                    (move_ref, barcode)
+                                ).fetchall()
+                                if not invoice_lines:
+                                    raise ValueError("movement has no invoice lines")
+                                invoice_quantity = Decimal("0")
+                                for invoice_line in invoice_lines:
+                                    raw_line_qty = invoice_line["quantity"]
+                                    if (type(raw_line_qty) is not str
+                                            or len(raw_line_qty) > 128):
+                                        raise ValueError("invalid invoice line quantity")
+                                    line_qty = Decimal(raw_line_qty)
+                                    if (not line_qty.is_finite() or line_qty <= 0
+                                            or line_qty > Decimal("1000000")
+                                            or line_qty.adjusted() < -18
+                                            or raw_line_qty != canonical_decimal(line_qty)):
+                                        raise ValueError("invalid invoice line quantity")
+                                    invoice_quantity += line_qty
                                 raw_move = (
                                     move["before_qty"], move["sold_qty"],
                                     move["after_qty"],
@@ -456,6 +479,7 @@ class PreviewSandboxSaleLedger:
                                         raw_move, (before, quantity, after_move)
                                     )
                                 ) or before != current or quantity <= 0
+                                        or quantity != invoice_quantity
                                         or after_move < 0
                                         or before - quantity != after_move):
                                     raise ValueError("invalid movement chain")

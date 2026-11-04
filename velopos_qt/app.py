@@ -143,6 +143,11 @@ QLineEdit#barcodeSearch:focus { border:2px solid #49e4c0; }
 QTableWidget#catalogTable, QTableWidget#draftCartTable, QTableWidget#searchResults { border:1px solid #31495e; border-radius:12px; }
 QFrame#billingTotals { background:#154343; border:1px solid #368778; border-radius:15px; }
 QFrame#billingTotals QLabel { color:#d2fff4; }
+QFrame#directorySearchPanel { background:#152638; border:1px solid #2d4761; border-radius:16px; }
+QLineEdit#directorySearch { background:#102235; border:2px solid #345f70; border-radius:10px; min-height:43px; font-size:11pt; padding-left:13px; }
+QLineEdit#directorySearch:focus { border:2px solid #49e4c0; }
+QTableWidget#directoryTable { border:1px solid #31495e; border-radius:12px; }
+QLabel#directoryNotice { color:#9fb9c7; font-size:9pt; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 """
 LIGHT += """
@@ -177,6 +182,11 @@ QLineEdit#barcodeSearch:focus { border:2px solid #059e87; }
 QTableWidget#catalogTable, QTableWidget#draftCartTable, QTableWidget#searchResults { border:1px solid #d7e3ec; border-radius:12px; }
 QFrame#billingTotals { background:#ddf5ed; border:1px solid #a5d7c8; border-radius:15px; }
 QFrame#billingTotals QLabel { color:#14594d; }
+QFrame#directorySearchPanel { background:#f7fbff; border:1px solid #d1e1ed; border-radius:16px; }
+QLineEdit#directorySearch { background:white; border:2px solid #b7d4dc; border-radius:10px; min-height:43px; font-size:11pt; padding-left:13px; }
+QLineEdit#directorySearch:focus { border:2px solid #059e87; }
+QTableWidget#directoryTable { border:1px solid #d7e3ec; border-radius:12px; }
+QLabel#directoryNotice { color:#617d8b; font-size:9pt; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 """
 

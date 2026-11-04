@@ -117,6 +117,7 @@ QFrame#workspacePanel { background:#111d2d; border:1px solid #283a50; border-rad
 QLabel#sideBrand { color:#e6fcf9; font-size:17pt; font-weight:800; letter-spacing:1px; }
 QLabel#sideCaption { color:#8ba7b9; font-size:9pt; }
 QLabel#sideFooter { color:#83a4aa; font-size:8.5pt; }
+QLabel#metricIndex { color:#78d6cb; font-size:8pt; font-weight:750; letter-spacing:1px; }
 QLabel#pageEyebrow { color:#54d8bd; font-size:9pt; font-weight:750; letter-spacing:1px; }
 QFrame#heroPanel { background:#143345; border:1px solid #236175; border-radius:16px; }
 QLabel#heroTitle { color:#f0ffff; font-size:19pt; font-weight:750; }
@@ -140,6 +141,7 @@ QFrame#workspacePanel { background:#ffffff; border:1px solid #dce6ef; border-rad
 QLabel#sideBrand { color:#133447; font-size:17pt; font-weight:800; letter-spacing:1px; }
 QLabel#sideCaption { color:#678392; font-size:9pt; }
 QLabel#sideFooter { color:#63818e; font-size:8.5pt; }
+QLabel#metricIndex { color:#1d9185; font-size:8pt; font-weight:750; letter-spacing:1px; }
 QLabel#pageEyebrow { color:#0d9285; font-size:9pt; font-weight:750; letter-spacing:1px; }
 QFrame#heroPanel { background:#e2f6f2; border:1px solid #a8dcd3; border-radius:16px; }
 QLabel#heroTitle { color:#12514f; font-size:19pt; font-weight:750; }

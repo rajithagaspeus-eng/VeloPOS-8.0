@@ -702,6 +702,14 @@ class PreviewSandboxSaleLedger:
                 movement_keys.add(key)
                 if move["reference"] not in invoice_refs:
                     reasons.append("orphan_stock_move")
+                if (type(move["reference"]) is not str
+                        or not move["reference"].startswith("SBX-")
+                        or len(move["reference"]) != 28
+                        or any(
+                            char not in "0123456789abcdef"
+                            for char in move["reference"][4:]
+                        )):
+                    reasons.append("invalid_stock_move_reference")
                 move_barcode = move["barcode"]
                 if (type(move_barcode) is not str
                         or not 1 <= len(move_barcode) <= 80

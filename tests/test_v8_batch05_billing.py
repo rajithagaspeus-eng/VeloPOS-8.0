@@ -15,6 +15,14 @@ class DraftQuantityTests(unittest.TestCase):
         }
         self.cart.add(self.product)
 
+    def test_blank_and_null_barcodes_cannot_enter_draft(self):
+        original = dict(self.cart.lines["0001234567890"])
+        for barcode in ("", "  ", None):
+            with self.subTest(barcode=barcode), self.assertRaises(ValueError):
+                self.cart.add(dict(self.product, barcode=barcode))
+            self.assertEqual(self.cart.lines["0001234567890"], original)
+            self.assertEqual(len(self.cart.lines), 1)
+
     def test_extreme_catalog_money_is_rejected_without_mutation(self):
         original = dict(self.cart.lines["0001234567890"])
         for value in ("1e999", "999999999999999999999999999999999999"):

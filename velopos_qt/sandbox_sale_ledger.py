@@ -458,9 +458,15 @@ class PreviewSandboxSaleLedger:
                         expected_lines.get(line["reference"], 0) + line["line_cents"]
                     )
                     key = (line["reference"], line["barcode"])
+                    try:
+                        qty = Decimal(line["quantity"])
+                        if not qty.is_finite() or qty <= 0:
+                            raise ValueError("invalid quantity")
+                    except (InvalidOperation, TypeError, ValueError):
+                        reasons.append("invalid_invoice_line_quantity")
+                        continue
                     line_quantities[key] = (
-                        line_quantities.get(key, Decimal("0"))
-                        + Decimal(line["quantity"])
+                        line_quantities.get(key, Decimal("0")) + qty
                     )
             invoice_refs = {sale["reference"] for sale in invoices}
             if set(expected_lines) - invoice_refs:
@@ -554,7 +560,14 @@ class PreviewSandboxSaleLedger:
                 movement_keys.add(key)
                 if move["reference"] not in invoice_refs:
                     reasons.append("orphan_stock_move")
-                if Decimal(move["sold_qty"]) != line_quantities.get(key):
+                try:
+                    sold_qty = Decimal(move["sold_qty"])
+                    if not sold_qty.is_finite() or sold_qty <= 0:
+                        raise ValueError("invalid stock movement")
+                except (InvalidOperation, TypeError, ValueError):
+                    reasons.append("invalid_stock_move_quantity")
+                    continue
+                if sold_qty != line_quantities.get(key):
                     reasons.append("stock_line_quantity_mismatch")
             if set(line_quantities) != movement_keys:
                 reasons.append("stock_line_coverage_mismatch")
@@ -564,22 +577,26 @@ class PreviewSandboxSaleLedger:
             with localcontext(_CONTEXT):
                 for row in stock_rows:
                     barcode = row["barcode"]
-                    start = Decimal(row["opening_qty"])
-                    remaining = Decimal(row["remaining_qty"])
-                    current = start
-                    if not start.is_finite() or not remaining.is_finite():
-                        reasons.append("nonfinite_stock:" + barcode)
-                        continue
-                    for move in moves_by_barcode.get(barcode, ()):
-                        before = Decimal(move["before_qty"])
-                        sold = Decimal(move["sold_qty"])
-                        after = Decimal(move["after_qty"])
-                        if (before != current or sold <= 0
-                                or after != before - sold or after < 0):
-                            reasons.append("stock_chain_mismatch:" + barcode)
-                        current = after
-                    if current != remaining or remaining < 0:
-                        reasons.append("stock_balance_mismatch:" + barcode)
+                    try:
+                        start = Decimal(row["opening_qty"])
+                        remaining = Decimal(row["remaining_qty"])
+                        if (not start.is_finite() or not remaining.is_finite()
+                                or start < 0 or remaining < 0):
+                            raise ValueError("invalid stock balance")
+                        current = start
+                        for move in moves_by_barcode.get(barcode, ()):
+                            before = Decimal(move["before_qty"])
+                            sold = Decimal(move["sold_qty"])
+                            after = Decimal(move["after_qty"])
+                            if (not all(v.is_finite() for v in (before, sold, after))
+                                    or before != current or sold <= 0
+                                    or after != before - sold or after < 0):
+                                reasons.append("stock_chain_mismatch:" + barcode)
+                            current = after
+                        if current != remaining:
+                            reasons.append("stock_balance_mismatch:" + barcode)
+                    except (InvalidOperation, TypeError, ValueError):
+                        reasons.append("invalid_stock_decimal:" + barcode)
             total_cents = sum(sale["subtotal_cents"] for sale in invoices)
             # Every completed sandbox-scoped journal must point at one
             # actual sandbox invoice, not just claim it was completed.

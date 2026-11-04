@@ -903,6 +903,35 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_handles_binary_invoice_reference_without_crashing(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sales "
+                    "SET reference=? WHERE reference=?",
+                    (b"corrupt-binary-reference", first.reference)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_sandbox_invoice_reference" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_handles_binary_stock_barcode_without_crashing(self):
+        self.isolated("""
+            sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock "
+                    "SET barcode=? WHERE barcode='RICE'", (b"bad-barcode",)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_stock_barcode" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_corrupted_invoice_reference_format(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

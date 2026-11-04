@@ -1339,6 +1339,30 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_next_sale_refuses_historical_aggregate_quantity_over_limit(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_sale_lines "
+                    "(reference,line_no,barcode,quantity,price,line_cents) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (first.reference, 4, "SOAP", "1000000", "0", 0)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-aggregate-limit-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Historical aggregate quantity limit bypassed")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_next_sale_refuses_historical_invoice_barcode_whitespace(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

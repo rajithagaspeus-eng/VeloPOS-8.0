@@ -410,3 +410,39 @@ Actions result before PR merge.
 authenticated server continuity/revocation, safe offline grace and the
 service-bound commercial policy. No live checkout, production key,
 customer data or stable `main` modifications were made.
+
+
+## Preview combined activation-chain policy — November 4, 2026
+
+Branch: `feature/v8-composed-activation-chain-policy`, PR #5.
+Reviewing Issue #3 and the merged `a37d53d...` security checkpoint,
+the signed activation *pair* had no composed diagnostic alongside the
+transaction-scoped persisted cashier/shift, canonical branch membership
+and V8 signed machine/action/license/branch scope.
+
+New `PreviewCombinedAuthorization.inspect_with_activation_chain()`
+composes those independent checks while the caller owns a transaction
+on disposable `VeloPOS8PreviewData`, returning explicit signed-license-ID
+binding and a `policy_consistent` *diagnostic*, not permission.
+Even when every check is healthy, `can_execute=False` and
+`require_with_activation_chain()` always raises PermissionError.
+
+Adversarial tests in `tests/test_v8_phase2_composed_activation_chain.py`
+cover valid but denied credentials, substituted signed license identity,
+mismatched branch, forged login, missing shift, wrong cashier role,
+revoked branch membership, revoked/stale/forged activation envelopes,
+production path denial, and no financial table mutations.
+
+**Security limits:** This integration still trusts no local clock or
+client-storage watermark for real offline activation, and cannot detect
+rollback of both valid signed server receipts. No server-hosted anchor,
+renewal/revocation endpoint, actual license installation, trusted clock
+or commercial transaction service is implemented. Gates A/B/C/D/E blocked.
+
+**Verification:** New changes have not yet passed Windows CI at the time
+of this checkpoint; run `python run_v8_checks.py` on the exact PR SHA
+and record GitHub Actions evidence before considering merge.
+
+**Next:** Review and test this composition, then design the future
+server-maintained per-license monotonic activation anchor and
+service-bound transaction enforcement. `main` and paid V7 data untouched.

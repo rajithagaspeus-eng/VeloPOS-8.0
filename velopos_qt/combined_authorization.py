@@ -8,6 +8,7 @@ license revocation, device binding and transaction posting remain unresolved.
 from dataclasses import dataclass
 
 from .activation_status import PreviewActivationStatusInspector
+from .activation_chain import PreviewSignedActivationChainInspector
 from .branch_authorization import PreviewBranchAuthorization
 from .license_entitlements import PreviewSignedEntitlementInspector
 from .service_authorization import PreviewServiceAuthorization
@@ -33,6 +34,20 @@ class PreviewActivationCombinedDecision:
     activation_reasons: tuple[str, ...]
     activation_signature_valid: bool
     activation_current: bool
+    can_execute: bool = False
+
+
+@dataclass(frozen=True)
+class PreviewActivationChainCombinedDecision:
+    """Read-only composition; policy_consistent is NEVER permission to post."""
+    authorization: PreviewCombinedDecision
+    branch_reasons: tuple[str, ...]
+    chain_reasons: tuple[str, ...]
+    branch_verified: bool
+    chain_signatures_valid: bool
+    chain_consistent: bool
+    identity_bound: bool
+    policy_consistent: bool
     can_execute: bool = False
 
 
@@ -122,6 +137,77 @@ class PreviewCombinedAuthorization:
              *decision.authorization.license_reasons,
              *decision.branch_reasons)
         )))
+
+
+    def inspect_with_activation_chain(
+            self, connection, *, action, expected_branch_id, license_id,
+            server_public_key_b64, previous_status, current_status,
+            identity=None, shift_id=None, license_key=None, machine_id=None,
+            today=None, now=None, max_offline_hours=24):
+        """Compose service/shift, canonical branch, signed license and history.
+
+        The claimed branch and license IDs are *inputs*, not authorities.
+        The signed V8 license must bind both identifiers, and canonical
+        branch membership is independently checked within the caller's
+        SQLite transaction. A consistent chain is NOT trusted offline
+        continuity and never unlocks a protected financial operation.
+        """
+        bound = self.inspect_with_branch_registry(
+            connection, action=action, expected_branch_id=expected_branch_id,
+            identity=identity, shift_id=shift_id, license_key=license_key,
+            machine_id=machine_id, today=today,
+        )
+        chain = PreviewSignedActivationChainInspector(
+            self.service.database, server_public_key_b64=server_public_key_b64
+        ).inspect(
+            previous_status=previous_status, current_status=current_status,
+            machine_id=machine_id, license_id=license_id,
+            expected_branch_id=expected_branch_id, now=now,
+            max_offline_hours=max_offline_hours,
+        )
+        authorization = bound.authorization
+        identity_bound = (
+            authorization.signature_valid and authorization.entitled
+            and authorization.signed_license_id is not None
+            and authorization.signed_license_id == license_id
+            and authorization.signed_branch_id is not None
+            and authorization.signed_branch_id == expected_branch_id
+        )
+        chain_reasons = (
+            *chain.reasons,
+            *(("signed_license_activation_binding_unverified",)
+              if not identity_bound else ()),
+        )
+        # A valid signature/branch diagnosis is *never* commercial access.
+        consistent = (
+            identity_bound and bound.branch_verified and chain.chain_consistent
+            and chain.signatures_valid
+            and all(reason in (
+                "preview_transactions_disabled", "commercial_license_unverified"
+            ) for reason in authorization.session_reasons)
+            and all(reason == "preview_transactions_disabled"
+                    for reason in authorization.license_reasons)
+        )
+        return PreviewActivationChainCombinedDecision(
+            authorization=authorization,
+            branch_reasons=bound.branch_reasons,
+            chain_reasons=chain_reasons,
+            branch_verified=bound.branch_verified,
+            chain_signatures_valid=chain.signatures_valid,
+            chain_consistent=chain.chain_consistent,
+            identity_bound=identity_bound,
+            policy_consistent=consistent,
+        )
+
+    def require_with_activation_chain(self, connection, **kwargs):
+        decision = self.inspect_with_activation_chain(connection, **kwargs)
+        raise PermissionError("; ".join(dict.fromkeys((
+            *decision.authorization.session_reasons,
+            *decision.authorization.license_reasons,
+            *decision.branch_reasons,
+            *decision.chain_reasons,
+            "commercial_activation_not_implemented",
+        ))))
 
     def inspect_with_activation(self, connection, *, server_public_key_b64,
                                 signed_status, license_id, now=None,

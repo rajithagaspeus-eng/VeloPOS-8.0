@@ -157,6 +157,11 @@ class DurablePreviewSaleJournal:
         try:
             if self._file_identity is not None and self._identity() != self._file_identity:
                 raise PermissionError("Preview database changed during open")
+            if self._file_identity is not None:
+                # Reject a swapped path even when SQLite opened an old inode.
+                db_file = conn.execute("PRAGMA database_list").fetchone()[2]
+                if Path(db_file).resolve() != Path(self.path).resolve():
+                    raise PermissionError("Unexpected SQLite database attachment")
             # An untrusted preview file must not be able to attach external
             # databases or invoke trusted schema functions via SQL objects.
             conn.execute("PRAGMA trusted_schema=OFF")

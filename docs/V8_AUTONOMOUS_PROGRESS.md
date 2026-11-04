@@ -2509,3 +2509,11 @@ milestones as commercial security gates permit.
 - Regression commit: `bf8fea88bdc3efa804114fcbdddf87ff2098994f` adds three isolated disposable-data integration methods covering mixed-mode tamper detection in both audits, mismatched/overallocated allocation amounts, and an orphan allocation with no matching repayment. Sandbox credit suite now defines **29 test methods**; methods being present does NOT prove they pass.
 - Verification: GitHub connector commit-status and PR-only workflow queries cannot establish push-triggered Windows CI result. **No exact-head Windows pass verified**. Next operator action: inspect latest `develop-v8` GitHub Actions `V8 preview automated tests` and `V8 Windows preview checks`, and capture failing test tracebacks if red.
 - Release: estimated overall progress still ~35% (not measured against release gates); 0/5 commercial gates accepted. Preview sandbox operations only, V7 real business data untouched.
+
+
+## Credit closeout forged-owner protection — 2026-11-04
+
+- `6914b75adf4947ffc810372c875f541812019f31`: the independent accounting closeout derives allocated-payment customer ownership from the original persisted repayment row as well as the mutable allocation row. A forged allocation customer ID cannot hide an unallocated repayment for the actual customer. Allocation mismatches remain separately reported.
+- `947204d4ce415cdec4e8303a2ce36a2df6ee4ee8`: one additional isolated test for a forged allocation owner combined with an unallocated repayment. **30** sandbox credit test methods now defined; execution status unverified.
+- No exact-head Windows Actions pass has been verified. A commit-status API response with zero statuses and a PR-only workflow list with zero runs is **not** a pass. This session cannot confirm latest push-run CI or a Windows test traceback; changes are code-reviewed and committed, not test-certified.
+- `develop-v8` sandbox only, production posting denied. Overall legacy ~35% is a rough planning estimate; 0/5 commercial gates accepted.

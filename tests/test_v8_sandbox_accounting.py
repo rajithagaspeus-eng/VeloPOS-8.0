@@ -185,6 +185,49 @@ class SandboxCloseoutTests(unittest.TestCase):
             assert final.actual_refunds_cents == 0
         """)
 
+    def test_return_does_not_restock_or_allow_overselling_on_next_sale(self):
+        self.isolated("""
+            first = sale_service.simulate_commit(**dict(
+                args,tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            return_service.simulate_return(**new_return(first.reference))
+            with database.db() as c:
+                stock_before = {
+                    row["barcode"]: row["remaining_qty"]
+                    for row in c.execute(
+                        "SELECT barcode,remaining_qty FROM "
+                        "main.v8_preview_sandbox_stock"
+                    )
+                }
+            assert stock_before == {"RICE":"5","SOAP":"3"}
+            too_many = dict(
+                args,request_id="integrated-second-sale-denied-001",
+                lines=[{"barcode":"RICE","qty":6,"price":45}],
+                tenders=[{"method":"Cash","amount":"270"}]
+            )
+            try:
+                sale_service.simulate_commit(**too_many)
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Return incorrectly replenished sandbox stock")
+            checked = closeout.closeout()
+            assert checked.balanced and checked.invoice_count == 1, checked
+            assert checked.return_count == 1
+            with database.db() as c:
+                stock_after = {
+                    row["barcode"]: row["remaining_qty"]
+                    for row in c.execute(
+                        "SELECT barcode,remaining_qty FROM "
+                        "main.v8_preview_sandbox_stock"
+                    )
+                }
+                assert stock_after == stock_before
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_two_partial_returns_on_original_line_reconcile_exact_cents(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

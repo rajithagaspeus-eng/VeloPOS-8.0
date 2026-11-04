@@ -7,7 +7,7 @@ bill preview service when the isolated launcher provides it.
 from copy import deepcopy
 from decimal import Decimal
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
@@ -42,6 +42,9 @@ class BillingPage(QWidget):
         self.cart = Cart()
         self._held_draft = None
         self.products = []
+        # Explicit row selection is ephemeral. Never carry a highlighted
+        # product from one search result list into a different search.
+        self._explicit_search_row = None
         # Billing grows vertically as customer/loyalty/hold controls are added.
         # A scrollable inner canvas preserves table heights at smaller Windows
         # display scales instead of squeezing the "Draft items" heading onto
@@ -117,6 +120,7 @@ class BillingPage(QWidget):
         search_row.setSpacing(10)
         self.query = QLineEdit()
         self.query.setObjectName("barcodeSearch")
+        self.query.installEventFilter(self)
         self.query.setClearButtonEnabled(True)
         self.query.setMinimumHeight(44)
         self.query.textChanged.connect(self.refresh_products)
@@ -143,7 +147,12 @@ class BillingPage(QWidget):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.results.itemDoubleClicked.connect(lambda _item: self.add_selected())
+        self.results.itemClicked.connect(self._search_result_clicked)
         scan_layout.addWidget(self.results)
+        self.search_help = QLabel()
+        self.search_help.setObjectName("billingSearchHelp")
+        self.search_help.setWordWrap(True)
+        scan_layout.addWidget(self.search_help)
         layout.addWidget(self.scan_panel)
 
         self.cart_title = QLabel()
@@ -262,6 +271,9 @@ class BillingPage(QWidget):
         self.heading.setText(self.text("billing"))
         self.notice.setText(self.text("no_checkout_notice"))
         self.query.setPlaceholderText(self.text("barcode_search_hint"))
+        self.query.setAccessibleName(self.text("billing_product_lookup"))
+        self.results.setAccessibleName(self.text("billing_search_results"))
+        self._refresh_search_help()
         self.add_button.setText(self.text("add_to_cart"))
         self.quantity_label.setText(self.text("quantity"))
         self.quantity_button.setText(self.text("update_quantity"))
@@ -404,7 +416,45 @@ class BillingPage(QWidget):
                 f'{self.text("preview_cashier")}: {actor}  •  {self.text("no_open_shift")}'
             )
 
+    def _refresh_search_help(self):
+        if not hasattr(self, "search_help"):
+            return
+        if not self.products:
+            self.search_help.setText(self.text("billing_search_none"))
+        elif len(self.products) == 1:
+            self.search_help.setText(self.text("billing_search_one"))
+        else:
+            self.search_help.setText(
+                self.text("billing_search_many").format(count=len(self.products))
+            )
+
+    def _search_result_clicked(self, item):
+        """A deliberate product click permits Enter on an ambiguous search."""
+        self._explicit_search_row = item.row() if item is not None else None
+
+    def eventFilter(self, watched, event):
+        """Up/Down in scan field selects a deliberate result without focus loss."""
+        if (watched is self.query and event.type() == QEvent.Type.KeyPress
+                and event.key() in (Qt.Key.Key_Down, Qt.Key.Key_Up)
+                and self.products):
+            current = self._explicit_search_row
+            if current is None:
+                row = 0 if event.key() == Qt.Key.Key_Down else len(self.products) - 1
+            else:
+                delta = 1 if event.key() == Qt.Key.Key_Down else -1
+                row = max(0, min(len(self.products) - 1, current + delta))
+            self._explicit_search_row = row
+            self.results.setCurrentCell(row, 0)
+            self.results.scrollToItem(self.results.item(row, 0))
+            return True
+        return super().eventFilter(watched, event)
+
     def refresh_products(self, _value=None):
+        # QTableWidget can retain a current-row index while data changes.
+        # Reset that selection BEFORE repopulating the result table.
+        self._explicit_search_row = None
+        self.results.clearSelection()
+        self.results.setCurrentCell(-1, -1)
         try:
             self.products = self.inventory.search(self.query.text(), limit=50)
         except (OSError, ValueError, RuntimeError) as exc:
@@ -420,6 +470,7 @@ class BillingPage(QWidget):
                 cell = QTableWidgetItem(str(value))
                 cell.setToolTip(str(value))
                 self.results.setItem(row, col, cell)
+        self._refresh_search_help()
 
     def scan_or_add(self):
         """Exact scan matches only; single-result search can also use Enter."""
@@ -434,8 +485,13 @@ class BillingPage(QWidget):
         elif len(self.products) == 1:
             self.results.selectRow(0)
             self.add_selected()
-        # Multiple ambiguous results: require a selection/click, never
-        # silently choose the wrong stock item.
+        elif (self._explicit_search_row is not None
+              and self.results.currentRow() == self._explicit_search_row
+              and 0 <= self._explicit_search_row < len(self.products)):
+            # Multiple matches: Enter is safe only after an explicit
+            # arrow-key or mouse choice in THIS particular result list.
+            self.add_selected()
+        # Otherwise do nothing: never silently choose ambiguous stock.
 
     def add_selected(self):
         index = self.results.currentRow()
@@ -483,6 +539,9 @@ class BillingPage(QWidget):
         self.tender_input.setText("0")
         self.quantity_input.setText("1")
         self.query.clear()
+        self._explicit_search_row = None
+        self.results.clearSelection()
+        self.results.setCurrentCell(-1, -1)
         self.refresh_cart()
         self._refresh_hold_controls()
 

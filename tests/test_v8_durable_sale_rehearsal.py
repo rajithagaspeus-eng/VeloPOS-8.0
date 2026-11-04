@@ -134,6 +134,37 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
                 request_id="durable-request-0001", lines=self.lines
             )
 
+    def test_existing_trigger_is_rejected_before_reopen(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "CREATE TRIGGER preview_tamper AFTER INSERT ON preview_rehearsals "
+                "BEGIN UPDATE preview_sequence SET next_number=99; END"
+            )
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+
+    def test_extra_view_and_table_are_rejected(self):
+        for statement in (
+            "CREATE VIEW unexpected_view AS SELECT 1 AS value",
+            "CREATE TABLE unexpected_table (value INTEGER)",
+        ):
+            with self.subTest(statement=statement):
+                with sqlite3.connect(self.path) as conn:
+                    conn.execute(statement)
+                with self.assertRaises(PermissionError):
+                    DurablePreviewSaleJournal(self.path)
+                with sqlite3.connect(self.path) as conn:
+                    conn.execute(
+                        "DROP VIEW unexpected_view"
+                        if "VIEW" in statement else "DROP TABLE unexpected_table"
+                    )
+
+    def test_altered_table_columns_refused_on_reopen(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("ALTER TABLE preview_rehearsals ADD COLUMN forged TEXT")
+        with self.assertRaises(PermissionError):
+            DurablePreviewSaleJournal(self.path)
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

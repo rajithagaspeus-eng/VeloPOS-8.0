@@ -574,11 +574,11 @@ class PreviewSandboxSaleLedger:
                 reasons.append("pending_sale_journal_requires_reconciliation")
             for ref, numbers in line_numbers.items():
                 if any(type(number) is not int or number <= 0 for number in numbers):
-                    reasons.append("invalid_invoice_line_number:" + ref)
+                    reasons.append("invalid_invoice_line_number:" + str(ref))
                 if len(numbers) > 100:
-                    reasons.append("invoice_line_count_exceeded:" + ref)
+                    reasons.append("invoice_line_count_exceeded:" + str(ref))
                 if numbers != list(range(1, len(numbers) + 1)):
-                    reasons.append("invoice_line_sequence_mismatch:" + ref)
+                    reasons.append("invoice_line_sequence_mismatch:" + str(ref))
             for sale in invoices:
                 ref = sale["reference"]
                 if (type(ref) is not str or not ref.startswith("SBX-")
@@ -596,23 +596,23 @@ class PreviewSandboxSaleLedger:
                         or sale["actor"] != sale["actor"].strip()
                         or len(sale["actor"]) > 128
                         or not sale["actor"].isprintable()):
-                    reasons.append("invalid_sandbox_invoice_actor:" + ref)
+                    reasons.append("invalid_sandbox_invoice_actor:" + str(ref))
                 if (type(sale["branch_id"]) is not str
                         or not sale["branch_id"].strip()
                         or sale["branch_id"] != sale["branch_id"].strip()
                         or len(sale["branch_id"]) > 128
                         or not sale["branch_id"].isprintable()):
-                    reasons.append("invalid_sandbox_invoice_branch:" + ref)
+                    reasons.append("invalid_sandbox_invoice_branch:" + str(ref))
                 if (type(sale["shift_id"]) is not int
                         or sale["shift_id"] <= 0):
-                    reasons.append("invalid_sandbox_invoice_shift:" + ref)
+                    reasons.append("invalid_sandbox_invoice_shift:" + str(ref))
                 if (type(sale["subtotal_cents"]) is not int
                         or sale["subtotal_cents"] < 0):
-                    reasons.append("invalid_invoice_subtotal:" + ref)
+                    reasons.append("invalid_invoice_subtotal:" + str(ref))
                 if ref not in line_numbers:
-                    reasons.append("invoice_has_no_lines:" + ref)
+                    reasons.append("invoice_has_no_lines:" + str(ref))
                 if expected_lines.get(ref) != sale["subtotal_cents"]:
-                    reasons.append("invoice_line_total_mismatch:" + ref)
+                    reasons.append("invoice_line_total_mismatch:" + str(ref))
                 journal = connection.execute(
                     "SELECT status,result_ref FROM main.v8_preview_request_journal "
                     "WHERE scope='sale' AND request_id=?",
@@ -620,7 +620,7 @@ class PreviewSandboxSaleLedger:
                 ).fetchone()
                 if (journal is None or journal["status"] != "COMPLETED"
                         or journal["result_ref"] != ref):
-                    reasons.append("invoice_journal_mismatch:" + ref)
+                    reasons.append("invoice_journal_mismatch:" + str(ref))
 
             # Every persisted sandbox invoice must have exactly one
             # allocation record. A declared tender is a TEST declaration
@@ -663,21 +663,21 @@ class PreviewSandboxSaleLedger:
                 if settled is None:
                     continue
                 if settled["due_cents"] != sale["subtotal_cents"]:
-                    reasons.append("settlement_invoice_mismatch:" + ref)
+                    reasons.append("settlement_invoice_mismatch:" + str(ref))
                 tenders = tender_by_ref.get(ref, ())
                 if len(tenders) > 10:
-                    reasons.append("settlement_tender_count_exceeded:" + ref)
+                    reasons.append("settlement_tender_count_exceeded:" + str(ref))
                 if [row["line_no"] for row in tenders] != list(range(1, len(tenders) + 1)):
-                    reasons.append("settlement_tender_line_sequence_mismatch:" + ref)
+                    reasons.append("settlement_tender_line_sequence_mismatch:" + str(ref))
                 declared = settled["declared"]
                 if any(
                     type(settled[field]) is not int or settled[field] < 0
                     for field in ("due_cents", "cash_cents",
                                   "noncash_cents", "change_cents")
                 ):
-                    reasons.append("invalid_settlement_amount:" + ref)
+                    reasons.append("invalid_settlement_amount:" + str(ref))
                 if declared not in (0,1) or bool(tenders) != bool(declared):
-                    reasons.append("settlement_declaration_mismatch:" + ref)
+                    reasons.append("settlement_declaration_mismatch:" + str(ref))
                 # Do not classify an unknown method as a legitimate
                 # noncash payment. Invalid stored cents must fail closed
                 # without raising TypeError during aggregation.
@@ -697,7 +697,7 @@ class PreviewSandboxSaleLedger:
                 )
                 if (cash != settled["cash_cents"] or
                         noncash != settled["noncash_cents"]):
-                    reasons.append("settlement_tender_total_mismatch:" + ref)
+                    reasons.append("settlement_tender_total_mismatch:" + str(ref))
                 if any(
                     type(settled[field]) is not int
                     for field in ("due_cents", "cash_cents",
@@ -705,25 +705,25 @@ class PreviewSandboxSaleLedger:
                 ):
                     # A malformed amount is never usable as trusted settlement
                     # evidence, even if SQLite coerces it in comparisons.
-                    reasons.append("settlement_amount_encoding_invalid:" + ref)
+                    reasons.append("settlement_amount_encoding_invalid:" + str(ref))
                 subtotal = sale["subtotal_cents"]
                 if type(subtotal) is not int or subtotal < 0:
                     # The invoice has already been marked invalid above.
                     # Do not subtract a corrupted SQLite TEXT/BLOB value.
-                    reasons.append("settlement_invoice_amount_invalid:" + ref)
+                    reasons.append("settlement_invoice_amount_invalid:" + str(ref))
                     continue
                 change = cash + noncash - subtotal
                 if declared:
                     if (change < 0 or change > cash or
                             change != settled["change_cents"] or
                             noncash > sale["subtotal_cents"]):
-                        reasons.append("settlement_allocation_mismatch:" + ref)
+                        reasons.append("settlement_allocation_mismatch:" + str(ref))
                 elif any(
                     settled[field] != 0 for field in (
                         "cash_cents", "noncash_cents", "change_cents"
                     )
                 ):
-                    reasons.append("unallocated_settlement_nonzero:" + ref)
+                    reasons.append("unallocated_settlement_nonzero:" + str(ref))
 
             stock_rows = connection.execute(
                 "SELECT barcode,opening_qty,remaining_qty "
@@ -803,7 +803,7 @@ class PreviewSandboxSaleLedger:
                             raw != canonical_decimal(value)
                             for raw, value in zip(raw_balances, (start, remaining))
                         ):
-                            reasons.append("noncanonical_stock_balance:" + barcode)
+                            reasons.append("noncanonical_stock_balance:" + str(barcode))
                         current = start
                         for move in moves_by_barcode.get(barcode, ()):
                             raw_values = (
@@ -821,21 +821,21 @@ class PreviewSandboxSaleLedger:
                                         value != 0 and not -18 <= value.adjusted() <= 18
                                         for value in (before, sold, after)
                                     )):
-                                reasons.append("invalid_stock_decimal:" + barcode)
+                                reasons.append("invalid_stock_decimal:" + str(barcode))
                                 continue
                             if any(
                                 raw != canonical_decimal(value)
                                 for raw, value in zip(raw_values, (before, sold, after))
                             ):
-                                reasons.append("noncanonical_stock_move:" + barcode)
+                                reasons.append("noncanonical_stock_move:" + str(barcode))
                             if (before != current or sold <= 0
                                     or after != before - sold or after < 0):
-                                reasons.append("stock_chain_mismatch:" + barcode)
+                                reasons.append("stock_chain_mismatch:" + str(barcode))
                             current = after
                         if current != remaining:
-                            reasons.append("stock_balance_mismatch:" + barcode)
+                            reasons.append("stock_balance_mismatch:" + str(barcode))
                     except (InvalidOperation, TypeError, ValueError):
-                        reasons.append("invalid_stock_decimal:" + barcode)
+                        reasons.append("invalid_stock_decimal:" + str(barcode))
             # Corrupted SQLite values can have unexpected storage classes.
             # Never let an audit crash or report a trusted monetary total.
             valid_subtotals = [

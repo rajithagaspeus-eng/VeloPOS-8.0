@@ -34,6 +34,16 @@ class PreviewEntitlementDecision:
     signed_license_id: str | None = None
 
 
+def _unique_json_object(pairs):
+    """Reject ambiguous duplicate signed claims rather than last-key-wins."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate signed JSON claim")
+        result[key] = value
+    return result
+
+
 def _decode(encoded, *, limit):
     if not isinstance(encoded, str) or not encoded or len(encoded) > limit:
         raise ValueError("Malformed encoded license field")
@@ -84,7 +94,7 @@ class PreviewSignedEntitlementInspector:
             if len(signature) != 64:
                 raise ValueError("Invalid signature length")
             self.public_key.verify(signature, payload)
-            parsed = json.loads(payload.decode("utf-8"))
+            parsed = json.loads(payload.decode("utf-8"), object_pairs_hook=_unique_json_object)
             if not isinstance(parsed, dict):
                 raise ValueError("License payload must be an object")
             data = parsed
@@ -96,7 +106,7 @@ class PreviewSignedEntitlementInspector:
             # V8 activation binding requires a versioned, signed identifier.
             # Existing V7 envelopes remain inspectable but never gain one.
             identifier = data.get('license_id')
-            if data.get('v') == 8 and isinstance(identifier, str) and (
+            if type(data.get('v')) is int and data['v'] == 8 and isinstance(identifier, str) and (
                 1 <= len(identifier) <= 120 and identifier == identifier.strip()
                 and all(c.isascii() and (c.isalnum() or c in '-_') for c in identifier)
             ):

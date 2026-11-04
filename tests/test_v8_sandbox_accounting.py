@@ -221,6 +221,34 @@ class SandboxCloseoutTests(unittest.TestCase):
             assert checked.can_checkout is False
         """)
 
+    def test_duplicate_stock_move_fails_closed_even_with_coverage_intact(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            assert closeout.closeout().balanced
+            # Rebuild ONLY the disposable sandbox movement table without
+            # its uniqueness constraint, simulating a corrupted ledger.
+            with database.db() as c:
+                c.execute(
+                    "CREATE TABLE main.corrupt_moves AS SELECT * FROM "
+                    "main.v8_preview_sandbox_stock_moves"
+                )
+                c.execute("DROP TABLE main.v8_preview_sandbox_stock_moves")
+                c.execute(
+                    "ALTER TABLE main.corrupt_moves RENAME TO "
+                    "v8_preview_sandbox_stock_moves"
+                )
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_stock_moves "
+                    "SELECT * FROM main.v8_preview_sandbox_stock_moves "
+                    "WHERE reference=? AND barcode='RICE'",
+                    (sale.reference,)
+                )
+            audited = closeout.closeout()
+            assert not audited.balanced, audited
+            assert "duplicate_sale_stock_movement" in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_accounting_requires_a_complete_return_schema(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

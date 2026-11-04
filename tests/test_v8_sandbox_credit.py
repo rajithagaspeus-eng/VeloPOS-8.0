@@ -898,6 +898,26 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert "sandbox_credit_mixed_repayment_modes" in audit.reasons
         """)
 
+    def test_fractional_credit_note_within_remaining_quantity_is_allowed(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            first = credit_service.declare_credit_note(
+                customer_id=customer_id,charge_ref=issued.reference,
+                sale_line_no=1,quantity="1",
+                request_id="fraction-note-0001",**ctx()
+            )
+            second = credit_service.declare_credit_note(
+                customer_id=customer_id,charge_ref=issued.reference,
+                sale_line_no=1,quantity="0.01",
+                request_id="fraction-note-0002",**ctx()
+            )
+            assert first.amount_cents == 4500
+            assert second.amount_cents > 0
+            assert credit_service.reconcile().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

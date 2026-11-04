@@ -76,6 +76,48 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
         )
         self.assertEqual(next_result.reference, "REHEARSAL-00000025")
 
+    def test_independent_processes_replay_same_request_once(self):
+        script = """
+import sys
+from velopos_qt.durable_sale_rehearsal import DurablePreviewSaleJournal
+journal = DurablePreviewSaleJournal(sys.argv[1])
+result = journal.inspect(
+    request_id='multiprocess-durable-0001',
+    lines=[{'barcode':'SOAP','qty':'2','price':'0.50'}])
+print(result.reference + '|' + str(result.replayed), flush=True)
+"""
+        workers = [
+            subprocess.Popen(
+                [sys.executable, "-c", script, self.path],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            for _ in range(4)
+        ]
+        outputs = []
+        for worker in workers:
+            try:
+                stdout, stderr = worker.communicate(timeout=20)
+            except subprocess.TimeoutExpired:
+                worker.kill()
+                worker.communicate()
+                self.fail("Preview multiprocess replay deadlocked")
+            self.assertEqual(worker.returncode, 0, stderr)
+            outputs.append(stdout.strip())
+        self.assertEqual(
+            sorted(outputs),
+            ["REHEARSAL-00000001|False"] +
+            ["REHEARSAL-00000001|True"] * 3,
+        )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                1,
+            )
+            self.assertEqual(
+                conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
+                2,
+            )
+
     def test_failed_validation_does_not_consume_sequence(self):
         with self.assertRaises(ValueError):
             self.journal.inspect(

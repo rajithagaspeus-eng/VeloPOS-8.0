@@ -1982,3 +1982,109 @@ crash recovery and financial/stock reconciliation, before
 ever enabling real checkout. Report tangible acceptance milestones,
 not unsupported percentages. Do not burden the owner with
 every routine small batch's local testing.
+
+
+## Phase 1/2 vertical slice: durable isolated sandbox invoice, stock and journal — 2026-11-04
+
+**Delivery change:** Owner wants milestone-sized development without
+repeatedly operating Windows terminals. This batch moved beyond
+rollback-only scenarios to an explicitly **durable TEST-SANDBOX**
+sale+stock+journal cycle. It is NOT V7 production posting,
+NOT commercial checkout and NOT proof of trusted server-authoritative
+entitlement. The app's checkout gate remains disabled.
+
+**Source:** `b44f8e9ab8a0130bf2881fbb983cd99d1661f1c5`
+adds `velopos_qt/sandbox_sale_ledger.py`, followed by source
+cleanup `7907c6fbdc1313ac87d6e6b973da77eb2ae21257`.
+`PreviewSandboxSaleLedger.simulate_commit()` on a canonical
+`VeloPOS8PreviewData` database freezes identity/draft/date,
+runs the existing persisted-session/open-shift/branch,
+Ed25519-signed license and activation-chain, stock,
+price and expiry preflight in ONE owned `BEGIN IMMEDIATE`
+SQLite transaction. It uses the normal V8 preview
+idempotency journal with the exact same immutable request
+payload. Successful **sandbox** execution commits only
+`v8_preview_sandbox_sales`,
+`v8_preview_sandbox_sale_lines`,
+`v8_preview_sandbox_stock`,
+`v8_preview_sandbox_stock_moves` and the V8 preview
+request-journal row. Stock is seeded from a READ-ONLY
+original product opening balance and then decremented
+ONLY in dedicated sandbox stock records. Real
+`sales`, `sale_items`, `products`, `stock_moves`,
+`returns`, `payments`, `shifts` or batch records
+are NEVER modified by the sandbox service; no real receipt,
+tender or payment is issued. Return evidence explicitly
+marks `actual_invoice_posted=False`,
+`payment_captured=False`, `can_checkout=False`,
+`can_execute=False`. The production-facing
+`require_commercial_sale()` fails closed.
+
+**Atomic/retry behavior:** Duplicate request identity
+must resolve to an existing MATCHING sandbox sale and
+never duplicate invoice/stock rows. Changed quantity
+with the same ID raises idempotency conflict. Pending,
+orphaned or corrupt journal states are denied; a prior
+COMPLETED journal alone is not trusted without the
+matching durable sandbox invoice. Caller-selected
+failpoints after claim/stock/invoice/completion cause
+full rollback including sandbox table creation. Other
+invalid sessions, closed shifts, branch mismatch,
+expired license or activation status never create
+sandbox ledger writes.
+
+**Independent reconciliation:** `99d29348ffa410470e3f52a73d076ea300783edf`
+adds `reconcile_sandbox()`, a read-only, locked audit
+of invoice totals vs lines, each invoice vs COMPLETED
+journal, current sandbox stock vs opening and ordered
+movement chain and all orphaned result references.
+`4e51fffa197d2eab3f1a5ce045690b86371c8fcd`
+also reconciles invoice sold quantity per barcode
+against stock move quantity. It FAILS CLOSED on
+mismatches and does not self-repair. This is only
+sandbox accounting, NOT the real Gate B/V7 financial
+reconciliation of tax, cash, credit, COGS, refunds,
+supplier payments, GRNs or loyalty.
+
+**Test design:** `0a2616157c0fec9b4af953e2304b9baa2d9c525c`
+adds seven disposable subprocess SQLite tests, then
+`17e01172511a8dd7de4301c289962c1f2b1c760a`
+adds two reconciliation/tamper regressions, and
+`e58d46ccbf0857e313af8ce6359d96a4ce7d33fc`
+adds stock-move/invoice-quantity discrepancy test.
+**10 new test methods** cover persisted invoice and
+stock journals, exact-once replay, immutable key
+conflict, all four rollback failpoints, sequential
+stock shortage without touching original inventory,
+signed authority denials, orphan completed journal,
+multi-sale integer-cent reconciliation, invoice and
+stock tampering and movement/line quantity mismatches.
+These were COMMITTED but have NOT yet been executed
+on Windows or by hosted Actions. Do not label them
+PASS from older evidence.
+
+**Previously confirmed evidence:** Owner verified
+`da535008b708511fbb8cf64529e5c9d2fc983ebd`
+Windows local **296 tests, zero skips, exit 0**.
+Subsequent Billing Draft receipt preview and sandbox
+code are NOT covered by that historical local run.
+The Windows GitHub Actions workflow was committed
+earlier but its actual hosted run remains UNVERIFIED
+through available connector status endpoints.
+
+**Release position and next priority:** Still ~35%
+unmeasured rough estimate (NOT measured completion),
+Phase 1 in progress with a partial Phase 2 sandbox
+vertical slice; **0/5 commercial gates accepted**.
+Gate A/B financial service authorization, real tender,
+stock/COGS/tax, returns, refund and ledger reconciliation
+remain blockers. No production sale, payment, return,
+GRN or receipt-print capability enabled, and no V7
+customer data, private signing keys or stable `main`
+were touched. Next priority: get evidence from hosted
+Windows Actions (and fix failing jobs), then extend the
+single service-owned sandbox lifecycle to validated
+tender declarations, invoice settlement and
+reconciliation, while refusing real commercial posting
+until Gates A/B are accepted. Avoid asking the owner
+to manually run routine tests.

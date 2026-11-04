@@ -141,6 +141,23 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_replay_rejects_tampered_line_number_even_when_totals_match(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_no=99 WHERE reference=? AND line_no=1",
+                    (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "invoice lines" in str(exc), exc
+            else:
+                raise AssertionError("Reordered invoice line accepted on replay")
+        """)
+
     def test_replay_rejects_tampered_stock_movements(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

@@ -1004,3 +1004,24 @@ Read master roadmap, release gates, progress history and exact develop-v8 head. 
 **Commercial scope:** only a preview journal fingerprint primitive changed. No real service transaction path is authorized, no financial writes enabled, and Gate A/B/C/D/E remain blocked. V7, production data, signing keys and `main` were not modified.
 
 **Next highest priority:** inspect exact-head Windows push Actions run (the available workflow lookup only sees PR events), repair any regression, then implement durable transaction idempotency and crash recovery in a separately reviewed, service-owned isolated SQLite contract with verified session, branch, shift and license checks. Do not connect it to production V7 services or checkout until Gate A/B evidence is complete.
+
+
+## Idempotency hostile-container hardening — 2026-11-04
+
+Read roadmap, release gates, prior checkpoint and isolated idempotency source.
+Code commit `669c2ee48471dff4077dffe28fb2ab6d98da4d48` rejects cyclic
+list/dict/tuple request payloads and container nesting deeper than 64 before
+canonical JSON serialization, instead of allowing uncontrolled recursion.
+Shared but acyclic nested objects remain valid. Regression commit
+`a7b239a57be441fc684a31cfb484daf949f043a6` adds three tests for
+cycles, excessive nesting, and shared acyclic references.
+
+**Verification:** No local test runner executed in this connector session;
+the PR-filtered workflow lookup cannot prove push-triggered Windows CI.
+Exact-head Windows compileall and no-skip combined suite are still pending.
+No new verified test count is claimed. No live transaction/stock/financial
+posting is enabled. Gate A/B/C/D/E remain blocked.
+
+**Next priority:** verify exact-head push Windows CI, then implement and test
+service-owned persistent transaction journal recovery and branch/session/shift
+authorization on disposable V8 storage, preserving V7 production isolation.

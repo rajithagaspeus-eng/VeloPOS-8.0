@@ -980,3 +980,14 @@ Disposable Windows regressions cover partial returns, duplicate return quantitie
 Exact PR head `efe4b3f511f9cb42e8cbd95c5d20928202b72afc`: Windows CI run [41844487031](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41844487031) **SUCCESS**, **242 tests PASS**, compileall PASS. Merged as `6ff51bf74c39b76386f89a0cae07c61732561b56`; post-merge Windows push CI run [41845037558](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41845037558) also **SUCCESS**, **242 tests PASS**, compileall PASS.
 
 No financial return or checkout was enabled. Commercial Gates A/B/C/D/E remain unapproved; the diagnostic is not a production service. Stable `main`, V7 data, and signing keys remain untouched. Next substantive priority: service-bound authorization/idempotency architecture for a separately reviewed commercial engine; keep legacy direct services unchanged until compatibility and transaction ownership can be safely refactored.
+
+
+## V8 preview transaction coverage and legacy-service isolation — November 4, 2026
+
+Merged PR #19 as `e19232a5098fdf5fc19b236f2d29dfc8746f59e1`. The preview deny gate and persisted-session policy now include 17 actions: sale, return, purchase, sale/purchase void, supplier/credit payment, points redemption, shift open/close, receipt print, cash movement, expense add/delete, stock adjustment, stock-take finalization, and batch receipt. Every gateway method routes through the mandatory deny gate.
+
+Added `tests/test_v8_legacy_service_boundary.py`, which checks policy/gateway action parity and scans V8 Qt modules for imports/calls to legacy financial mutation methods. The current source scan found no direct V8 Qt call to those legacy transaction methods. This is an architecture regression guard; it does not secure the legacy V7 service functions themselves.
+
+Exact PR head `236d312c8671df5d768805b0a3a7125bf0cc6b59`: Windows Actions [41847315485](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41847315485) **SUCCESS**, **245 tests PASS**, compileall PASS. Post-merge head `e19232a5098fdf5fc19b236f2d29dfc8746f59e1`: Windows push Actions [41847710848](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41847710848) **SUCCESS**, **245 tests PASS**, compileall PASS.
+
+All transaction writes remain hard-denied in the V8 preview. Gate A remains blocked until a reviewed commercial service owns and revalidates the same database transaction, and committed idempotency is integrated with that path. V7 behavior and customer data were not changed.

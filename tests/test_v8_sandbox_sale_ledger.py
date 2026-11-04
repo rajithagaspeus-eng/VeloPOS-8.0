@@ -427,6 +427,50 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 raise AssertionError("Tampered allocation passed replay")
         """)
 
+    def test_tender_failpoint_rolls_back_settlement_and_stock_together(self):
+        self.isolated("""
+            try:
+                sandbox.simulate_commit(**dict(
+                    args,
+                    tenders=[{"method":"Cash","amount":"255"}],
+                    inject_failure_at="after_complete"
+                ))
+            except RuntimeError as exc:
+                assert "Injected sandbox failure" in str(exc)
+            else:
+                raise AssertionError("Tender completion failpoint did not abort")
+            with database.db() as c:
+                names = {
+                    row[0] for row in c.execute(
+                        "SELECT name FROM main.sqlite_master WHERE type='table'"
+                    )
+                }
+                assert "v8_preview_sandbox_tenders" not in names
+                assert "v8_preview_sandbox_settlements" not in names
+                assert "v8_preview_request_journal" not in names
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.sales"
+                ).fetchone()[0] == 0
+            assert sandbox.simulate_commit(**dict(
+                args,tenders=[{"method":"Cash","amount":"255"}]
+            )).change_cents == 500
+        """)
+
+    def test_old_sandbox_invoice_missing_tender_tables_requires_reconciliation(self):
+        self.isolated("""
+            saved = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute("DROP TABLE main.v8_preview_sandbox_settlements")
+                c.execute("DROP TABLE main.v8_preview_sandbox_tenders")
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "manual reconciliation" in str(exc), exc
+            else:
+                raise AssertionError("Old journal without settlement schema replayed")
+            assert not sandbox.reconcile_sandbox().balanced
+        """)
+
     def test_two_sequential_sandbox_sales_reconcile_invoice_and_remaining_stock(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

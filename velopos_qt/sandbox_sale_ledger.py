@@ -56,7 +56,7 @@ class PreviewSandboxSaleLedger:
 
     @staticmethod
     def _create_sandbox_tables(connection):
-        connection.executescript if False else None  # Never executescript: it commits!
+        # Never use executescript here: SQLite implicitly commits before it.
         connection.execute(
             "CREATE TABLE IF NOT EXISTS main.v8_preview_sandbox_stock ("
             "barcode TEXT PRIMARY KEY, opening_qty TEXT NOT NULL, "

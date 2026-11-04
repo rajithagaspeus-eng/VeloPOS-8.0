@@ -700,7 +700,11 @@ class PreviewSandboxSaleLedger:
                             raise ValueError("invalid stock balance encoding")
                         start, remaining = map(Decimal, raw_balances)
                         if (not start.is_finite() or not remaining.is_finite()
-                                or start < 0 or remaining < 0):
+                                or start < 0 or remaining < 0
+                                or any(
+                                    value != 0 and not -18 <= value.adjusted() <= 18
+                                    for value in (start, remaining)
+                                )):
                             raise ValueError("invalid stock balance")
                         current = start
                         for move in moves_by_barcode.get(barcode, ()):
@@ -714,7 +718,11 @@ class PreviewSandboxSaleLedger:
                             ):
                                 raise ValueError("invalid stock decimal encoding")
                             before, sold, after = map(Decimal, raw_values)
-                            if not all(v.is_finite() for v in (before, sold, after)):
+                            if (not all(v.is_finite() for v in (before, sold, after))
+                                    or any(
+                                        value != 0 and not -18 <= value.adjusted() <= 18
+                                        for value in (before, sold, after)
+                                    )):
                                 reasons.append("invalid_stock_decimal:" + barcode)
                                 continue
                             if (before != current or sold <= 0

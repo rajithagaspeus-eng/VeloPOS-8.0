@@ -133,7 +133,7 @@ class PreviewCanonicalBranchTests(unittest.TestCase):
             c = database.connect()
             try:
                 try:
-                    inspector.inspect(c, action="sale", actor="cashier",
+                    inspector.inspect(c, action="sale", identity=None,
                                       branch_id="BRANCH-A", shift_id=1)
                 except RuntimeError:
                     pass
@@ -141,13 +141,13 @@ class PreviewCanonicalBranchTests(unittest.TestCase):
                     raise AssertionError("Inspected without caller-owned TX")
                 c.execute("BEGIN IMMEDIATE")
                 decision = inspector.inspect(
-                    c, action="sale", actor="cashier",
+                    c, action="sale", identity=None,
                     branch_id="BRANCH-A", shift_id=1,
                 )
                 assert not decision.branch_verified and not decision.can_execute
                 assert "canonical_branch_registry_missing" in decision.reasons
                 bad_id = inspector.inspect(
-                    c, action="sale", actor="cashier", branch_id=True, shift_id=1
+                    c, action="sale", identity=None, branch_id=True, shift_id=1
                 )
                 assert "canonical_branch_id_required" in bad_id.reasons
                 c.rollback()

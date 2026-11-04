@@ -867,6 +867,37 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert "sandbox_credit_allocation_mismatch" in closeout.reasons
         """)
 
+    def test_closeout_mixed_mode_uses_repayment_owner_when_allocation_owner_forged(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-owner-forge-0001",**ctx()
+            )
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_allocations "
+                    "SET customer_id=?", (other_customer,)
+                )
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_credit_repayments "
+                    "(reference,request_id,customer_id,branch_id,amount_cents,method) "
+                    "VALUES('CRP-unallocated-forged',"
+                    "'forged-legacy-after-owner-change-0001',"
+                    "?,'BRANCH-001',100,'Cash')",
+                    (customer_id,)
+                )
+            audit = PreviewSandboxAccounting(database).closeout()
+            assert not audit.balanced
+            assert "sandbox_credit_allocation_mismatch" in audit.reasons
+            assert "sandbox_credit_mixed_repayment_modes" in audit.reasons
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

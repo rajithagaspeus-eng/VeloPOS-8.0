@@ -901,6 +901,24 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_corrupt_invoice_actor_branch_and_shift(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sales "
+                    "SET actor=' ',branch_id=' BAD ',shift_id='invalid' "
+                    "WHERE reference=?", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_sandbox_invoice_actor:" + first.reference in audited.reasons
+            assert "invalid_sandbox_invoice_branch:" + first.reference in audited.reasons
+            assert "invalid_sandbox_invoice_shift:" + first.reference in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_invalid_invoice_request_id(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

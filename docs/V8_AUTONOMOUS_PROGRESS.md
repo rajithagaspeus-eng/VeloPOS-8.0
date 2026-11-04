@@ -1607,3 +1607,51 @@ commercial transaction boundary with persistent server-authoritative
 licensing, complete accounting/stock invariants and recovery before
 EVER enabling real posting; the rollback probe is NOT a shortcut
 around Gates A/B.
+
+
+## Owner-confirmed exact-code Windows 293-test PASS — 2026-11-04
+
+**Owner-provided Windows local execution evidence:**
+From an activated Python virtual environment in the VeloPOS 8.0 repo,
+the owner ran `git fetch origin develop-v8`,
+`git merge --ff-only origin/develop-v8`,
+`git rev-parse --short HEAD`,
+`python -m compileall -q velopos_qt tests` and
+`python run_v8_checks.py`. Git fast-forwarded local develop-v8 from
+`dd7ae38` to `9753c47`, and `git rev-parse` printed
+`9753c47` (full code SHA
+`9753c4727cc36addbcff73ea458ce44c837897cb`).
+`compileall` returned without visible errors. The combined suite
+printed **Ran 293 tests in 139.399s — OK**; **0 failures and no
+skips reported** (the runner returns failure if any skipped test is
+recorded). PySide6 font directory and `propagateSizeHints` warnings
+did not fail these tests. This is the first owner-confirmed local
+Windows execution of the rollback-only signed sale probe and its
+accumulated prior security regressions. Previous 263-test local PASS
+on `dd7ae38` is now superseded as the **latest locally verified
+code commit**.
+
+**Verification limitation:** This is **Windows local**, not proof of
+the GitHub-hosted Windows Actions workflow. GitHub commit status
+lookups for `9753c47` returned no status entries and the available
+workflow lookup filters to PR-triggered runs, returning no results.
+The release gates evidence document was updated in
+`7828e10f9ecc6dc05fee9bccf92aa8a9ce011b30`.
+The documentation-only checkpoint(s) following `9753c47`
+were NOT individually tested on Windows; do not ascribe the 293
+PASS to a later code SHA.
+
+**Five-phase / commercial status:** Phase 1 IN PROGRESS;
+Phases 2–5 not accepted; **0/5 release gates passed**. Gates A/B
+remain hard BLOCKED while the app is isolated TEST DATA ONLY,
+nontransactional; C/D/E outstanding. No commercial service,
+checkout, stock postings, refund, GRN, payment or shift write
+enabled. Preserve stable `main`, real V7 data, paid customer
+entitlements and private signing keys.
+
+**Next priority:** Independently verify GitHub-hosted Windows
+push Actions on a future exact head and continue trusted
+service-owned transaction enforcement with persistent
+server-authoritative licensing, full stock/accounting invariants,
+concurrent retry/crash tests and no V7 bypass. No commerce enablement
+until Gate A and B evidence accepted.

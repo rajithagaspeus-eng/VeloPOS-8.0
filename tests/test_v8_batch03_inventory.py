@@ -22,6 +22,35 @@ class InventoryEditIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_exact_barcode_precedes_many_partial_matches_at_limit(self):
+        with tempfile.TemporaryDirectory(prefix="velopos8_scan_priority_") as folder:
+            home = Path(folder) / "VeloPOS8PreviewData"
+            self._child(
+                """
+                from velopos import database, services
+                from velopos_qt.preview_models import InventoryReader
+                database.init_db()
+                for i in range(60):
+                    services.save_product(
+                        "SCAN-MATCH-" + str(i).zfill(3),
+                        "A Matching Item " + str(i).zfill(3),
+                        "demo", sell=20, stock=2,
+                    )
+                services.save_product(
+                    "SCAN", "Z Exact Barcode Item", "demo", sell=30, stock=4,
+                )
+                reader = InventoryReader(database)
+                matches = reader.search("SCAN", limit=50)
+                assert len(matches) == 50
+                assert matches[0]["barcode"] == "SCAN", matches[0]
+                assert reader.search("SCAN", limit=1)[0]["barcode"] == "SCAN"
+                with database.db() as c:
+                    assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+                    assert c.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0] == 61
+                """,
+                home,
+            )
+
     def test_catalog_search_limits_reject_lossy_inputs_without_writes(self):
         with tempfile.TemporaryDirectory(prefix="velopos8_catalog_limits_") as folder:
             home = Path(folder) / "VeloPOS8PreviewData"

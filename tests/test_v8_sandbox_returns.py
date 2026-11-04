@@ -265,6 +265,72 @@ class SandboxReturnTests(unittest.TestCase):
                 ).fetchone()
         """)
 
+    def test_return_disposition_is_durable_nonrestocking_and_immutable(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            opts = new_return(sale.reference,disposition="DISCARDED")
+            first = return_service.simulate_return(**opts)
+            assert first.actual_refund_posted is False
+            assert first.stock_restocked is False
+            with database.db() as c:
+                row = c.execute(
+                    "SELECT disposition,restocked FROM "
+                    "main.v8_preview_sandbox_return_lines"
+                ).fetchone()
+                assert tuple(row) == ("DISCARDED",0)
+                assert c.execute(
+                    "SELECT remaining_qty FROM main.v8_preview_sandbox_stock "
+                    "WHERE barcode='RICE'"
+                ).fetchone()[0] == "5"
+            assert return_service.simulate_return(**opts).replayed
+            assert return_service.reconcile_returns().balanced
+            try:
+                return_service.simulate_return(**new_return(
+                    sale.reference,disposition="DAMAGED"
+                ))
+            except IdempotencyConflict:
+                pass
+            else:
+                raise AssertionError("Changed disposition reused request id")
+        """)
+
+    def test_restocks_or_unspecified_dispositions_are_never_authorized(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            for disposition in ("RESTOCK","",None,1):
+                try:
+                    return_service.simulate_return(**new_return(
+                        sale.reference,disposition=disposition
+                    ))
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError("Unsafe disposition: "+str(disposition))
+            with database.db() as c:
+                assert not c.execute(
+                    "SELECT name FROM main.sqlite_master WHERE "
+                    "name='v8_preview_sandbox_returns'"
+                ).fetchone()
+        """)
+
+    def test_return_audit_detects_corrupted_disposition(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            return_service.simulate_return(**new_return(sale.reference))
+            assert return_service.reconcile_returns().balanced
+            with database.db() as c:
+                # Must test a tampered legacy/schema-override scenario.
+                # The CHECK constraint normally prevents this change.
+                c.execute("PRAGMA ignore_check_constraints=ON")
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_return_lines "
+                    "SET restocked=1"
+                )
+            result = return_service.reconcile_returns()
+            assert not result.balanced
+            assert "invalid_nonrestock_disposition" in result.reasons
+        """)
+
     def test_commercial_refunds_remain_hard_disabled(self):
         self.isolated("""
             try:

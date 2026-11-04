@@ -2476,3 +2476,13 @@ and then implement formally invoice-allocated repayments and
 credit-note/fiscal refund workflows in isolated V8 environments,
 followed by cloud sync, licensing, mobile dashboard and AI
 milestones as commercial security gates permit.
+
+
+## Invoice-specific sandbox credit repayment allocations — 2026-11-04
+
+- Branch `develop-v8` ONLY. The credit repayment declaration API now accepts an optional canonical `charge_ref` for a single original customer invoice, while retaining the legacy customer-level repayment declaration for existing callers. An invoice allocation row is created **atomically** with the repayment and its completed idempotency journal in the same `BEGIN IMMEDIATE` transaction. Replay verifies both the repayment and the allocation, and changed invoice references cannot reuse the same request key.
+- The new `main.v8_preview_sandbox_credit_allocations` table records repayment reference, invoice charge reference, customer/branch and exact cents. Per-invoice outstanding is bounded by original credit charge minus cumulative non-restocking credit notes minus previous invoice allocations. New allocated repayments are denied when the customer has prior legacy *unallocated* repayments, pending an explicit migration/allocation protocol. The credit-note service now permits a new note after fully allocated repayments only if the target invoice still has unallocated debt; it continues to refuse new notes after legacy unallocated repayments.
+- Independent credit `reconcile()` and accounting `closeout()` cross-check allocation-to-repayment and allocation-to-charge links, customer, branch, amount and combined note+allocation invoice caps. No actual payments, cash refunds, restocking or legacy customer credit balance writes.
+- Commits: `656218a0f541a2b9d75aedacf5fdec20f1a243e1`, `f6b18ecd0dc1ddc86c05a17c2ea7ceb744588777`, `200cbc06c107edf6a5311b7a19910c152aba20eb`, `c395aaa094f760a4e7c1afc684e19e6bd70e0a2d`, `af1cf73a4f15e9c4bd8984b928d04c82575fbd31`. Three additional disposable integration tests were written (21 sandbox credit test methods total).
+- **CI status is unverified**: GitHub connector combined-status returns no check entries and its workflow-run endpoint only reports PR-triggered runs. An empty result is not a green Actions pass. No exact-head hosted Windows or local Python suite result is claimed. This is code-committed but not release-validated.
+- Overall legacy ~35% is a rough planning estimate, not measured delivery; **0/5 commercial gates accepted**. Next: obtain exact-head Windows Actions logs, fix any failures, test mixed legacy/allocated repayments and recovery, and continue commercial gating before any real payment authority.

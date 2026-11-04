@@ -81,6 +81,26 @@ class Cart:
             "price": old["price"] if old else price,
         }
 
+    def sandbox_sale_lines(self):
+        """Immutable validated input for sandbox rehearsal, never a sale."""
+        if not self.lines:
+            raise ValueError("A sandbox rehearsal needs at least one draft line")
+        result = []
+        for barcode, line in self.lines.items():
+            if not barcode or line["barcode"] != barcode:
+                raise ValueError("Invalid draft barcode")
+            try:
+                qty = Decimal(str(line["qty"]))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError("Invalid draft quantity") from exc
+            if not qty.is_finite() or qty <= 0 or qty > Decimal("1000000"):
+                raise ValueError("Invalid draft quantity")
+            price = money(line["price"])
+            result.append({
+                "barcode": barcode, "qty": str(qty), "price": str(price),
+            })
+        return tuple(result)
+
     def set_quantity(self, barcode, quantity):
         """Change a draft line without writing stock or creating an invoice."""
         barcode = str(barcode)

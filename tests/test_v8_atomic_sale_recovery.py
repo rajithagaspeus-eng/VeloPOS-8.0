@@ -277,6 +277,113 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                 assert snapshot(c) == before
         """)
 
+    def test_mutable_identity_cannot_split_policy_actor_and_journal(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-IDENTITY")
+                c.commit()
+            finally:
+                c.close()
+
+            class MutableIdentity:
+                def __init__(self, source):
+                    self.username = source.username
+                    self.role = source.role
+                    self.credential_tag = source.credential_tag
+
+            proxy = MutableIdentity(user)
+            original = recovery.boundary.inspect_in_transaction
+
+            def mutate_original_during_policy(connection, **kwargs):
+                proxy.username = "impostor"
+                proxy.role = "Admin"
+                proxy.credential_tag = "forged"
+                return original(connection, **kwargs)
+
+            recovery.boundary.inspect_in_transaction = mutate_original_during_policy
+            result = recovery.inspect(**dict(args, identity=proxy))
+            assert proxy.username == "impostor"
+            assert result.readiness.session_bound, result
+            assert result.readiness.policy_consistent, result
+            assert result.journal.state == "journal_completed_unverified"
+            assert result.journal.result_ref == "SIM-IDENTITY"
+            assert result.can_execute is False and result.can_checkout is False
+        """)
+
+    def test_account_role_change_revokes_even_completed_journal_request(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-ROLE")
+                c.commit()
+            finally:
+                c.close()
+            with database.db() as c:
+                c.execute("UPDATE users SET role='Admin' WHERE username='cashier'")
+            result = recovery.inspect(**args)
+            assert result.journal.state == "journal_completed_unverified"
+            assert not result.readiness.session_bound, result
+            assert not result.readiness.policy_consistent, result
+            assert "verified_session_required" in result.reasons
+            assert result.can_checkout is False
+        """)
+
+    def test_password_hash_rotation_permanently_revokes_cached_session(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-ROTATION")
+                c.commit()
+            finally:
+                c.close()
+            with database.db() as c:
+                old_hash = c.execute(
+                    "SELECT pw_hash FROM users WHERE username='cashier'"
+                ).fetchone()[0]
+                c.execute(
+                    "UPDATE users SET pw_hash=? WHERE username='cashier'",
+                    ("different-credential-hash",),
+                )
+            blocked = recovery.inspect(**args)
+            assert not blocked.readiness.session_bound
+            assert blocked.journal.state == "journal_completed_unverified"
+            with database.db() as c:
+                c.execute(
+                    "UPDATE users SET pw_hash=? WHERE username='cashier'",
+                    (old_hash,),
+                )
+            still_blocked = recovery.inspect(**args)
+            assert not still_blocked.readiness.session_bound, still_blocked
+            assert not still_blocked.readiness.policy_consistent
+            assert still_blocked.can_checkout is False
+        """)
+
+    def test_shift_branch_rebinding_after_completion_never_authorizes(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-BRANCH")
+                c.commit()
+            finally:
+                c.close()
+            with database.db() as c:
+                c.execute(
+                    "UPDATE v8_preview_branch_shifts SET branch_id='BRANCH-OTHER' "
+                    "WHERE shift_id=?", (shift,),
+                )
+            result = recovery.inspect(**args)
+            assert result.journal.state == "journal_completed_unverified"
+            assert not result.readiness.branch_verified, result
+            assert not result.readiness.policy_consistent, result
+            assert "shift_branch_mismatch" in result.reasons
+            assert result.can_checkout is False
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

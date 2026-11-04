@@ -17,6 +17,29 @@ _REQUIRED = {
         "open_shift", "branch_scope", "original_invoice", "refund_reconciliation",
         "atomic_commit", "idempotent_recovery",
     ),
+    "credit_payment": (
+        "authenticated_session", "action_permission", "signed_entitlement",
+        "open_shift", "branch_scope", "customer_revalidation",
+        "receivable_reconciliation", "tender_reconciliation",
+        "atomic_commit", "idempotent_recovery",
+    ),
+    "supplier_payment": (
+        "authenticated_session", "action_permission", "signed_entitlement",
+        "open_shift", "branch_scope", "supplier_revalidation",
+        "payable_reconciliation", "tender_reconciliation",
+        "atomic_commit", "idempotent_recovery",
+    ),
+    "sale_void": (
+        "authenticated_session", "action_permission", "signed_entitlement",
+        "open_shift", "branch_scope", "original_invoice",
+        "reversal_reconciliation", "stock_revalidation",
+        "atomic_commit", "idempotent_recovery",
+    ),
+    "stock_adjustment": (
+        "authenticated_session", "action_permission", "signed_entitlement",
+        "branch_scope", "stock_revalidation", "batch_reconciliation",
+        "audit_reason", "atomic_commit", "idempotent_recovery",
+    ),
     "purchase": (
         "authenticated_session", "action_permission", "signed_entitlement",
         "branch_scope", "supplier_revalidation", "stock_revalidation",

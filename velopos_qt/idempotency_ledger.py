@@ -67,6 +67,20 @@ def request_fingerprint(payload):
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+@dataclass(frozen=True)
+class RecoveryInspection:
+    """Journal evidence only; never authorization or proof of business posting."""
+    state: str
+    result_ref: str | None = None
+
+
+def _valid_result_ref(value):
+    return (
+        type(value) is str and 1 <= len(value) <= 128
+        and value == value.strip() and value.isprintable()
+    )
+
+
 class PreviewIdempotencyLedger:
     """Transactional storage primitive, never a business-action authorization."""
 
@@ -85,6 +99,44 @@ class PreviewIdempotencyLedger:
         if not actual or Path(actual).resolve() != Path(self.database.DB_PATH).resolve():
             raise RuntimeError("Idempotency connection must use isolated preview DB")
 
+    @staticmethod
+    def _validate_identity(scope, request_id):
+        if scope not in _SCOPES:
+            raise ValueError("Unknown idempotency scope")
+        if not isinstance(request_id, str) or not _REQUEST_ID.fullmatch(request_id):
+            raise ValueError("Invalid idempotency request id")
+
+    def inspect_request(self, connection, scope, request_id, payload):
+        """Read-only crash/replay triage in a caller-owned preview transaction.
+
+        PENDING and corrupt rows require human reconciliation against the
+        business records; this never deletes/retries them or authorizes commerce.
+        A COMPLETED journal row alone is NOT proof that an invoice exists.
+        """
+        self._check_connection(connection)
+        self._validate_identity(scope, request_id)
+        fingerprint = request_fingerprint(payload)
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "AND name='v8_preview_request_journal'"
+        ).fetchone()
+        if not exists:
+            return RecoveryInspection("not_recorded")
+        row = connection.execute(
+            "SELECT payload_sha256,status,result_ref "
+            "FROM v8_preview_request_journal WHERE scope=? AND request_id=?",
+            (scope, request_id),
+        ).fetchone()
+        if row is None:
+            return RecoveryInspection("not_recorded")
+        if row["payload_sha256"] != fingerprint:
+            raise IdempotencyConflict("Request identifier used with different payload")
+        if row["status"] == "PENDING" and row["result_ref"] is None:
+            return RecoveryInspection("pending_manual_reconciliation")
+        if row["status"] == "COMPLETED" and _valid_result_ref(row["result_ref"]):
+            return RecoveryInspection("journal_completed_unverified", row["result_ref"])
+        return RecoveryInspection("corrupt_manual_reconciliation")
+
     def claim(self, connection, scope, request_id, payload):
         """Insert pending claim or return completed ref; caller commits/rolls back.
 
@@ -92,17 +144,18 @@ class PreviewIdempotencyLedger:
         means incomplete work and is rejected, not silently retried.
         """
         self._check_connection(connection)
-        if scope not in _SCOPES:
-            raise ValueError("Unknown idempotency scope")
-        if not isinstance(request_id, str) or not _REQUEST_ID.fullmatch(request_id):
-            raise ValueError("Invalid idempotency request id")
+        self._validate_identity(scope, request_id)
         fingerprint = request_fingerprint(payload)
         connection.execute(
             "CREATE TABLE IF NOT EXISTS v8_preview_request_journal ("
             "scope TEXT NOT NULL, request_id TEXT NOT NULL, "
             "payload_sha256 TEXT NOT NULL, status TEXT NOT NULL "
             "CHECK(status IN ('PENDING','COMPLETED')), "
-            "result_ref TEXT, PRIMARY KEY(scope,request_id))"
+            "result_ref TEXT, "
+            "CHECK((status='PENDING' AND result_ref IS NULL) OR "
+            "(status='COMPLETED' AND result_ref IS NOT NULL "
+            "AND length(result_ref)>0)), "
+            "PRIMARY KEY(scope,request_id))"
         )
         row = connection.execute(
             "SELECT payload_sha256,status,result_ref "
@@ -112,8 +165,8 @@ class PreviewIdempotencyLedger:
         if row:
             if row["payload_sha256"] != fingerprint:
                 raise IdempotencyConflict("Request identifier used with different payload")
-            if row["status"] != "COMPLETED":
-                raise RuntimeError("Previous request has no committed result")
+            if row["status"] != "COMPLETED" or not _valid_result_ref(row["result_ref"]):
+                raise RuntimeError("Previous request has no trustworthy committed result")
             return ClaimResult(False, row["result_ref"])
         connection.execute(
             "INSERT INTO v8_preview_request_journal "
@@ -127,7 +180,7 @@ class PreviewIdempotencyLedger:
         self._check_connection(connection)
         if scope not in _SCOPES:
             raise ValueError("Unknown idempotency scope")
-        if not isinstance(result_ref, str) or not 1 <= len(result_ref) <= 128:
+        if not _valid_result_ref(result_ref):
             raise ValueError("Invalid result reference")
         updated = connection.execute(
             "UPDATE v8_preview_request_journal SET status='COMPLETED', "

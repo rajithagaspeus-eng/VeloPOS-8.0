@@ -469,6 +469,15 @@ class PreviewSandboxSaleLedger:
                         line_quantities.get(key, Decimal("0")) + qty
                     )
             invoice_refs = {sale["reference"] for sale in invoices}
+            # A completed sale journal without its durable sandbox invoice is
+            # a broken exactly-once record, even if no invoice row remains.
+            completed_journals = connection.execute(
+                "SELECT result_ref FROM main.v8_preview_request_journal "
+                "WHERE scope='sale' AND status='COMPLETED'"
+            ).fetchall()
+            if any(row["result_ref"] not in invoice_refs
+                   for row in completed_journals):
+                reasons.append("orphan_completed_sale_journal")
             if set(expected_lines) - invoice_refs:
                 reasons.append("orphan_invoice_line")
             for sale in invoices:

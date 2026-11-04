@@ -15,6 +15,29 @@ class DraftQuantityTests(unittest.TestCase):
         }
         self.cart.add(self.product)
 
+    def test_sandbox_input_matches_draft_without_mutation(self):
+        self.cart.set_quantity("0001234567890", "2.5")
+        self.cart.add({
+            "barcode": "SOAP", "name_en": "Soap",
+            "selling_price": "10.00",
+        })
+        before = {k: dict(v) for k, v in self.cart.lines.items()}
+        lines = self.cart.sandbox_sale_lines()
+        self.assertEqual(lines, (
+            {"barcode": "0001234567890", "qty": "2.5", "price": "19.95"},
+            {"barcode": "SOAP", "qty": "1", "price": "10.00"},
+        ))
+        self.assertEqual(self.cart.lines, before)
+        self.assertEqual(self.cart.subtotal(), Decimal("59.88"))
+
+    def test_sandbox_input_rejects_corrupt_draft_and_empty_cart(self):
+        self.cart.lines["0001234567890"]["qty"] = Decimal("NaN")
+        with self.assertRaises(ValueError):
+            self.cart.sandbox_sale_lines()
+        self.cart.clear()
+        with self.assertRaises(ValueError):
+            self.cart.sandbox_sale_lines()
+
     def test_blank_and_null_barcodes_cannot_enter_draft(self):
         original = dict(self.cart.lines["0001234567890"])
         for barcode in ("", "  ", None):

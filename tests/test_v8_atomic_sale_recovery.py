@@ -448,6 +448,29 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                 assert result.can_checkout is False
         """)
 
+    def test_checkout_preflight_matches_journal_request_id_format(self):
+        self.isolated("""
+            from velopos_qt.checkout_preflight import PreviewCheckoutPreflight
+            preflight = PreviewCheckoutPreflight(database)
+            for invalid in ("bad id!001", " leading-id", "-bad-start-0001",
+                            "request/other-0001", "x" * 129):
+                checked = preflight.inspect(
+                    identity=user, shift_id=shift, lines=lines,
+                    request_id=invalid, today="2026-11-04",
+                )
+                assert "invalid_request_id" in checked.reasons, invalid
+                assert checked.can_checkout is False
+                masked = recovery.inspect(**dict(args, request_id=invalid))
+                assert masked.journal.state == "withheld_authorization_required"
+                assert masked.journal.result_ref is None
+            accepted = preflight.inspect(
+                identity=user, shift_id=shift, lines=lines,
+                request_id=args["request_id"], today="2026-11-04",
+            )
+            assert "invalid_request_id" not in accepted.reasons
+            assert accepted.can_checkout is False
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

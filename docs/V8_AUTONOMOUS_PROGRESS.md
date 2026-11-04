@@ -1352,3 +1352,56 @@ that owns the SAME isolated SQLite transaction and idempotent ledger;
 prove revoked sessions, concurrency, crash and cross-branch refusal
 on disposable data. Real financial writes remain disabled until Gate A/B
 are independently accepted.
+
+
+## Phase 1 bounded sale-stream and Decimal exponent safety — 2026-11-04
+
+**Branch and plan:** develop-v8 ONLY; five-phase execution contract is
+`docs/V8_FIVE_PHASE_EXECUTION_PLAN.md`. Read master roadmap, commercial
+gates, five-phase plan, earlier progress, sale plan, recovery boundary,
+idempotency ledger and relevant regressions. Earlier user-verified
+**Windows local** result remains `dd7ae38`: 263 tests / OK /
+88.806 seconds, compileall with no visible errors; this DOES NOT
+cover the later Phase 1 code commits.
+
+**Source hardening:** `6e9d8907a6f456a0fc1cb9f96d78019aed133c13`
+replaces unlimited `tuple(lines)` materialization in
+`velopos_qt/sale_plan.py` with bounded `islice(iter(lines), 101)`;
+invalid streams fail after at most 101 produced entries, respecting the
+existing 100-line cap. This protects against unbounded/infinite generators
+without altering normal 1–100-line arithmetic.
+`1d9acad80bcaae493c0ce01779c17a985914d3a9` caps the raw numeric
+string at 128 chars and rejects nonzero Decimal magnitude exponents outside
+[-18,18] before canonical fixed-point expansion. This rejects hostile
+input like 1E-999999999 which previously could cause huge allocation
+in `canonical_decimal`, while retaining ordinary retail quantities,
+prices and 1e-18 as a bounded precision lower limit.
+
+**Regressions:** `11d2d6482b4fa3aa5594d6553a5db4467900871f`
+adds guarded generator (101-entry cap) and exact 100-line arithmetic
+tests; `13a5641fd86d3b782bc214bb887608858be0a76d` adds disposable
+rollback-only atomic sale recovery rejection with unchanged finance
+and journal snapshot. `bbe0ffe1cf1132643968635487a286284a4a6c5a`
+adds extreme-exponent and overlength numeric representation rejection
+tests. **Four** new test methods total in this batch. The tests were
+committed but NOT executed in this tool session. New-head Windows
+CI and combined no-skip regression count remain unverified.
+
+**Gate evidence metadata:** `e603be8d7f3a093c604ffe8bd9ee17f22f963d42`
+corrects `docs/V8_COMMERCIAL_RELEASE_GATES.md` from stale 121-test
+historical wording to the exact earlier 263-test local Windows result,
+while explicitly distinguishing it from a hosted CI result or current
+head success. This is a documentation update, not a release approval.
+
+**Remaining hard blocks:** Phase 1 IN PROGRESS; Phase 2–5 NOT ACCEPTED,
+**0/5 commercial gates accepted**. Gate A/B block all actual checkout,
+refunds, GRNs, supplier/customer payments, stock changes and shift
+posting. V8 remains TEST-DATA ONLY. No stable main, V7 production data,
+private keys or paid customer licenses touched.
+
+**Next priority:** Get exact-head Windows-hosted push Actions evidence
+and run `python run_v8_checks.py` with no skips on latest
+`develop-v8`; fix any regression. Then implement reviewed,
+service-owned identity/role/branch/shift/licensing authorization
+and committed idempotency under a single canonical disposable SQLite
+business transaction, preserving production and V7 isolation.

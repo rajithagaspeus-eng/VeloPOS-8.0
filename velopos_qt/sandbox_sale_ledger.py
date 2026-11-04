@@ -554,6 +554,20 @@ class PreviewSandboxSaleLedger:
             # The journal must be a one-to-one mapping to committed invoices.
             # A forged second completed request pointing to an existing
             # invoice must not pass merely because its result_ref exists.
+            for row in completed_journals:
+                journal_ref = row["result_ref"]
+                if (type(journal_ref) is not str
+                        or not journal_ref.startswith("SBX-")
+                        or len(journal_ref) != 28
+                        or any(char not in "0123456789abcdef"
+                               for char in journal_ref[4:])):
+                    reasons.append("invalid_completed_sale_journal_reference")
+                if (type(row["request_id"]) is not str
+                        or re.fullmatch(
+                            r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}",
+                            row["request_id"],
+                        ) is None):
+                    reasons.append("invalid_completed_sale_journal_request_id")
             completed_pairs = {
                 (row["request_id"], row["result_ref"])
                 for row in completed_journals

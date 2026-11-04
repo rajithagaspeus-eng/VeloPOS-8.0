@@ -416,6 +416,13 @@ class PreviewSandboxSaleLedger:
                         raise PermissionError(
                             "Orphan sandbox stock movements require reconciliation"
                         )
+                    if row is None and connection.execute(
+                        "SELECT 1 FROM main.v8_preview_sandbox_sale_lines "
+                        "WHERE barcode=? LIMIT 1", (barcode,)
+                    ).fetchone() is not None:
+                        raise PermissionError(
+                            "Orphan sandbox invoice lines require reconciliation"
+                        )
                     if row is not None:
                         current = opening
                         if not existing_moves:

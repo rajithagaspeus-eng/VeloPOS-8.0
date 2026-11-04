@@ -10,7 +10,7 @@ server-authoritative commercial licensing. This simulation is NOT a sale,
 payment, fiscal receipt, or permission to transact; Gate A/B remain BLOCKED.
 """
 from dataclasses import dataclass
-from decimal import Context, Decimal, InvalidOperation, localcontext
+from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from hashlib import sha256
 
 from .auth_model import PreviewIdentity
@@ -447,7 +447,7 @@ class PreviewSandboxSaleLedger:
                 "FROM main.v8_preview_sandbox_sales ORDER BY reference"
             ).fetchall()
             all_lines = connection.execute(
-                "SELECT reference,line_no,barcode,quantity,line_cents "
+                "SELECT reference,line_no,barcode,quantity,price,line_cents "
                 "FROM main.v8_preview_sandbox_sale_lines "
                 "ORDER BY reference,line_no"
             ).fetchall()
@@ -473,6 +473,25 @@ class PreviewSandboxSaleLedger:
                     line_quantities[key] = (
                         line_quantities.get(key, Decimal("0")) + qty
                     )
+                    # Recompute each persisted line from its immutable draft
+                    # price. Equal-total price/amount substitutions must not
+                    # pass an independent invoice subtotal audit.
+                    try:
+                        price = Decimal(line["price"])
+                        if (not price.is_finite() or price < 0
+                                or price > Decimal("100000000")
+                                or qty > Decimal("1000000")
+                                or len(line["price"]) > 128
+                                or len(line["quantity"]) > 128):
+                            raise ValueError("Invalid sandbox line price/quantity")
+                        with localcontext(Context(prec=512, rounding=ROUND_HALF_UP)):
+                            expected_cents = int(
+                                (qty * price).quantize(Decimal("0.01")) * 100
+                            )
+                        if expected_cents != line["line_cents"]:
+                            reasons.append("invoice_line_arithmetic_mismatch")
+                    except (InvalidOperation, TypeError, ValueError, OverflowError):
+                        reasons.append("invalid_invoice_line_price")
             invoice_refs = {sale["reference"] for sale in invoices}
             # A completed sale journal without its durable sandbox invoice is
             # a broken exactly-once record, even if no invoice row remains.

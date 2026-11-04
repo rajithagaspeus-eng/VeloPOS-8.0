@@ -1348,7 +1348,7 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             with database.db() as c:
                 c.execute(
                     "DELETE FROM main.v8_preview_sandbox_stock_moves "
-                    "WHERE reference=? AND barcode='SOAP'", (first.reference,)
+                    "WHERE reference=? AND barcode='RICE'", (first.reference,)
                 )
             try:
                 sandbox.simulate_commit(**dict(

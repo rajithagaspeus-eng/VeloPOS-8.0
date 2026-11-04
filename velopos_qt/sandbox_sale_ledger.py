@@ -347,7 +347,8 @@ class PreviewSandboxSaleLedger:
             with localcontext(_CONTEXT):
                 for barcode, sold in plan.quantities:
                     row = connection.execute(
-                        "SELECT remaining_qty FROM main.v8_preview_sandbox_stock "
+                        "SELECT opening_qty,remaining_qty "
+                        "FROM main.v8_preview_sandbox_stock "
                         "WHERE barcode=?", (barcode,)
                     ).fetchone()
                     if row is None:
@@ -378,19 +379,30 @@ class PreviewSandboxSaleLedger:
                         )
                         remaining = opening
                     else:
+                        raw_opening = row["opening_qty"]
                         raw_remaining = row["remaining_qty"]
-                        if type(raw_remaining) is not str or len(raw_remaining) > 128:
-                            raise PermissionError("Invalid sandbox remaining quantity")
+                        if any(
+                            type(raw) is not str or len(raw) > 128
+                            for raw in (raw_opening, raw_remaining)
+                        ):
+                            raise PermissionError("Invalid sandbox stock balance")
                         try:
+                            opening = Decimal(raw_opening)
                             remaining = Decimal(raw_remaining)
-                            if (not remaining.is_finite() or remaining < 0
-                                    or (remaining != 0
-                                        and not -18 <= remaining.adjusted() <= 18)
-                                    or raw_remaining != canonical_decimal(remaining)):
-                                raise ValueError("invalid remaining stock")
+                            if any(
+                                not value.is_finite() or value < 0
+                                or (value != 0
+                                    and not -18 <= value.adjusted() <= 18)
+                                or raw != canonical_decimal(value)
+                                for raw, value in (
+                                    (raw_opening, opening),
+                                    (raw_remaining, remaining),
+                                )
+                            ) or remaining > opening:
+                                raise ValueError("invalid persisted stock balance")
                         except (InvalidOperation, ValueError, TypeError) as exc:
                             raise PermissionError(
-                                "Invalid sandbox remaining quantity"
+                                "Invalid sandbox stock balance"
                             ) from exc
                     if sold > remaining:
                         raise PermissionError("Sandbox available stock insufficient")

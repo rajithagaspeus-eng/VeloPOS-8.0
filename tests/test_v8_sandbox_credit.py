@@ -566,6 +566,87 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert credit_service.reconcile().balanced
         """)
 
+    def test_invoice_allocated_repayment_allows_later_note_on_unpaid_part(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            payment = credit_service.declare_repayment(
+                customer_id=customer_id,amount="50",
+                charge_ref=issued.reference,request_id="allocated-payment-0001",
+                **ctx()
+            )
+            assert payment.outstanding_cents == 20000
+            repeated = credit_service.declare_repayment(
+                customer_id=customer_id,amount="50",
+                charge_ref=issued.reference,request_id="allocated-payment-0001",
+                **ctx()
+            )
+            assert repeated.replayed
+            note = credit_service.declare_credit_note(
+                customer_id=customer_id,charge_ref=issued.reference,
+                sale_line_no=1,quantity="1",request_id="note-after-allocated-0001",
+                **ctx()
+            )
+            assert note.outstanding_cents == 15500
+            assert credit_service.reconcile().balanced
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.credit_logs"
+                ).fetchone()[0] == 0
+        """)
+
+    def test_invoice_repayment_cannot_overallocate_other_invoice(self):
+        self.isolated("""
+            first = sale_service.simulate_commit(**args)
+            second = sale_service.simulate_commit(**dict(
+                args,request_id="allocated-second-sale-0002",
+                lines=[{"barcode":"SOAP","qty":1,"price":25}]
+            ))
+            open_account()
+            first_charge = charge(first.reference)
+            second_charge = charge(
+                second.reference,request_id="allocated-second-charge-0002"
+            )
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="25",
+                charge_ref=second_charge.reference,
+                request_id="allocated-second-pay-0002",**ctx()
+            )
+            try:
+                credit_service.declare_repayment(
+                    customer_id=customer_id,amount="1",
+                    charge_ref=second_charge.reference,
+                    request_id="allocated-overpay-0002",**ctx()
+                )
+            except PermissionError as exc:
+                assert "target invoice" in str(exc)
+            else:
+                raise AssertionError("Invoice repayment exceeded target")
+            assert credit_service.reconcile().balanced
+        """)
+
+    def test_allocation_tamper_is_detected_without_actual_payment(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,request_id="allocated-payment-0001",
+                **ctx()
+            )
+            assert credit_service.reconcile().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_allocations "
+                    "SET amount_cents=999999"
+                )
+            audit = credit_service.reconcile()
+            assert not audit.balanced
+            assert "credit_repayment_allocation_mismatch" in audit.reasons
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

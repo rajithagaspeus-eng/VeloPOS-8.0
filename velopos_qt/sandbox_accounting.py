@@ -263,6 +263,9 @@ class PreviewSandboxAccounting:
                     except Exception:
                         reasons.append("invalid_return_quantity")
                         continue
+                    if not qty.is_finite() or qty <= 0:
+                        reasons.append("invalid_return_quantity")
+                        continue
                     if (row["disposition"] not in ("DAMAGED","DISCARDED")
                             or row["restocked"] != 0):
                         reasons.append("return_disposition_not_nonrestocking")
@@ -271,7 +274,7 @@ class PreviewSandboxAccounting:
                         refunds_per_header.get(row["reference"], 0)
                         + row["refund_cents"]
                     )
-                    if qty <= 0 or not qty.is_finite() or row["refund_cents"] < 0:
+                    if row["refund_cents"] < 0:
                         reasons.append("invalid_return_line_amount")
                 for key, lines in refunded_per_sale_line.items():
                     sold_line = line_map[key]

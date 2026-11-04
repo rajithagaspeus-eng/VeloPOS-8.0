@@ -49,3 +49,27 @@ class PreviewTransactionGateway:
 
     def print_receipt(self, *, identity=None, **_payload):
         self._block("receipt_print", identity)
+
+    def void_sale(self, *, identity=None, **_payload):
+        self._block("sale_void", identity)
+
+    def void_purchase(self, *, identity=None, **_payload):
+        self._block("purchase_void", identity)
+
+    def cash_move(self, *, identity=None, **_payload):
+        self._block("cash_move", identity)
+
+    def add_expense(self, *, identity=None, **_payload):
+        self._block("expense_add", identity)
+
+    def delete_expense(self, *, identity=None, **_payload):
+        self._block("expense_delete", identity)
+
+    def adjust_stock(self, *, identity=None, **_payload):
+        self._block("stock_adjustment", identity)
+
+    def finalize_stock_take(self, *, identity=None, **_payload):
+        self._block("stock_take_finalize", identity)
+
+    def receive_batch(self, *, identity=None, **_payload):
+        self._block("batch_receive", identity)

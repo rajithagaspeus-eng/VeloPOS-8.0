@@ -283,3 +283,26 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   runner/permissions API endpoints. Root cause cannot be confirmed.
 - Repository regression suite has not executed; container GitHub checkout
   still fails DNS resolution. No production financial writes or V7/main edits.
+
+## Internal SQLite metadata and pre-commit inode guard (2026-11-05)
+
+- Added a fail-closed check for unexpected `sqlite_*` schema objects
+  while permitting SQLite's two legitimate autoindexes on the
+  `preview_rehearsals` table. This detects `sqlite_stat1` created by
+  `ANALYZE` and refuses untrusted internal metadata before journal writes.
+- Added an inode identity recheck immediately before `inspect` COMMIT.
+  A mismatch aborts the transaction, preserving the request/sequence pair.
+- Two new repository regression methods cover `sqlite_stat1` refusal
+  and simulated precommit identity failure with rollback and retry.
+- Executed three **standalone Python sqlite3 tests locally**, all PASS:
+  canonical autoindex recognition, `ANALYZE` metadata detection and
+  atomic rollback of request plus sequence. These are NOT VeloPOS
+  application tests and do not establish repository regression PASS.
+- Windows Actions run `41928421205` failed in two seconds (22:48:13
+  to 22:48:15 UTC) with empty runner name and zero steps. Linux
+  `41928419169` failed with zero jobs. This is consistent with a
+  pre-execution CI provisioning/configuration failure, but the actual
+  account/runner root cause is not accessible through the connector.
+  Full application regression execution remains blocked by GitHub
+  Actions and container github.com DNS failure.
+- Preview-only changes. Main/V7/production data/commercial posting untouched.

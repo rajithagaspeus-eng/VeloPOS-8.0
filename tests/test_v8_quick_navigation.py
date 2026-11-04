@@ -98,7 +98,13 @@ class PreviewQuickNavigationTests(unittest.TestCase):
         dialog = self.dialog()
         try:
             dialog.search.setText("Inventory")
-            self.assertEqual(dialog.results.count(), 1)
+            # Both "Inventory" and "Smart inventory" are genuine matches.
+            # The canonical Inventory page must stay first.
+            self.assertEqual(dialog.results.count(), 2)
+            self.assertEqual(
+                [dialog.results.item(i).data(Qt.ItemDataRole.UserRole)
+                 for i in range(dialog.results.count())], [1, 10]
+            )
             self.assertEqual(
                 dialog.results.currentItem().data(Qt.ItemDataRole.UserRole), 1
             )

@@ -196,6 +196,11 @@ class PreviewSandboxAccounting:
             with localcontext(_CONTEXT):
                 for move in moves:
                     key = (move["reference"], move["barcode"])
+                    # One sale/barcode must produce exactly one aggregated
+                    # stock movement. A set-based coverage check alone loses
+                    # duplicate rows and can hide a forged movement.
+                    if key in movement_keys:
+                        reasons.append("duplicate_sale_stock_movement")
                     movement_keys.add(key)
                     move_map.setdefault(move["barcode"], []).append(move)
                     try:

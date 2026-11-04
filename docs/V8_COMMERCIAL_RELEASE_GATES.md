@@ -311,3 +311,35 @@ return, over-return through repeated historical entries, wrong-invoice
 references, missing return items, subtotal drift, stock-ledger drift and
 revoked/no Admin access. Full financial reconciliation must eventually use
 authoritative posted transactions rather than fabricated rehearsal records.
+
+## Gate B — invoice totals, customer credit and supplier liabilities diagnostics
+
+The read-only, Admin-gated `PreviewLedgerAuditor` now also supports
+`audit_sale_totals(invoice_no)`, `audit_customer_credit(customer_id)`, and
+`audit_supplier_balance(supplier_id)` on isolated V8 test storage.
+Sales checks reconstruct the net amount from original subtotal, discounts,
+redeemed points, service charge and inclusive/exclusive VAT treatment,
+and flag obvious payment/change mismatches. They do **not** independently
+recalculate taxable allocations, rounded tax rates, split payments or COGS.
+
+Customer credit checks compare the present balance to known
+`CREDIT_SALE` inflows less `PAYMENT`, `RETURN` and `VOID` outflows.
+A difference is recorded as an **unverified** balance rather than silently
+repairing it; opening balances, migration history or unknown event types may
+explain mismatches. Loyalty has no complete standalone event ledger in V7:
+only obvious invalid negative balances are flagged and
+`loyalty_reconciled=False` is returned, never a fictional certification.
+
+Supplier balances use all historical successful GRNs minus
+`supplier_payments` and **do not deduct GRN initial payments twice**, as
+the original purchase service also creates their payment ledger entries.
+Payments after purchase dates still count. Negative balances are supplier
+advances, not hidden reductions to other supplier payables. Cross-supplier
+purchase references and invalid/negative payments are reported. These
+per-record checks do not prove every payment was posted correctly or replace
+a production accounting audit.
+
+The new regression suite covers clean and intentionally inconsistent sales,
+VAT-inclusive/exclusive totals, customer credit logs, supplier advances,
+voided GRNs, wrongly linked payment rows, authorization revocation and
+the absence of audit writes. **Gate B remains IN PROGRESS.**

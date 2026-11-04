@@ -192,6 +192,40 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 raise AssertionError("Reordered invoice line accepted on replay")
         """)
 
+    def test_independent_audit_rejects_renumbered_invoice_lines(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_no=99 WHERE reference=? AND line_no=1",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert ("invoice_line_sequence_mismatch:" + first.reference
+                    in audited.reasons), audited
+            assert audited.can_checkout is False
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM main.sales").fetchone()[0] == 0
+        """)
+
+    def test_independent_audit_rejects_missing_middle_invoice_line(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_sale_lines "
+                    "WHERE reference=? AND line_no=2", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert ("invoice_line_sequence_mismatch:" + first.reference
+                    in audited.reasons), audited
+            assert audited.can_checkout is False
+        """)
+
     def test_replay_rejects_tampered_stock_movements(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

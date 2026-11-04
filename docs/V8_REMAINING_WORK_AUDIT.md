@@ -183,3 +183,21 @@ using disposable data until all Gate A/B acceptance criteria are proven.
 - Repository Actions permissions/runners endpoints remain inaccessible via
   connector; root cause is not yet proven.
 - This remains a disposable preview-only ledger, not production checkout.
+
+## Abrupt process crash regression coverage (2026-11-05)
+
+- Added subprocess-based SQLite crash tests that terminate the child with
+  `os._exit` before and after COMMIT. The first must recover with no
+  persisted row/sequence gap; the second must replay the committed request
+  and issue the next contiguous reference.
+- Set `PRAGMA synchronous=FULL` on preview journal connections and added
+  a focused regression for that setting.
+- These new repository tests are committed but **not yet executed**: a direct
+  GitHub clone in the test container fails DNS resolution of github.com.
+  GitHub Actions run `41925586307` was retried; its last observed state
+  was queued attempt 2 with no runner and zero steps.
+- The preceding run had failed with zero steps and no runner, and its
+  log blob was unavailable. Actions runner/account policy root cause
+  remains unconfirmed.
+- Tests simulate abrupt process termination, not power loss or storage
+  hardware failure. All paths remain disposable and checkout remains denied.

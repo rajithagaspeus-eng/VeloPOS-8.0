@@ -457,7 +457,7 @@ class PreviewSandboxSaleLedger:
 
             reasons = []
             invoices = connection.execute(
-                "SELECT reference,request_id,subtotal_cents "
+                "SELECT reference,request_id,actor,branch_id,shift_id,subtotal_cents "
                 "FROM main.v8_preview_sandbox_sales ORDER BY reference"
             ).fetchall()
             all_lines = connection.execute(
@@ -575,6 +575,21 @@ class PreviewSandboxSaleLedger:
                             sale["request_id"],
                         ) is None):
                     reasons.append("invalid_sandbox_invoice_request_id")
+                if (type(sale["actor"]) is not str
+                        or not sale["actor"].strip()
+                        or sale["actor"] != sale["actor"].strip()
+                        or len(sale["actor"]) > 128
+                        or not sale["actor"].isprintable()):
+                    reasons.append("invalid_sandbox_invoice_actor:" + ref)
+                if (type(sale["branch_id"]) is not str
+                        or not sale["branch_id"].strip()
+                        or sale["branch_id"] != sale["branch_id"].strip()
+                        or len(sale["branch_id"]) > 128
+                        or not sale["branch_id"].isprintable()):
+                    reasons.append("invalid_sandbox_invoice_branch:" + ref)
+                if (type(sale["shift_id"]) is not int
+                        or sale["shift_id"] <= 0):
+                    reasons.append("invalid_sandbox_invoice_shift:" + ref)
                 if (type(sale["subtotal_cents"]) is not int
                         or sale["subtotal_cents"] < 0):
                     reasons.append("invalid_invoice_subtotal:" + ref)

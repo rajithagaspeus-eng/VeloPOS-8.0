@@ -9,7 +9,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from pathlib import Path
 
 from velopos_qt.sale_plan import canonical_decimal, plan_preview_sale
@@ -49,6 +49,35 @@ class PreviewSalePlanTests(unittest.TestCase):
         self.assertEqual(canonical_decimal(Decimal("-0")), "0")
         self.assertEqual(canonical_decimal(Decimal("1E+3")), "1000")
         self.assertEqual(a.subtotal, Decimal("50.00"))
+
+    def test_canonical_decimal_never_collapses_distinct_long_quantities(self):
+        # The original Decimal.normalize() obeyed context.prec (default 28).
+        # Both 36-digit quantities rounded to the same canonical key, even
+        # when no financial rounding should change the request identity.
+        a = "0.123456789012345678901234567890123456"
+        b = "0.123456789012345678901234567890123457"
+        self.assertNotEqual(Decimal(a), Decimal(b))
+        for precision in (6, 28, 50):
+            with self.subTest(precision=precision), localcontext() as ctx:
+                ctx.prec = precision
+                self.assertEqual(canonical_decimal(a), a)
+                self.assertEqual(canonical_decimal(b), b)
+                self.assertEqual(canonical_decimal(Decimal("1000.000")), "1000")
+                self.assertEqual(canonical_decimal(Decimal("-0.000")), "0")
+                self.assertEqual(canonical_decimal("1.20000E+3"), "1200")
+                self.assertEqual(canonical_decimal("1.20E-18"),
+                                 "0.0000000000000000012")
+                pa = plan_preview_sale([
+                    {"barcode": "RICE", "qty": a, "price": "0.01"},
+                ])
+                pb = plan_preview_sale([
+                    {"barcode": "RICE", "qty": b, "price": "0.01"},
+                ])
+                self.assertEqual(pa.subtotal, pb.subtotal)
+                self.assertNotEqual(
+                    request_fingerprint({"lines": pa.request_items()}),
+                    request_fingerprint({"lines": pb.request_items()}),
+                )
 
     def test_untrusted_iterator_is_bounded_to_101_inputs(self):
         """A bad generator must not consume unbounded scan lines or hang."""

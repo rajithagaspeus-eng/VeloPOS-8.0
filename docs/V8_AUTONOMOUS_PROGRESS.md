@@ -1528,3 +1528,82 @@ Then implement a reviewed **service-owned** trusted signed-license,
 canonical session/role/branch/shift and idempotent atomic business
 write boundary in isolated V8 data, with crash/rollback tests.
 Do NOT permit production financial posting until Gates A/B pass.
+
+
+## Phase 1 service-owned, rollback-only signed sale journal probe — 2026-11-04
+
+**Branch and source review:** `develop-v8` only. Reviewed the
+five-phase execution plan, release gate contract, preceding security
+checkpoint, `sale_rehearsal.py`, `atomic_sale_recovery.py`,
+`idempotency_ledger.py`, immutable sale-plan math, signed activation
+inspector and regression fixture. This batch addresses a gap between
+previous read-only authorization diagnostics and the older
+rollback-only rehearsal that did not include signed branch/license/
+activation observations. Nothing was wired to Qt or original V7
+commerce.
+
+**Service-owned isolated simulation:**
+`b6e2eb9ee5fc3fa7da47913667c4d61b915f4bb7` creates
+`velopos_qt/rollback_sale_probe.py` with
+`PreviewRollbackOnlySaleProbe.simulate()`. It takes its own
+`BEGIN IMMEDIATE` lock against the canonical
+`VeloPOS8PreviewData` SQLite database, snapshots submitted lines,
+cashier identity and date once, and calls existing
+`PreviewAtomicSaleRecovery.inspect_in_transaction()` in the same
+transaction. This invokes persisted cashier session/role and assigned
+shift, branch membership, signed Ed25519 license and signed server
+activation chain diagnostics plus price, expiry and stock preflight.
+The probe proceeds ONLY with all local policy evidence consistent and
+an unused journal request key. It simulates claim → complete →
+replay on the same connection, using a deterministic synthetic
+`SIM-` reference. Finally it **ALWAYS rolls back**, on success,
+denial and exceptions, leaving NO durable journal, invoice, payment,
+stock change or shift write. There is no arbitrary delegate/callback,
+commit, real sale/receipt, or public posting permission. Its frozen
+return value explicitly has `persisted=False`,
+`can_execute=False` and `can_checkout=False`, and `require()`
+always raises. This is proof-of-internal-composition only, **not**
+commercial authorization or a reliable business result.
+
+**Further hardening:** `d78bb9524d209723f728ed8ced2116358d4f4e35`
+validates canonical scope/request ID BEFORE opening the write
+transaction and limits simulated failpoint names, to reject
+malformed input without touching the journal.
+
+**Regressions:** `2f6d4177ee6ebe5fa190df8f4c97f0e8c4633c60`
+creates `tests/test_v8_rollback_sale_probe.py` with 6 disposable
+subprocess/SQLite tests; `b3b8382f0054bd9d3448438356bc2299d28afcd5`
+adds 2 more (**8 new tests total**). Cases cover valid signed
+policy with guaranteed rollback and immutable denial return,
+injected failure after claim/completion/replay, forged or revoked
+identity/branch/shift/activation/license, stranded PENDING and
+COMPLETED claims requiring reconciliation, mutable actor and
+one-shot line generator, changed price/insufficient stock/expired
+batch, malformed request ID and prohibited commit-style failpoint.
+The module doesn't invoke live financial services. Completed journal
+status is NEVER accepted as evidence of a posted invoice.
+
+**Verification:** GitHub fetched the module and 8 test methods,
+verified the explicit BEGIN IMMEDIATE/claim/rollback/hard-deny
+source and compared test SHA `b3b8382` against `develop-v8`:
+identical. Combined-status lookup returned no statuses and the
+connector's PR-only workflow lookup returned no runs; neither
+establishes push-triggered Windows CI. **No repository tests were
+executed in this environment. Exact-head Windows compileall and
+no-skip `run_v8_checks.py` remain UNVERIFIED.** The last owner
+confirmed local 263-test PASS was older SHA `dd7ae38` and must
+not be attributed to new code.
+
+**Release position:** Five-phase Phase 1 IN PROGRESS, Phases 2–5
+unaccepted, Gates A/B hard BLOCKED and C/D/E pending (0/5 accepted).
+All V8 money, checkout, stock, returns, supplier/customer payments,
+GRNs and shift posting stay disabled. Do not alter stable `main`,
+V7 production records, signing keys or paid customer licenses.
+
+**Next mandatory priority:** obtain the exact-head Windows push
+Actions result and run the entire no-skip preview suite; repair
+any failed tests. Continue toward a trusted, reviewed service-owned
+commercial transaction boundary with persistent server-authoritative
+licensing, complete accounting/stock invariants and recovery before
+EVER enabling real posting; the rollback probe is NOT a shortcut
+around Gates A/B.

@@ -6,9 +6,13 @@ an isolated **TEST DATA ONLY**, nontransactional preview.
 
 ## Current evidence
 
-- Owner-confirmed Windows regression milestone: **121 tests, OK**, before the
-  Billing scroll, purchasing reconciliation, analytics, demand, session and
-  later privacy commits. A fresh combined Windows run is still required.
+- Owner-confirmed newer **local Windows** regression milestone:
+  `dd7ae38b4adfdfb53f0b23fe9690fd3d76f7ba70` ran
+  `python run_v8_checks.py`: **263 tests, OK, 88.806 seconds**;
+  `python -m compileall -q velopos_qt tests` returned without visible
+  errors. The test runner rejects skipped tests. This evidence is for that
+  exact earlier code SHA only, NOT for later Phase 1 safety commits.
+  GitHub-hosted push Actions success on the current head remains unverified.
 - Preview pages include Dashboard, Inventory, Billing Draft, directory editors,
   Reports, Smart Inventory, Purchasing, historical Business Intelligence and
   demand-baseline planning. Preview mutations are restricted to test product /

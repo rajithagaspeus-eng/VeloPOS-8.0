@@ -119,6 +119,33 @@ class PreviewGatewayTests(unittest.TestCase):
             """
         )
 
+    def test_gateway_rehearsal_replay_does_not_post_or_unlock(self):
+        self.isolated(
+            """
+            from velopos import database
+            from velopos_qt.transaction_gateway import PreviewTransactionGateway
+            database.init_db()
+            gateway = PreviewTransactionGateway(database)
+            lines = [{"barcode": "SOAP", "qty": "1", "price": "1.00"}]
+            first = gateway.rehearse_sale_replay(
+                request_id="gateway-replay-0001", lines=lines
+            )
+            second = gateway.rehearse_sale_replay(
+                request_id="gateway-replay-0001", lines=lines
+            )
+            assert first.reference == second.reference
+            assert first.replayed is False and second.replayed is True
+            try:
+                gateway.sale(identity=None, license_valid=True, lines=lines)
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Preview replay unlocked checkout")
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+            """
+        )
+
     def test_production_like_folder_denied_at_construction(self):
         self.isolated(
             """

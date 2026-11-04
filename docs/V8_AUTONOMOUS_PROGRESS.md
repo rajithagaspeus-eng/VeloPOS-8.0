@@ -803,3 +803,37 @@ without skips/failures, then exact merged-head post-merge CI.
 Stable `main` and V7 real data remain untouched.
 Commercial checkout continues hard disabled and Gates A/B/C/D/E
 remain blocked.
+
+
+## Recovery stale-binding regression checkpoint — November 4, 2026
+
+Reviewed master roadmap, commercial release gates, current progress and the
+existing disposable-data recovery boundary. Base develop-v8 head was
+`f6faf800b69f538b9d25d2045ce29e7bdbf7e0a5`.
+
+Added adversarial recovery assertions to
+`tests/test_v8_phase2_recovery_boundary.py`: stale expected sequence,
+wrong previous machine and wrong previous branch must all raise
+`PermissionError` and preserve machine, branch, expiry, sequence and
+signed-receipt digest. Code commit:
+`d71c3b1cac9c5d8ac77cc3f08b554ab6c325b921`.
+This is test-only and uses disposable preview data and ephemeral keys.
+
+**Verification:** no test runner executed in this environment; verified
+new test count = 0. The GitHub PR-only workflow lookup and combined commit
+status returned no results for the previous head; these do NOT verify
+push-triggered Windows CI. Exact-head CI for the new test commit and this
+checkpoint remains UNVERIFIED. Do not claim passing tests or release readiness.
+
+**Release blockers:** Gate A service-bound identity, signed commercial
+entitlements, shift/branch enforcement, idempotency, atomic stock/accounting
+and recovery remain blocked; Gate B reconciliation, Gate C cloud SKU,
+Gate D deployment/recovery and Gate E final Windows/hardware QA outstanding.
+Real financial posting stays disabled. No main, V7 production data or
+private signing keys modified.
+
+**Exact next priority:** verify Windows push Actions for this checkpoint
+head with an all-event Actions listing (PR-filtered lookup is insufficient),
+run full no-skip `python run_v8_checks.py`, repair failures, then implement
+trusted service-bound session/branch/shift and persistent idempotency on
+isolated disposable schema before enabling any money/stock writes.

@@ -128,6 +128,44 @@ class PreviewSmokeTests(unittest.TestCase):
             dialog.close()
             dialog.deleteLater()
 
+    def test_premium_preview_shell_is_structured_and_nontransactional(self):
+        from PySide6.QtWidgets import QFrame, QLabel
+        from velopos_qt.app import DARK, LIGHT
+        self.assertEqual(self.window.width(), 1220)
+        self.assertEqual(self.window.nav.objectName(), "mainNavigation")
+        self.assertEqual(
+            len(self.window.findChildren(QFrame, "navigationPanel")), 1
+        )
+        self.assertEqual(
+            len(self.window.findChildren(QFrame, "workspacePanel")), 1
+        )
+        self.assertEqual(len(self.window.findChildren(QFrame, "heroPanel")), 1)
+        self.assertEqual(len(self.window.dashboard_overview.cards), 4)
+        self.assertEqual(
+            self.window.dashboard_overview.cards[0].index_label.text(),
+            "01  /  STORE PULSE",
+        )
+        self.assertEqual(
+            self.window.quick_buttons[0][0].objectName(), "quickAction"
+        )
+        self.assertEqual(len(self.window.nav_keys), 14)
+        for stylesheet in (DARK, LIGHT):
+            self.assertIn("QFrame#heroPanel", stylesheet)
+            self.assertIn("QFrame#metricCard", stylesheet)
+            self.assertIn("QListWidget#mainNavigation::item:selected", stylesheet)
+        self.window.nav.setCurrentRow(6)
+        self.window.controls["theme"].setCurrentText("dark")
+        self.window._apply_theme()
+        self.assertIn("QFrame#heroPanel", self.window.styleSheet())
+        self.window.locale_combo.setCurrentIndex(1)
+        self.window.nav.setCurrentRow(0)
+        self.assertTrue(self.window.dashboard_intro.text())
+        self.assertEqual(
+            self.window.dashboard_overview.cards[0].value.text(), "—"
+        )
+        self.assertIsNone(self.window.transaction_gateway)
+        self.assertIsNone(self.window.checkout_preflight)
+
     def test_dashboard_preview_kpi_cards_and_refresh(self):
         from velopos_qt.dashboard_page import DashboardOverview
 

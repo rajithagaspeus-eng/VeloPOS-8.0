@@ -138,17 +138,32 @@ class PreviewSandboxSaleLedger:
             raise RuntimeError("Sandbox invoice lines do not match replay")
         count = len(recorded_lines)
         recorded_moves = {
-            row["barcode"]: row["sold_qty"]
+            row["barcode"]: row
             for row in connection.execute(
-                "SELECT barcode,sold_qty FROM main.v8_preview_sandbox_stock_moves "
+                "SELECT barcode,before_qty,sold_qty,after_qty "
+                "FROM main.v8_preview_sandbox_stock_moves "
                 "WHERE reference=?", (reference,)
             )
         }
         expected_moves = {
             barcode: canonical_decimal(qty) for barcode, qty in plan.quantities
         }
-        if recorded_moves != expected_moves:
+        if set(recorded_moves) != set(expected_moves):
             raise RuntimeError("Sandbox stock movements do not match replay")
+        with localcontext(_CONTEXT):
+            for barcode, expected_qty in expected_moves.items():
+                move = recorded_moves[barcode]
+                try:
+                    before = Decimal(move["before_qty"])
+                    sold = Decimal(move["sold_qty"])
+                    after = Decimal(move["after_qty"])
+                except (InvalidOperation, TypeError, ValueError) as exc:
+                    raise RuntimeError("Invalid sandbox stock movement") from exc
+                if (not all(v.is_finite() for v in (before, sold, after))
+                        or before < 0 or sold <= 0 or after < 0
+                        or sold != Decimal(expected_qty)
+                        or before - sold != after):
+                    raise RuntimeError("Sandbox stock movements do not match replay")
         # An older sandbox database may predate tender tables. Never
         # silently treat its completed journal as a settled invoice.
         required = {"v8_preview_sandbox_settlements",

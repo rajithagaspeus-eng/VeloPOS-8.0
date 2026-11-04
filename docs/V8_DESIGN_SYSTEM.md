@@ -59,3 +59,19 @@ business workflows and hardware must receive the final combined Windows
 visual/manual acceptance. UI style cannot be certified from offscreen
 tests alone. The standalone preview still uses isolated test data and
 does not permit checkout or financial posting.
+
+## Catalog and draft billing visual polish — November 2026
+
+The Inventory page now presents a dedicated product-catalog search surface,
+a more legible stock table with taller rows and an explicit preview-only
+status. Billing Draft now groups scanner-first barcode input and read-only
+search results into one coherent high-contrast panel, visually separates
+its safety notice, and emphasizes draft totals without adding any payment
+or checkout action. The styling uses object-named, scoped Qt rules in both
+dark/light themes rather than altering the business logic.
+
+Offscreen UI regressions cover the new panels, table contents, localized
+heading/notice behavior and the still-unavailable transaction gateway.
+This is an incremental interface refinement; full premium polish,
+small-screen responsiveness, high-DPI Windows rendering, accessibility and
+manual real-screen review remain separate acceptance gates.

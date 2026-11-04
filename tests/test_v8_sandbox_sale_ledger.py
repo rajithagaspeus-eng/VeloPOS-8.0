@@ -903,6 +903,37 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_changed_completed_journal_fingerprint(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_request_journal "
+                    "SET payload_sha256=? WHERE scope='sale' AND request_id=?",
+                    ("0" * 64, args["request_id"])
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "completed_sale_journal_reference_mismatch" in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_invalid_completed_journal_fingerprint_encoding(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_request_journal "
+                    "SET payload_sha256='invalid' "
+                    "WHERE scope='sale' AND request_id=?", (args["request_id"],)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_completed_sale_journal_fingerprint" in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_malformed_completed_journal_reference(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

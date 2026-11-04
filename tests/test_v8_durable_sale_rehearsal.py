@@ -20,6 +20,24 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
         self.lines = [{"barcode": "SOAP", "qty": "2", "price": "0.50"}]
         self.journal = DurablePreviewSaleJournal(self.path)
 
+    def test_canonical_ddl_with_sqlite_whitespace_survives_reopen(self):
+        # SQLite retains CREATE TABLE whitespace. The canonical DDL
+        # validator must strip actual whitespace (regex r"\\s+"), not
+        # look for a literal backslash-s sequence.
+        with sqlite3.connect(self.path) as conn:
+            sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name='preview_rehearsals'"
+            ).fetchone()[0]
+            self.assertIn("\n", sql)
+        reopened = DurablePreviewSaleJournal(self.path)
+        first = reopened.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        self.assertEqual(first.reference, "REHEARSAL-00000001")
+        self.assertTrue(DurablePreviewSaleJournal(self.path).inspect(
+            request_id="durable-request-0001", lines=self.lines
+        ).replayed)
+
     def test_replay_survives_reopening_database(self):
         first = self.journal.inspect(
             request_id="durable-request-0001", lines=self.lines

@@ -41,7 +41,7 @@ jobs:
         run: python -m compileall -q velopos_qt tests
       - name: Verify fail-closed release and transaction proof contracts
         shell: pwsh
-        run: python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment
+        run: python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment tests.test_v8_sale_request_service
       - name: Combined V8 test suite (no skips)
         shell: pwsh
         run: |

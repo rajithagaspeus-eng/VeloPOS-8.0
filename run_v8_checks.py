@@ -28,7 +28,13 @@ def main(argv=None):
         pattern="test_v8_*.py",
         top_level_dir=str(root),
     )
+    discovered = suite.countTestCases()
     print("VeloPOS 8 | Combined preview checks | test data only", flush=True)
+    print(f"Discovered V8 tests: {discovered}", flush=True)
+    # A renamed/missing tests directory must never produce a green CI gate.
+    if discovered == 0:
+        print("ERROR: No V8 preview tests discovered; refusing green CI.", file=sys.stderr)
+        return 1
     result = unittest.TextTestRunner(
         verbosity=2 if args.verbose else 1,
         stream=sys.stdout,

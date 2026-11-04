@@ -219,6 +219,18 @@ class DraftBillingKeyboardSearchTests(unittest.TestCase):
         self.assertEqual(str(self.page.cart.subtotal()), "250.00")
         self.assertFalse(hasattr(self.page, "checkout_button"))
 
+    def test_desktop_cart_to_sandbox_input_preview_never_posts(self):
+        self.page.sandbox_sale_button.click()
+        self.assertIn("BLOCKED", self.page.sandbox_sale_status.text())
+        self.page.query.setText("RICE-B")
+        self.page.scan_or_add()
+        original = dict(self.page.cart.lines["RICE-B"])
+        self.page.sandbox_sale_button.click()
+        self.assertIn("250.00", self.page.sandbox_sale_status.text())
+        self.assertIn("not submitted or paid", self.page.sandbox_sale_status.text())
+        self.assertEqual(self.page.cart.lines["RICE-B"], original)
+        self.assertFalse(hasattr(self.page, "checkout_button"))
+
     def test_read_only_sandbox_closeout_shows_balanced_and_blocked_states(self):
         from types import SimpleNamespace
 

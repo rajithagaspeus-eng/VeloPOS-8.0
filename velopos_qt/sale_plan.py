@@ -7,13 +7,17 @@ The legacy service's floating-point and tax rules still require an explicit
 commercial reconciliation; do NOT use this plan to authorize checkout.
 """
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from itertools import islice
 
 
 _CENT = Decimal("0.01")
 _MAX_QTY = Decimal("1000000")
 _MAX_PRICE = Decimal("100000000")
+# Every line contains <=128 supplied numeric characters, and there are
+# <=100 lines. 512 significant digits exceed the largest possible exact
+# multiply/sum; do not inherit host thread-local Decimal precision/traps.
+_PLAN_CONTEXT = Context(prec=512, rounding=ROUND_HALF_UP)
 
 
 def _finite_decimal(value):
@@ -111,31 +115,32 @@ def plan_preview_sale(lines):
     planned = []
     quantities = {}
     subtotal = Decimal("0.00")
-    for item in draft:
-        if not isinstance(item, dict):
-            raise ValueError("Each draft line must be a dictionary")
-        barcode = item.get("barcode")
-        if type(barcode) is not str or not 1 <= len(barcode) <= 80:
-            raise ValueError("Invalid barcode")
-        if (not barcode.strip() or barcode != barcode.strip() or
-                not barcode.isprintable()):
-            raise ValueError("Invalid barcode")
-        qty = _finite_decimal(item.get("qty"))
-        price = _finite_decimal(item.get("price"))
-        if qty <= 0 or qty > _MAX_QTY:
-            raise ValueError("Quantity out of range")
-        if price < 0 or price > _MAX_PRICE:
-            raise ValueError("Price out of range")
-        aggregate = quantities.get(barcode, Decimal("0")) + qty
-        if aggregate > _MAX_QTY:
-            raise ValueError("Combined quantity out of range")
-        quantities[barcode] = aggregate
-        try:
-            line_total = (qty * price).quantize(_CENT, rounding=ROUND_HALF_UP)
-        except InvalidOperation as exc:
-            raise ValueError("Draft line amount is too large") from exc
-        planned.append(PreviewSaleLine(barcode, qty, price, line_total))
-        subtotal += line_total
+    with localcontext(_PLAN_CONTEXT):
+        for item in draft:
+            if not isinstance(item, dict):
+                raise ValueError("Each draft line must be a dictionary")
+            barcode = item.get("barcode")
+            if type(barcode) is not str or not 1 <= len(barcode) <= 80:
+                raise ValueError("Invalid barcode")
+            if (not barcode.strip() or barcode != barcode.strip() or
+                    not barcode.isprintable()):
+                raise ValueError("Invalid barcode")
+            qty = _finite_decimal(item.get("qty"))
+            price = _finite_decimal(item.get("price"))
+            if qty <= 0 or qty > _MAX_QTY:
+                raise ValueError("Quantity out of range")
+            if price < 0 or price > _MAX_PRICE:
+                raise ValueError("Price out of range")
+            aggregate = quantities.get(barcode, Decimal("0")) + qty
+            if aggregate > _MAX_QTY:
+                raise ValueError("Combined quantity out of range")
+            quantities[barcode] = aggregate
+            try:
+                line_total = (qty * price).quantize(_CENT, rounding=ROUND_HALF_UP)
+            except InvalidOperation as exc:
+                raise ValueError("Draft line amount is too large") from exc
+            planned.append(PreviewSaleLine(barcode, qty, price, line_total))
+            subtotal += line_total
 
     return PreviewSalePlan(
         tuple(planned), tuple(quantities.items()), subtotal

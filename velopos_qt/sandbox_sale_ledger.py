@@ -459,9 +459,14 @@ class PreviewSandboxSaleLedger:
                     line_numbers.setdefault(line["reference"], []).append(
                         line["line_no"]
                     )
-                    expected_lines[line["reference"]] = (
-                        expected_lines.get(line["reference"], 0) + line["line_cents"]
-                    )
+                    if (type(line["line_cents"]) is not int
+                            or line["line_cents"] < 0):
+                        reasons.append("invalid_invoice_line_amount")
+                    else:
+                        expected_lines[line["reference"]] = (
+                            expected_lines.get(line["reference"], 0)
+                            + line["line_cents"]
+                        )
                     barcode = line["barcode"]
                     if (type(barcode) is not str or not 1 <= len(barcode) <= 80
                             or barcode != barcode.strip()
@@ -537,6 +542,9 @@ class PreviewSandboxSaleLedger:
                     reasons.append("invoice_line_sequence_mismatch:" + ref)
             for sale in invoices:
                 ref = sale["reference"]
+                if (type(sale["subtotal_cents"]) is not int
+                        or sale["subtotal_cents"] < 0):
+                    reasons.append("invalid_invoice_subtotal:" + ref)
                 if ref not in line_numbers:
                     reasons.append("invoice_has_no_lines:" + ref)
                 if expected_lines.get(ref) != sale["subtotal_cents"]:

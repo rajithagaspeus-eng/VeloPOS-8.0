@@ -8,6 +8,7 @@ commercial reconciliation; do NOT use this plan to authorize checkout.
 """
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from itertools import islice
 
 
 _CENT = Decimal("0.01")
@@ -79,8 +80,11 @@ def plan_preview_sale(lines):
     """
     if lines is None or isinstance(lines, (str, bytes, dict)):
         raise ValueError("Provide a list of draft lines")
+    # Never materialize an untrusted iterator without a limit. An endless
+    # generator (or a massive barcode scan stream) must be refused after
+    # reading at most the first 101 items, before any financial arithmetic.
     try:
-        draft = tuple(lines)
+        draft = tuple(islice(iter(lines), 101))
     except TypeError as exc:
         raise ValueError("Provide a list of draft lines") from exc
     if not 1 <= len(draft) <= 100:

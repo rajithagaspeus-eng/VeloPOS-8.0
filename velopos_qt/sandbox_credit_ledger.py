@@ -94,6 +94,12 @@ class PreviewSandboxCreditLedger:
             "method TEXT NOT NULL CHECK(method='Cash'))"
         )
         connection.execute(
+            "CREATE TABLE IF NOT EXISTS main.v8_preview_sandbox_credit_allocations ("
+            "repayment_ref TEXT PRIMARY KEY, charge_ref TEXT NOT NULL, "
+            "customer_id INTEGER NOT NULL, branch_id TEXT NOT NULL, "
+            "amount_cents INTEGER NOT NULL CHECK(amount_cents>0))"
+        )
+        connection.execute(
             "CREATE TABLE IF NOT EXISTS main.v8_preview_sandbox_credit_notes ("
             "reference TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, "
             "charge_ref TEXT NOT NULL, invoice_ref TEXT NOT NULL, "
@@ -173,6 +179,7 @@ class PreviewSandboxCreditLedger:
             "v8_preview_sandbox_credit_charges",
             "v8_preview_sandbox_credit_repayments",
             "v8_preview_sandbox_credit_notes",
+            "v8_preview_sandbox_credit_allocations",
         ))
         account = connection.execute(
             "SELECT branch_id,limit_cents,active FROM "
@@ -535,6 +542,7 @@ class PreviewSandboxCreditLedger:
             c.close()
 
     def declare_repayment(self, *, customer_id, amount, method="Cash", request_id,
+                          charge_ref=None,
                           identity, shift_id, expected_branch_id, license_id,
                           machine_id, license_key, server_public_key_b64,
                           previous_status, current_status, today=None, now=None,
@@ -543,6 +551,11 @@ class PreviewSandboxCreditLedger:
         self._customer(customer_id)
         cents = self._cents(amount)
         self.journal._validate_identity("credit_payment",request_id)
+        if charge_ref is not None and (
+            type(charge_ref) is not str or len(charge_ref) != 28
+            or not charge_ref.startswith("CRC-")
+        ):
+            raise ValueError("Canonical sandbox credit charge reference required")
         if type(method) is not str or method != "Cash":
             raise PermissionError("Only unverified Cash repayment declaration supported")
         if inject_failure_at is not None and inject_failure_at not in self._FAILPOINTS:
@@ -560,10 +573,20 @@ class PreviewSandboxCreditLedger:
                 today=today, now=now, max_offline_hours=max_offline_hours,
             )
             self._account(c,customer_id,expected_branch_id)
+            target = None
+            if charge_ref is not None:
+                target = c.execute(
+                    "SELECT amount_cents FROM main.v8_preview_sandbox_credit_charges "
+                    "WHERE reference=? AND customer_id=? AND branch_id=?",
+                    (charge_ref,customer_id,expected_branch_id)
+                ).fetchone()
+                if target is None:
+                    raise PermissionError("Credit repayment target not in customer branch")
             payload = {
                 "v":1, "action":"sandbox_credit_repayment",
                 "customer_id":customer_id, "amount_cents":cents,
                 "method":"Cash", "actor":actor,
+                "charge_ref":charge_ref,
                 "branch_id":expected_branch_id, "shift_id":shift_id,
                 "license_id":license_id, "machine_id":machine_id,"day":day,
             }
@@ -586,6 +609,18 @@ class PreviewSandboxCreditLedger:
                         or row["branch_id"] != expected_branch_id
                         or row["amount_cents"] != cents or row["method"] != method):
                     raise RuntimeError("Sandbox repayment replay needs reconciliation")
+                allocated = c.execute(
+                    "SELECT charge_ref,customer_id,branch_id,amount_cents FROM "
+                    "main.v8_preview_sandbox_credit_allocations WHERE repayment_ref=?",
+                    (ref,)
+                ).fetchone()
+                if ((charge_ref is None and allocated is not None) or
+                        (charge_ref is not None and
+                         (allocated is None or allocated["charge_ref"] != charge_ref
+                          or allocated["customer_id"] != customer_id
+                          or allocated["branch_id"] != expected_branch_id
+                          or allocated["amount_cents"] != cents))):
+                    raise RuntimeError("Sandbox repayment allocation replay mismatch")
                 remaining = self._balance(c,customer_id)
                 c.rollback()
                 return SandboxCreditEvidence(ref,customer_id,cents,remaining,True)
@@ -594,6 +629,29 @@ class PreviewSandboxCreditLedger:
             outstanding = self._balance(c,customer_id)
             if cents > outstanding:
                 raise PermissionError("Repayment exceeds outstanding sandbox credit")
+            if target is not None:
+                note_cents = c.execute(
+                    "SELECT COALESCE(SUM(amount_cents),0) FROM "
+                    "main.v8_preview_sandbox_credit_notes WHERE charge_ref=?",
+                    (charge_ref,)
+                ).fetchone()[0]
+                allocated_cents = c.execute(
+                    "SELECT COALESCE(SUM(amount_cents),0) FROM "
+                    "main.v8_preview_sandbox_credit_allocations WHERE charge_ref=?",
+                    (charge_ref,)
+                ).fetchone()[0]
+                if cents > target["amount_cents"] - note_cents - allocated_cents:
+                    raise PermissionError("Repayment exceeds target invoice outstanding")
+                # Legacy customer-level repayments are unallocated. Mixing
+                # allocation modes cannot establish invoice-level certainty.
+                if c.execute(
+                    "SELECT 1 FROM main.v8_preview_sandbox_credit_repayments r "
+                    "LEFT JOIN main.v8_preview_sandbox_credit_allocations a "
+                    "ON a.repayment_ref=r.reference "
+                    "WHERE r.customer_id=? AND a.repayment_ref IS NULL LIMIT 1",
+                    (customer_id,)
+                ).fetchone() is not None:
+                    raise PermissionError("Legacy unallocated repayments need migration")
             claim = self.journal.claim(c,"credit_payment",request_id,payload)
             if not claim.is_new:
                 raise RuntimeError("Unexpected repayment replay")
@@ -605,6 +663,13 @@ class PreviewSandboxCreditLedger:
                 "VALUES (?,?,?,?,?,?)",
                 (ref,request_id,customer_id,expected_branch_id,cents,method)
             )
+            if charge_ref is not None:
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_credit_allocations "
+                    "(repayment_ref,charge_ref,customer_id,branch_id,amount_cents) "
+                    "VALUES(?,?,?,?,?)",
+                    (ref,charge_ref,customer_id,expected_branch_id,cents)
+                )
             if inject_failure_at == "after_post":
                 raise RuntimeError("Injected credit failure after post")
             self.journal.complete(c,"credit_payment",request_id,ref)

@@ -87,6 +87,33 @@ class SandboxReturnTests(unittest.TestCase):
             assert sale_service.reconcile_sandbox().balanced
         """)
 
+    def test_independent_return_audit_rejects_corrupted_quantity_without_crash(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            return_service.simulate_return(**new_return(sale.reference))
+            assert return_service.reconcile_returns().balanced
+            with database.db() as c:
+                original = c.execute(
+                    "SELECT quantity FROM main.v8_preview_sandbox_return_lines "
+                    "WHERE sale_line_no=1"
+                ).fetchone()[0]
+            for corrupt in ("NaN", "Infinity", "-Infinity", "0", "-1", "bad"):
+                with database.db() as c:
+                    c.execute(
+                        "UPDATE main.v8_preview_sandbox_return_lines "
+                        "SET quantity=? WHERE sale_line_no=1", (corrupt,)
+                    )
+                result = return_service.reconcile_returns()
+                assert not result.balanced, corrupt
+                assert "invalid_return_line" in result.reasons, (corrupt, result)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_return_lines "
+                    "SET quantity=? WHERE sale_line_no=1", (original,)
+                )
+            assert return_service.reconcile_returns().balanced
+        """)
+
     def test_same_return_request_replays_without_second_refund(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

@@ -1339,6 +1339,29 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_next_sale_refuses_historical_invoice_barcode_whitespace(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET barcode=' SOAP ' WHERE reference=? AND barcode='SOAP'",
+                    (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-invalid-barcode-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Historical invoice barcode whitespace accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_next_sale_refuses_historical_invoice_line_number_gap(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

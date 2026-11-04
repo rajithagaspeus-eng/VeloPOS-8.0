@@ -769,3 +769,37 @@ Windows QA for 760px/820px, threshold edges and scaling.
 after PR merge verify exact SHA `develop-v8` push Actions.
 No commercial checkout/stock/payment action is enabled;
 security and commercial Gates A/B/C/D/E remain BLOCKED.
+
+
+## V8 Billing draft keyboard search and stale result hardening (November 4, 2026)
+
+**Base:** `develop-v8` exact SHA
+`f6faf800b69f538b9d25d2045ce29e7bdbf7e0a5`,
+merged Windows Actions [41821125162](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41821125162)
+**206/206 PASS, 0 failures + compileall PASS**.
+
+**Feature branch:** `feature/v8-billing-search-keyboard-safety`.
+In `velopos_qt/billing_page.py` keyboard Up/Down in the barcode
+field now navigates product result rows. On Enter, an exact
+matching barcode wins, a unique name result can be selected,
+and ambiguous results require an explicit current-query arrow
+or mouse selection. A changed query clears all previous row
+selection intent before new results are populated, preventing
+accidental additions due to stale table row indices.
+
+Added a localized help/status message below the search table,
+screen-reader labels and dark/light styling in
+`velopos_qt/i18n.py` and `velopos_qt/app.py`.
+Six disposable, offscreen, no-DB regressions in
+`tests/test_v8_billing_keyboard_search.py` validate keyboard
+movement, conflicting matches, stale selections, scan priority,
+localized guidance and zero financial/stock operations.
+See `docs/V8_BILLING_KEYBOARD_ACCEPTANCE.md` for owner
+physical Windows, DPI and three-language manual testing.
+
+**Windows CI still pending at this checkpoint:** require exact
+feature HEAD run of compileall plus all `python run_v8_checks.py`
+without skips/failures, then exact merged-head post-merge CI.
+Stable `main` and V7 real data remain untouched.
+Commercial checkout continues hard disabled and Gates A/B/C/D/E
+remain blocked.

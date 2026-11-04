@@ -6,6 +6,11 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "billing_product_lookup": "Scan barcode or search draft product",
+        "billing_search_results": "Draft product matches",
+        "billing_search_none": "No matching demo products. Try another barcode or name.",
+        "billing_search_one": "1 matching product · Press Enter to add to draft only.",
+        "billing_search_many": "{count} matches · Use ↑/↓ then Enter, or click a row. Nothing is sold.",
         "navigation_toggle": "Show or hide sidebar",
         "navigation_toggle_hint": "Show or hide page sidebar · Ctrl+B",
         "quick_jump_title": "Quick navigation",
@@ -226,6 +231,11 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "billing_product_lookup": "බාර්කෝඩ් හෝ කෙටුම්පත් භාණ්ඩය සොයන්න",
+        "billing_search_results": "ගැළපෙන භාණ්ඩ ලැයිස්තුව",
+        "billing_search_none": "ගැළපෙන නියැදි භාණ්ඩ නැත. වෙනත් නමක් හෝ බාර්කෝඩ් එකක් යොදන්න.",
+        "billing_search_one": "ගැළපෙන භාණ්ඩ 1යි · Enter ඔබා කෙටුම්පතට එකතු කරන්න.",
+        "billing_search_many": "ගැළපෙන භාණ්ඩ {count}යි · ↑/↓ සහ Enter හෝ පේළිය තෝරන්න. විකුණුමක් සිදු නොවේ.",
         "navigation_toggle": "පැති මෙනුව පෙන්වන්න හෝ සඟවන්න",
         "navigation_toggle_hint": "පිටු මෙනුව පෙන්වන්න / සඟවන්න · Ctrl+B",
         "quick_jump_title": "ඉක්මන් පිටු මාරුව",
@@ -446,6 +456,11 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "billing_product_lookup": "பார்கோடு அல்லது வரைவு பொருளைத் தேடுங்கள்",
+        "billing_search_results": "பொருந்தும் வரைவு பொருட்கள்",
+        "billing_search_none": "பொருந்தும் மாதிரி பொருட்கள் இல்லை. வேறு பெயர் அல்லது பார்கோடு தேடுங்கள்.",
+        "billing_search_one": "1 பொருள் பொருந்துகிறது · Enter அழுத்தி வரைவில் சேர்க்கவும்.",
+        "billing_search_many": "{count} பொருட்கள் பொருந்துகின்றன · ↑/↓ பிறகு Enter அல்லது வரியைத் தேர்வுசெய்க. விற்பனை இல்லை.",
         "navigation_toggle": "பக்கப்பட்டியைக் காட்டு அல்லது மறை",
         "navigation_toggle_hint": "பக்கப்பட்டியைக் காட்டு / மறை · Ctrl+B",
         "quick_jump_title": "விரைவு வழிசெலுத்தல்",

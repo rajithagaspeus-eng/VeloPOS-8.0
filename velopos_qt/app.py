@@ -3,6 +3,7 @@
 No production db, printer discovery, payment, or license operations are invoked.
 """
 from PySide6.QtCore import Qt, QSettings
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFormLayout, QFrame, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QMainWindow, QMessageBox, QPushButton,
@@ -34,6 +35,7 @@ from .transaction_gateway import PreviewTransactionGateway
 from .checkout_preflight import PreviewCheckoutPreflight
 from .dashboard_page import DashboardOverview
 from .directory_editor import PreviewDirectoryEditor
+from .quick_navigation import PreviewQuickJumpDialog
 
 DARK = """
 QWidget { background:#0a1120; color:#e8eef8; font: 10pt 'Segoe UI'; }
@@ -130,6 +132,10 @@ QListWidget#mainNavigation::item:hover:!selected { background:#223850; color:#ff
 QFrame#metricCard { background:#192f40; border:1px solid #2b4a5e; border-radius:16px; }
 QPushButton#quickAction { background:#183e4c; color:#e0fbf6; border:1px solid #2a6c73; border-radius:12px; text-align:left; padding-left:17px; font-weight:700; }
 QPushButton#quickAction:hover { background:#205362; }
+QPushButton#quickJumpAction { background:#1a3545; color:#b7f3e8; border:1px solid #35666e; padding:6px 12px; }
+QPushButton#quickJumpAction:hover { background:#245267; }
+QLabel#quickJumpHeading { color:#edffff; font-size:17pt; font-weight:750; }
+QListWidget#quickJumpResults { background:#101d2e; border:1px solid #2d4961; border-radius:12px; }
 QPushButton:disabled { background:#253342; color:#798899; }
 QScrollBar:vertical { background:#111d2d; width:10px; margin:3px; }
 QScrollBar::handle:vertical { background:#40576c; border-radius:5px; min-height:36px; }
@@ -169,6 +175,10 @@ QListWidget#mainNavigation::item:hover:!selected { background:#eff6fa; color:#10
 QFrame#metricCard { background:#f8fcff; border:1px solid #d4e7ec; border-radius:16px; }
 QPushButton#quickAction { background:#edf8f6; color:#125e5b; border:1px solid #b9ddd6; border-radius:12px; text-align:left; padding-left:17px; font-weight:700; }
 QPushButton#quickAction:hover { background:#d9f0eb; }
+QPushButton#quickJumpAction { background:#eff9f8; color:#11695f; border:1px solid #c4dfdc; padding:6px 12px; }
+QPushButton#quickJumpAction:hover { background:#d9f1eb; }
+QLabel#quickJumpHeading { color:#164f4c; font-size:17pt; font-weight:750; }
+QListWidget#quickJumpResults { background:#ffffff; border:1px solid #d1e3e6; border-radius:12px; }
 QPushButton:disabled { background:#e8edf2; color:#8da0ab; }
 QScrollBar:vertical { background:#ffffff; width:10px; margin:3px; }
 QScrollBar::handle:vertical { background:#c4d4df; border-radius:5px; min-height:36px; }
@@ -243,6 +253,11 @@ class SettingsPreview(QMainWindow):
         title.setObjectName("appTitle")
         brand_row.addWidget(title)
         brand_row.addStretch()
+        self.quick_jump_button = QPushButton(self.t("quick_jump_action"))
+        self.quick_jump_button.setObjectName("quickJumpAction")
+        self.quick_jump_button.setToolTip(self.t("quick_jump_hint"))
+        self.quick_jump_button.clicked.connect(self.open_quick_jump)
+        brand_row.addWidget(self.quick_jump_button)
         self.user_label = QLabel()
         self.user_label.setObjectName("hint")
         brand_row.addWidget(self.user_label)
@@ -317,6 +332,9 @@ class SettingsPreview(QMainWindow):
         # Lazy-create each page on first navigation; never repaint a giant form.
         self._pages = {}
         self.nav.currentRowChanged.connect(self.open_page)
+        self.quick_jump_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
+        self.quick_jump_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.quick_jump_shortcut.activated.connect(self.open_quick_jump)
         self.nav.setCurrentRow(0)
         self._apply_theme()
 
@@ -332,6 +350,8 @@ class SettingsPreview(QMainWindow):
         self.preview_badge.setText(self.t("test_mode_badge"))
         self.login_button.setText(self.t("preview_sign_in"))
         self.logout_button.setText(self.t("preview_sign_out"))
+        self.quick_jump_button.setText(self.t("quick_jump_action"))
+        self.quick_jump_button.setToolTip(self.t("quick_jump_hint"))
         self.locale_label.setText(self.t("language"))
         for index, key in enumerate(self.nav_keys):
             self.nav.item(index).setText(self.t(key))
@@ -398,6 +418,17 @@ class SettingsPreview(QMainWindow):
 
     def _is_preview_cashier(self):
         return self._current_preview_role() in ("Admin", "Cashier")
+
+    def open_quick_jump(self):
+        """Navigation-only command palette; canonical open_page checks still run."""
+        from PySide6.QtWidgets import QDialog
+        dialog = PreviewQuickJumpDialog(self.nav_keys, self.t, parent=self)
+        try:
+            if (dialog.exec() == QDialog.DialogCode.Accepted
+                    and dialog.selected_index is not None):
+                self.nav.setCurrentRow(dialog.selected_index)
+        finally:
+            dialog.deleteLater()
 
     def preview_login(self):
         if self.authenticator is None:

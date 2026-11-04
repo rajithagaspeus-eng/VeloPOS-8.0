@@ -991,3 +991,16 @@ Added `tests/test_v8_legacy_service_boundary.py`, which checks policy/gateway ac
 Exact PR head `236d312c8671df5d768805b0a3a7125bf0cc6b59`: Windows Actions [41847315485](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41847315485) **SUCCESS**, **245 tests PASS**, compileall PASS. Post-merge head `e19232a5098fdf5fc19b236f2d29dfc8746f59e1`: Windows push Actions [41847710848](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41847710848) **SUCCESS**, **245 tests PASS**, compileall PASS.
 
 All transaction writes remain hard-denied in the V8 preview. Gate A remains blocked until a reviewed commercial service owns and revalidates the same database transaction, and committed idempotency is integrated with that path. V7 behavior and customer data were not changed.
+
+
+## Idempotency fingerprint JSON key collision hardening — 2026-11-04
+
+Read master roadmap, release gates, progress history and exact develop-v8 head. Previous exact merged code head `e19232a5098fdf5fc19b236f2d29dfc8746f59e1` had Windows push CI [41847710848](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41847710848) SUCCESS (245 tests and compileall), as recorded above. Current documentation head before this batch: `6db3ffae75d50982b02975acc7360435db00f5a4`; the connector's PR-filtered workflow lookup returned no runs for it, which does not establish push CI.
+
+**Code:** `9db977176cce9447461c678a5240dd2a8abfabe6` changes only isolated V8 preview `idempotency_ledger.request_fingerprint`. JSON encoding silently coerces non-string object keys, allowing distinct request payloads such as `{1: "sale"}` and `{"1": "sale"}` to hash identically. The function now rejects non-string dictionary keys recursively, including keys inside list/tuple containers, before hashing. Canonical string-key payloads remain unchanged.
+
+**Regression:** `50c4d07d0cd47db9db256d07c6736bffeed20f89` adds `tests/test_v8_idempotency_key_canonicalization.py` covering integer/string collision, nested numeric/null/boolean keys, nested canonical key ordering, and non-object top-level payload. **Verification pending:** no tests were executed in this connector session; exact-head Windows push CI and no-skip test count must be checked. Do not inherit 245 PASS from the earlier SHA.
+
+**Commercial scope:** only a preview journal fingerprint primitive changed. No real service transaction path is authorized, no financial writes enabled, and Gate A/B/C/D/E remain blocked. V7, production data, signing keys and `main` were not modified.
+
+**Next highest priority:** inspect exact-head Windows push Actions run (the available workflow lookup only sees PR events), repair any regression, then implement durable transaction idempotency and crash recovery in a separately reviewed, service-owned isolated SQLite contract with verified session, branch, shift and license checks. Do not connect it to production V7 services or checkout until Gate A/B evidence is complete.

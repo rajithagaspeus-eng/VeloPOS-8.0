@@ -1405,3 +1405,60 @@ and run `python run_v8_checks.py` with no skips on latest
 service-owned identity/role/branch/shift/licensing authorization
 and committed idempotency under a single canonical disposable SQLite
 business transaction, preserving production and V7 isolation.
+
+
+## Phase 1 single-snapshot identity binding and persisted revocation regressions — 2026-11-04
+
+**Scope:** develop-v8 only. Reviewed five-phase plan, master roadmap,
+commercial release gates, latest checkpoint, service authorization,
+branch authorization, persisted session verifier, combined signed
+entitlement, single-transaction sale/recovery diagnostic and existing
+test fixtures. **No production service was opened** and no financial
+posting, customer data or signing secrets touched.
+
+**Code commit:** `6cb90bd28aec5f7a8d63a3b42e74cd0e93d07ab6`
+updates `velopos_qt/atomic_sale_recovery.py` to snapshot caller-supplied
+identity attributes (username, role, HMAC credential tag) once into a
+frozen `PreviewIdentity` before performing service authorization and
+durable journal fingerprint matching. Previously mutable identity
+attributes could diverge between the policy inspection and journal
+actor hint; this preserves one immutable set of claims per locked
+SQLite diagnostic. **The copied identity is not authorization**:
+the HMAC session token, current persisted user/role/password hash,
+canonical shift and branch, signed license and activation chain are
+still independently revalidated within the same caller-owned DB
+transaction. Invalid, expired or revoked identities remain denied.
+The preview `can_execute` / `can_checkout` fields remain always False,
+and `require()` always raises.
+
+**Regression commit:** `c9a1e1f645a64a9cec46c9861546d9e3852d9691`
+adds four disposable SQLite subprocess tests to
+`tests/test_v8_atomic_sale_recovery.py` (14 total in that module):
+mutable identity tampered *during* boundary inspection cannot split
+authorization from request identity, persisted role change invalidates
+the session despite a prior COMPLETED journal, password-hash rotation
+permanently invalidates a cached token even if hash is later restored,
+and shift-branch rebinding denies the policy despite a completed
+journal result. Completed journal is never evidence of actual posting.
+
+**Verification:** GitHub connector compared test commit
+`c9a1e1f` to `develop-v8` as identical, and fetched the new source
+and all four test methods. Combined-status endpoint had no status
+entries and PR-filtered workflow run lookup returned no runs; those
+are insufficient to prove push-triggered Actions success. No new
+tests were executed in this connector session. **Exact-head Windows
+no-skip test suite and compileall UNVERIFIED.** The last user-verified
+local Windows 263-test PASS was at older `dd7ae38`, not this head.
+
+**Five-phase state:** Phase 1 still IN PROGRESS; Phases 2–5 not
+accepted, commercial Gates A/B BLOCKED and C/D/E outstanding
+(0/5 accepted). No checkout, refund, GRN, stock posting, payment,
+shift mutation, or other commercial write enabled. Never touch
+stable `main`, production V7 DB or paid customer keys.
+
+**Next priority:** confirm exact-head Windows push CI and rerun
+`python run_v8_checks.py` without skips; fix errors before advancing.
+Then implement reviewed **service-owned** persisted-role, canonical
+branch/shift and trusted signed-license authorization together with
+durable idempotent write transaction and crash recovery in disposable
+V8 storage. Do not bypass Gate A/B.

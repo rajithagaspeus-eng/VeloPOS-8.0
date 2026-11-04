@@ -659,8 +659,13 @@ class PreviewSandboxSaleLedger:
                 if move["reference"] not in invoice_refs:
                     reasons.append("orphan_stock_move")
                 try:
-                    sold_qty = Decimal(move["sold_qty"])
-                    if not sold_qty.is_finite() or sold_qty <= 0:
+                    raw_sold = move["sold_qty"]
+                    if type(raw_sold) is not str or len(raw_sold) > 128:
+                        raise ValueError("invalid stock movement encoding")
+                    sold_qty = Decimal(raw_sold)
+                    if (not sold_qty.is_finite() or sold_qty <= 0
+                            or sold_qty > Decimal("100000000")
+                            or sold_qty.adjusted() < -18):
                         raise ValueError("invalid stock movement")
                 except (InvalidOperation, TypeError, ValueError):
                     reasons.append("invalid_stock_move_quantity")

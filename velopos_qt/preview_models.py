@@ -53,7 +53,10 @@ class Cart:
         barcode = str(product["barcode"])
         if not barcode:
             raise ValueError("A product barcode is required")
-        qty = Decimal(str(quantity))
+        try:
+            qty = Decimal(str(quantity).strip())
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError("Enter a valid quantity") from exc
         if not qty.is_finite() or qty <= 0:
             raise ValueError("Quantity must be positive")
         price = money(product["selling_price"])

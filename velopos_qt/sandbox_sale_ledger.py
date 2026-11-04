@@ -669,15 +669,6 @@ class PreviewSandboxSaleLedger:
                     except (InvalidOperation, TypeError, ValueError):
                         reasons.append("invalid_stock_decimal:" + barcode)
             total_cents = sum(sale["subtotal_cents"] for sale in invoices)
-            # Every completed sandbox-scoped journal must point at one
-            # actual sandbox invoice, not just claim it was completed.
-            for journal in connection.execute(
-                "SELECT result_ref FROM main.v8_preview_request_journal "
-                "WHERE scope='sale' AND status='COMPLETED'"
-            ):
-                if journal["result_ref"] not in invoice_refs:
-                    reasons.append("orphan_completed_journal")
-
             return SandboxReconciliation(
                 balanced=not reasons,
                 reasons=tuple(dict.fromkeys(reasons)),

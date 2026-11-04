@@ -137,3 +137,30 @@ with adversarial tests (cross-license substitution, malformed IDs, forged
 status, stale status, session revocation), still hard-denying all financial
 writes. Then audit service-bound transaction authorization and replay.
 Gate A/B/D/E remain blocked; never infer release readiness from this diagnostic.
+
+
+## Signed V8 license/activation identity binding — November 4, 2026
+
+Added optional `signed_license_id` to the fail-closed entitlement decision:
+only a signature-verified envelope explicitly declaring `v=8` and a bounded
+ASCII license ID can expose it. `inspect_with_activation` now compares this
+signed identifier against the activation status's required license ID.
+Cross-license substitution, malformed IDs and legacy envelopes retain
+`signed_license_id_binding_unverified`. The existing test now covers
+matching V8 identity, substitution, malformed identity, legacy fallback,
+revocation, forged status, and no financial mutations.
+
+Commits: `74518e4402a6e8c6448a82096dc26ce734a7b4e9`,
+`ba1a329a03fcf5bd4e0009166346405c44e90d81`,
+`13ecf90cecf3a899373e784cf0229dd4b844de7b`.
+**Verification:** tests not executed locally; commit status and
+pull-request-filtered workflow lookup returned no entries for code head
+`13ecf90cecf3a899373e784cf0229dd4b844de7b`.
+No exact-head Windows CI PASS can be claimed. The workflow lookup does
+not cover push-triggered runs, so an empty response is inconclusive.
+
+**Next:** verify Windows push CI using an Actions run listing that includes
+push events; fix any regression. Continue adversarial entitlement validation
+and activation policy with trusted server time/revocation, then service-side
+atomic transaction architecture. Existing V7 behavior untouched. All
+commercial gates remain blocked; preview always denies posting.

@@ -651,7 +651,13 @@ class PreviewSandboxSaleLedger:
                 if (cash != settled["cash_cents"] or
                         noncash != settled["noncash_cents"]):
                     reasons.append("settlement_tender_total_mismatch:" + ref)
-                change = cash + noncash - sale["subtotal_cents"]
+                subtotal = sale["subtotal_cents"]
+                if type(subtotal) is not int or subtotal < 0:
+                    # The invoice has already been marked invalid above.
+                    # Do not subtract a corrupted SQLite TEXT/BLOB value.
+                    reasons.append("settlement_invoice_amount_invalid:" + ref)
+                    continue
+                change = cash + noncash - subtotal
                 if declared:
                     if (change < 0 or change > cash or
                             change != settled["change_cents"] or

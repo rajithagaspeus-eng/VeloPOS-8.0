@@ -870,6 +870,37 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_invalid_tender_line_number(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_tenders "
+                    "SET line_no=0 WHERE reference=?", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_tender_line_number" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_invalid_invoice_line_number(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_no=0 WHERE reference=? AND line_no=1",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_number:" + first.reference in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_unknown_tender_method(self):
         self.isolated("""
             first = sandbox.simulate_commit(**dict(

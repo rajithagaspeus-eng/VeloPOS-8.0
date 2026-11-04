@@ -490,3 +490,30 @@ Never extrapolate an earlier PASS to an unverified commit.
 **Next:** verify and repair CI, then design authenticated server
 activation API and bounded/offline grace with careful key custody;
 do not enable real sales until every service-bound acceptance gate passes.
+
+
+## Server continuity clock rollback inspection — November 4, 2026
+
+Reviewed roadmap, release gates, previous activation reference and Windows push CI.
+Exact base SHA `51aad6e0be72130417d59dd91f06fc011ed02dc9` has successful
+Windows push Actions run [41807248172](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41807248172).
+That success does **not** verify the subsequent commits.
+
+Found a reference server-continuity diagnostic gap: `inspect_current()`
+accepted a valid current signed receipt when its supplied server observation
+clock preceded the latest server-held observation. It now reports
+`server_observation_clock_rollback` and fails the diagnostic closed. Added
+an adversarial regression asserting rejection of a valid receipt inspected
+with a regressed clock. Code commit `92e3375072c0a02a74c93a4b10a018bac3a48709`;
+test commit `91ce89e73290a9b2bfc810aa89a8e0b352f81cde`.
+
+**Scope:** preview-only reference; no commercial activation, payment, stock,
+production data or main branch modification. This check depends on a trusted
+server clock and durable server database; client-controlled time or storage
+cannot establish commercial trust. Gates A/B/C/D/E remain blocked.
+
+**Verification:** new regression is committed but not yet proven PASS on its
+exact head; inspect Windows push Actions for the documentation-inclusive SHA.
+**Next:** verify exact-head CI, repair failures, then design authenticated
+server API, durable activation custody and trusted service-bound transaction
+authorization with crash-safe idempotency. Never enable real checkout early.

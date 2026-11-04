@@ -95,7 +95,7 @@ class RollbackOnlySaleTests(unittest.TestCase):
                     request_id="rehearsal-failure-001", today="2026-11-04", **kwargs
                 )
             lines = [{"barcode":"RICE","qty":2,"price":20}]
-            for stage in ("after_stock","after_invoice"):
+            for stage in ("after_stock_ledger", "after_stock", "after_invoice", "after_journal_complete"):
                 try:
                     run(lines, inject_failure_at=stage)
                 except RuntimeError:
@@ -175,6 +175,54 @@ class RollbackOnlySaleTests(unittest.TestCase):
             else:
                 raise AssertionError("Non-preview rehearsal constructed")
             """, directory="VeloPOS"
+        )
+
+
+    def test_mixed_tenders_and_credit_rehearsal_never_post(self):
+        self.isolated(
+            """
+            from decimal import Decimal
+            from velopos import database, services
+            from velopos_qt.auth_model import PreviewAuthenticator
+            from velopos_qt.sale_rehearsal import RollbackOnlySaleRehearsal
+            database.init_db()
+            services.save_user("cashier", "StrongCashierPass2026!", "Cashier", "setup")
+            actor = PreviewAuthenticator(database).authenticate(
+                "cashier", "StrongCashierPass2026!"
+            )
+            services.save_product("RICE", "Rice", "test", sell=20, stock=10)
+            with database.db() as c:
+                c.execute("INSERT INTO shifts(cashier,status) VALUES('cashier','OPEN')")
+                shift_id = c.execute("SELECT id FROM shifts").fetchone()[0]
+                before_moves = c.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0]
+            rehearsal = RollbackOnlySaleRehearsal(database)
+            kwargs = dict(
+                identity=actor, shift_id=shift_id, request_id="mixed-rehearsal-001",
+                today="2026-11-04",
+                lines=[{"barcode":"RICE","qty":2,"price":20}],
+                tenders=[
+                    {"method":"Cash","amount":"15.00"},
+                    {"method":"Card","amount":"10.00","reference":"CARD-1234"},
+                    {"method":"QR","amount":"5.00","reference":"QR-1234"},
+                    {"method":"Credit","amount":"10.00"},
+                ],
+                customer_id=1,
+            )
+            result = rehearsal.simulate(**kwargs)
+            assert result.persisted is False
+            assert result.subtotal == Decimal("40.00")
+            assert result.tender_preview.credit_due == Decimal("10.00")
+            assert result.tender_preview.has_unverified_external_payments
+            assert result.tender_preview.can_settle is False
+            with database.db() as c:
+                assert c.execute("SELECT stock_qty FROM products WHERE barcode='RICE'").fetchone()[0] == 10
+                assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+                assert c.execute("SELECT COUNT(*) FROM sale_items").fetchone()[0] == 0
+                assert c.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0] == before_moves
+                assert not c.execute(
+                    "SELECT 1 FROM sqlite_master WHERE name='v8_preview_request_journal'"
+                ).fetchone()
+            """
         )
 
 

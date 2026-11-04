@@ -2566,3 +2566,12 @@ milestones as commercial security gates permit.
 - `2ccc4fe8700843ae9e318ce865d2ae6c7449613d`: two disposable-database regression methods exercise malformed invoice line quantities and corrupt movement/balance decimals, with restoration of test-only data between cases.
 - These new tests have **not yet been verified by exact-head Windows CI**. No real financial posting, signing-key changes, V7 data changes or `main` modifications. Gate A/B/C/D/E remain blocked; 0/5 accepted.
 - **Next exact priority:** inspect Actions run for checkpoint head and repair any confirmed failures. Then independently validate sandbox stock movement uniqueness, invoice/journal completeness and cross-ledger reconciliation; advance trusted service authorization architecture without enabling checkout.
+
+
+## Windows regression repair — 2026-11-05 (latest scheduled batch)
+
+- Read master roadmap, commercial release gates, recent develop-v8 history, and Windows Actions runs. Exact-head `99fa181d75` run [41900474459](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41900474459) **FAILED: 414 tests, 1 failure**. Runs for `2ccc4fe`, `45c2520`, `e7a3d5d` also failed with the same confirmed `test_corrupt_stock_move_and_balance_decimals_fail_closed` regression. Prior `a067d78` Windows run [41900137959](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41900137959) succeeded.
+- Root cause from actual Windows traceback: corrupt `before_qty='NaN'` returned `stock_chain_mismatch:RICE` instead of expected `invalid_stock_decimal:RICE`. The audit already failed closed, but the newly added precise error contract was violated.
+- Fix commit `cb9270df5c2d8e41f40c834e20f3e8a64dea5217`: classify nonfinite stock movement values explicitly as invalid decimals, rather than treating them as an ordinary arithmetic chain mismatch; malformed Decimal exceptions still fail closed. No production writes.
+- **Verification pending:** inspect Windows Actions for this fix and subsequent checkpoint HEAD; no new passing test count claimed until exact-head logs confirm. If failures persist, fix traceback before further feature work.
+- **Next priority:** complete exact-head Windows CI verification, then Gate A trusted service-bound authorization and Gate B cross-ledger accounting/stock/journal integrity; preserve preview-only isolation. 0/5 commercial gates accepted; no real checkout, payments or stock posting.

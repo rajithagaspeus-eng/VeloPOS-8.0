@@ -179,20 +179,32 @@ class PreviewSandboxReturnLedger:
             self._tables(connection)
             if journal.state == "journal_completed_unverified":
                 saved = connection.execute(
-                    "SELECT original_ref,refund_cents,refund_mode FROM "
-                    "main.v8_preview_sandbox_returns WHERE reference=? AND request_id=?",
+                    "SELECT original_ref,refund_cents,refund_mode,actor,branch_id,"
+                    "shift_id FROM main.v8_preview_sandbox_returns "
+                    "WHERE reference=? AND request_id=?",
                     (journal.result_ref, request_id)
                 ).fetchone()
-                count = connection.execute(
-                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_return_lines "
-                    "WHERE reference=?", (journal.result_ref,)
-                ).fetchone()[0]
-                if (saved is None or saved["original_ref"] != original_ref
-                        or saved["refund_mode"] != refund_mode or count != len(frozen)):
+                recorded = connection.execute(
+                    "SELECT sale_line_no,quantity,refund_cents "
+                    "FROM main.v8_preview_sandbox_return_lines "
+                    "WHERE reference=? ORDER BY line_no",
+                    (journal.result_ref,)
+                ).fetchall()
+                if (journal.result_ref != ref or saved is None
+                        or saved["original_ref"] != original_ref
+                        or saved["refund_mode"] != refund_mode
+                        or saved["actor"] != actor.username
+                        or saved["branch_id"] != expected_branch_id
+                        or saved["shift_id"] != shift_id
+                        or [(row["sale_line_no"], row["quantity"])
+                            for row in recorded] != frozen
+                        or sum(row["refund_cents"] for row in recorded)
+                            != saved["refund_cents"]
+                        or saved["refund_cents"] <= 0):
                     raise RuntimeError("Sandbox return journal requires reconciliation")
                 connection.rollback()
                 return SandboxReturnEvidence(
-                    ref, original_ref, saved["refund_cents"], count, True
+                    ref, original_ref, saved["refund_cents"], len(recorded), True
                 )
             if journal.state != "not_recorded":
                 raise PermissionError("Prior return journal needs reconciliation")

@@ -73,6 +73,19 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
                 request_id="durable-request-0001", lines=self.lines
             )
 
+    def test_unrelated_corrupt_record_blocks_all_replays(self):
+        self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
+        self.journal.inspect(request_id="durable-request-0002", lines=self.lines)
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE preview_rehearsals SET fingerprint='bad' "
+                "WHERE request_id='durable-request-0002'"
+            )
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

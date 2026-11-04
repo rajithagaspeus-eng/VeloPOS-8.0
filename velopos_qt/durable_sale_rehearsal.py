@@ -98,8 +98,13 @@ class DurablePreviewSaleJournal:
                     if stored_reference in seen_refs:
                         raise PermissionError("Duplicate preview reference")
                     seen_refs.add(stored_reference)
-                if len(rows) >= sequence_rows[0][1]:
-                    raise PermissionError("Preview sequence behind recorded requests")
+                expected_refs = {
+                    f"REHEARSAL-{index:08d}"
+                    for index in range(1, len(rows) + 1)
+                }
+                if (seen_refs != expected_refs or
+                        sequence_rows[0][1] != len(rows) + 1):
+                    raise PermissionError("Preview sequence or reference chain corrupted")
                 existing = conn.execute(
                     "SELECT fingerprint,reference FROM preview_rehearsals "
                     "WHERE request_id=?", (request_id,)

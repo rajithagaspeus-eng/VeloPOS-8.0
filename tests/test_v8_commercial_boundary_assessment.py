@@ -29,7 +29,7 @@ class CommercialBoundaryAssessmentTests(unittest.TestCase):
                     self.assertFalse(result.production_ready)
 
     def test_unknown_actions_and_proof_keys_are_rejected(self):
-        for action in ("checkout", "sale_void", "", None, 7):
+        for action in ("checkout", "unknown_action", "", None, 7):
             with self.subTest(action=action):
                 with self.assertRaises(ValueError):
                     assess_commercial_boundary(action)

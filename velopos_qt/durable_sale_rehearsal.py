@@ -44,12 +44,14 @@ class DurablePreviewSaleJournal:
         if candidate.exists() and (not candidate.is_file() or candidate.stat().st_nlink != 1):
             raise PermissionError("Shared or nonregular preview database refused")
         self.path = str(candidate)
+        self._file_identity = None
         self.max_requests = max_requests
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 self._initialize(conn)
                 conn.execute("COMMIT")
+                self._file_identity = self._identity()
             except BaseException:
                 conn.execute("ROLLBACK")
                 raise
@@ -138,10 +140,23 @@ class DurablePreviewSaleJournal:
         ):
             raise PermissionError("Missing unique preview reference constraint")
 
+    def _identity(self):
+        candidate = Path(self.path)
+        if candidate.is_symlink() or not candidate.is_file():
+            raise PermissionError("Preview database file replaced")
+        stat = candidate.stat()
+        if stat.st_nlink != 1:
+            raise PermissionError("Preview database hard link refused")
+        return (stat.st_dev, stat.st_ino)
+
     @contextmanager
     def _connect(self):
+        if self._file_identity is not None and self._identity() != self._file_identity:
+            raise PermissionError("Preview database file replaced")
         conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
         try:
+            if self._file_identity is not None and self._identity() != self._file_identity:
+                raise PermissionError("Preview database changed during open")
             # An untrusted preview file must not be able to attach external
             # databases or invoke trusted schema functions via SQL objects.
             conn.execute("PRAGMA trusted_schema=OFF")

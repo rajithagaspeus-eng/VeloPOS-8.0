@@ -58,6 +58,24 @@ class ActivationStatusTests(unittest.TestCase):
             assert "activation_binding_mismatch" in check(
                 sign(machine_id="MACHINE-B")
             ).reasons
+            for malformed in (None, True, 7, [], {}, "LICENSE A", " LICENSE-A"):
+                if isinstance(malformed, str) and " " in malformed:
+                    try:
+                        policy.inspect(signed_status=sign(), machine_id="MACHINE-A",
+                                       license_id=malformed, now=now)
+                    except ValueError:
+                        pass
+                    else:
+                        raise AssertionError("Malformed caller license ID accepted")
+                else:
+                    assert "activation_binding_mismatch" in check(
+                        sign(license_id=malformed)
+                    ).reasons
+            for malformed in (None, True, 7, [], {}):
+                assert "activation_binding_mismatch" in check(
+                    sign(machine_id=malformed)
+                ).reasons
+            assert "activation_not_active" in check(sign(status=True)).reasons
             assert "activation_timestamp_in_future" in check(
                 sign(observed_utc="2026-11-04T05:00:00Z")
             ).reasons

@@ -92,6 +92,8 @@ class DurablePreviewSaleJournal:
             if previous_count and not sequence_count:
                 raise PermissionError("Missing sequence in existing preview journal")
             if not sequence_count:
+                if preexisting:
+                    raise PermissionError("Missing sequence in existing preview journal")
                 conn.execute(
                     "INSERT INTO preview_sequence(singleton,next_number) VALUES (1,1)"
                 )

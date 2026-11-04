@@ -447,13 +447,18 @@ class PreviewSandboxSaleLedger:
                 "FROM main.v8_preview_sandbox_sales ORDER BY reference"
             ).fetchall()
             all_lines = connection.execute(
-                "SELECT reference,barcode,quantity,line_cents "
-                "FROM main.v8_preview_sandbox_sale_lines"
+                "SELECT reference,line_no,barcode,quantity,line_cents "
+                "FROM main.v8_preview_sandbox_sale_lines "
+                "ORDER BY reference,line_no"
             ).fetchall()
             expected_lines = {}
+            line_numbers = {}
             line_quantities = {}
             with localcontext(_CONTEXT):
                 for line in all_lines:
+                    line_numbers.setdefault(line["reference"], []).append(
+                        line["line_no"]
+                    )
                     expected_lines[line["reference"]] = (
                         expected_lines.get(line["reference"], 0) + line["line_cents"]
                     )
@@ -480,6 +485,9 @@ class PreviewSandboxSaleLedger:
                 reasons.append("orphan_completed_sale_journal")
             if set(expected_lines) - invoice_refs:
                 reasons.append("orphan_invoice_line")
+            for ref, numbers in line_numbers.items():
+                if numbers != list(range(1, len(numbers) + 1)):
+                    reasons.append("invoice_line_sequence_mismatch:" + ref)
             for sale in invoices:
                 ref = sale["reference"]
                 if expected_lines.get(ref) != sale["subtotal_cents"]:

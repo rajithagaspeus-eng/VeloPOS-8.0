@@ -38,11 +38,20 @@ def _finite_decimal(value):
 
 
 def canonical_decimal(value):
-    """Normalize equivalent representations without floating point notation."""
+    """Losslessly canonicalize a finite Decimal, independent of context prec.
+
+    Decimal.normalize() rounds the significant digits to the active decimal
+    context precision. That can make two distinct sale quantities share an
+    idempotency fingerprint. Fixed-point formatting preserves *all* digits;
+    strip only representational trailing zeroes, never significant digits.
+    """
     number = _finite_decimal(value)
     if number == 0:
         return "0"
-    return format(number.normalize(), "f")
+    rendered = format(number, "f")
+    if "." in rendered:
+        rendered = rendered.rstrip("0").rstrip(".")
+    return rendered
 
 
 @dataclass(frozen=True)

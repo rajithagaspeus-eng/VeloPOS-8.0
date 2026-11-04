@@ -75,11 +75,12 @@ def snapshot(c):
 
 
 class AtomicReturnBoundaryTests(unittest.TestCase):
-    def isolated(self, source, dirname="VeloPOS8PreviewData"):
+    def isolated(self, source, dirname="VeloPOS8PreviewData", fixture=True):
         with tempfile.TemporaryDirectory(prefix="v8_atomic_return_") as root:
             env=os.environ.copy()
             env["VELOPOS_HOME"]=str(Path(root)/dirname)
-            result=subprocess.run([sys.executable,"-c",FIXTURE+textwrap.dedent(source)],
+            prelude = FIXTURE if fixture else ""
+            result=subprocess.run([sys.executable,"-c",prelude+textwrap.dedent(source)],
                 env=env,capture_output=True,text=True,timeout=75)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
@@ -148,7 +149,7 @@ class AtomicReturnBoundaryTests(unittest.TestCase):
                 else: raise AssertionError("Invalid request accepted")
         """)
 
-    def test_caller_transaction_is_preserved_and_production_path_denied(self):
+    def test_caller_transaction_is_preserved(self):
         self.isolated("""
             with database.db() as c: before=snapshot(c)
             conn=database.connect()
@@ -162,10 +163,19 @@ class AtomicReturnBoundaryTests(unittest.TestCase):
             with database.db() as c:
                 assert snapshot(c)==before
                 assert not c.execute("SELECT 1 FROM sqlite_master WHERE name='boundary_caller_test'").fetchone()
-            try: PreviewAtomicReturnBoundary(database,license_public_key_b64=pub(license_signer))
-            except RuntimeError: pass
-            else: raise AssertionError("Production-like storage accepted")
-        """,dirname="VeloPOS")
+        """)
+
+    def test_production_path_is_rejected_without_preview_fixture(self):
+        self.isolated("""
+            from velopos import database
+            from velopos_qt.atomic_return_boundary import PreviewAtomicReturnBoundary
+            try:
+                PreviewAtomicReturnBoundary(database,license_public_key_b64="unused")
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("Production-like storage accepted")
+        """,dirname="VeloPOS",fixture=False)
         
 
 if __name__ == "__main__":

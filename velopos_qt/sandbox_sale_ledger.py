@@ -562,6 +562,9 @@ class PreviewSandboxSaleLedger:
                                 # than the barcode currently being sold. A
                                 # forged line and forged subtotal can otherwise
                                 # cancel each other out.
+                                if len(all_invoice_lines) > 100:
+                                    raise ValueError("historical invoice line limit exceeded")
+                                historical_quantities = {}
                                 for expected_line_no, historical_line in enumerate(
                                     all_invoice_lines, 1
                                 ):
@@ -601,6 +604,15 @@ class PreviewSandboxSaleLedger:
                                         )
                                     if historical_line["line_cents"] != calculated_cents:
                                         raise ValueError("historical invoice line mismatch")
+                                    historical_barcode = historical_line["barcode"]
+                                    accumulated = (
+                                        historical_quantities.get(
+                                            historical_barcode, Decimal("0")
+                                        ) + historical_qty
+                                    )
+                                    if accumulated > Decimal("1000000"):
+                                        raise ValueError("historical invoice aggregate quantity")
+                                    historical_quantities[historical_barcode] = accumulated
                                 raw_move = (
                                     move["before_qty"], move["sold_qty"],
                                     move["after_qty"],

@@ -395,3 +395,29 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   ubuntu-latest labels have been inspected. Investigate GitHub Actions
   billing/runner provisioning and workflow validation in repository UI.
 - main/V7/production data and commercial checkout unchanged.
+
+## SQLite sidecar pre-open security and CI root-cause investigation (2026-11-05)
+
+- Hardened `DurablePreviewSaleJournal._connect` with pre-open
+  `-journal`, `-wal`, `-shm` sidecar validation. Reject symlinks,
+  hardlinks and nonregular existing sidecars before SQLite may read or
+  write those paths. Regular single-link hot rollback journals remain
+  permitted for crash recovery.
+- Added repository application regressions for all three symlink
+  sidecars, hardlinked rollback journal, untouched external target and
+  unconsumed request sequence.
+- Executed **8 actual local standalone SQLite contract tests** via
+  `python -m unittest -v test_sqlite_transaction_contract tests.test_v8_sqlite_crash_contract`:
+  8 PASS, 0 FAIL, 3.048 seconds. These are NOT the checked-out
+  VeloPOS application regression suite; the new sidecar tests are
+  committed but have not been executed.
+- Windows Actions run `41937890160` failed with runner_name empty and
+  zero steps; Linux `41937888328` failed with zero jobs. Fetching
+  Windows job `126950902142` logs returned GitHub storage
+  `404 BlobNotFound`. This supports failure before normal step log
+  generation, but **does not identify** the underlying cause.
+  GitHub Actions account billing/runner allocation/workflow validation
+  needs checking in GitHub UI; connector cannot access these settings.
+- Full repository application regression remains blocked by private
+  repo checkout DNS resolution and unavailable GitHub Actions runners.
+  main/V7/production and commercial checkout unchanged.

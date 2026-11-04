@@ -109,3 +109,31 @@ disposable DB. Never turn any diagnostic into permission to post.
 **CI:** New test commit `aaa7d56607c72dd9995f811d531a19346f0193f5`
 awaits an exact-head Windows combined run; previous completed success
 `974734c724b7cc9d2646bc08eea4e5f100690132` does not verify this code.
+
+
+## Three-way signed activation diagnostic — November 4, 2026
+
+Added `PreviewCombinedAuthorization.inspect_with_activation()` and
+`require_with_activation()` to combine transaction-scoped persisted
+session/role/shift inspection, signed action entitlement inspection and
+independently signed activation freshness/status inspection. This is strictly
+preview-only, read-only, fail-closed: `can_execute=False` regardless of
+inputs. A separate `signed_license_id_binding_unverified` blocker documents
+that the existing signed entitlement has no cryptographically bound license
+identifier, so a caller-provided license ID cannot link it to a signed
+activation status. No checkout, return, payment or stock mutation is enabled.
+
+New disposable-database regression:
+`tests/test_v8_phase2_three_way_authorization.py` tests valid-but-denied
+credentials, revoked status, malformed status, hard-deny require and no
+financial table writes. Code commits `f7660520cc587dbdb30c3d539c6ef7664e96ef22`
+and `16820725f7a09367aa80d2a38e4eda1146607774`.
+**Test status: not independently executed or Windows-CI verified yet.**
+The next run must verify exact-head Windows CI and repair any failures.
+
+**Next priority:** introduce an explicitly versioned signed V8 entitlement
+license ID and enforce its equality with the signed activation license ID,
+with adversarial tests (cross-license substitution, malformed IDs, forged
+status, stale status, session revocation), still hard-denying all financial
+writes. Then audit service-bound transaction authorization and replay.
+Gate A/B/D/E remain blocked; never infer release readiness from this diagnostic.

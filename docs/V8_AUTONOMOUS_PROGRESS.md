@@ -2171,3 +2171,98 @@ customer-credit/returns/accounting workflows with original service
 review, avoiding repeated owner PowerShell requests. Once the
 end-to-end core is solid, seek actual acceptance against Gates A/B;
 never enable commercial posting based on sandbox-only tests.
+
+
+## Phase 2 sandbox partial-return/refund declarations with locked cumulative limits — 2026-11-04
+
+**User-visible direction:** Continue milestone-scale
+Billing → Tender → Invoice → Stock → Returns/Refunds →
+Accounting. This change adds a durable but **non-restocking,
+non-financial sandbox return declaration**. This is not real
+customer refund or production stock/accounting. The original
+sale/return/payments/customer-credit tables and V7 live data
+are never modified. Only `develop-v8` was changed;
+`main`, private signing keys and paid license records untouched.
+
+**Implementation:** `4d4f011f662156bc3a0c3cdc6c425650d232f7af`
+creates `velopos_qt/sandbox_return_ledger.py`.
+`PreviewSandboxReturnLedger.simulate_return()` owns one
+`BEGIN IMMEDIATE` write transaction in canonical isolated
+`VeloPOS8PreviewData` and rechecks current persisted cashier,
+role and open shift, canonical assigned branch, Ed25519 license
+specifically entitled for **return** action, signed activation
+continuity and claimed license/machine/branch binding. It
+verifies an existing committed sandbox invoice and matching
+completed original sale journal, then validates requested
+original sale **line number + quantity**. Each line's
+cumulative returned quantity cannot exceed original sold
+quantity. Cumulative ROUND_HALF_UP cents are bounded by the
+original item's line total; no repeated cents windfall from
+partial-return rounding. A new return request key is bound to
+original invoice, return quantities, actor, branch, date,
+license/device and refund declaration type. Claim, return
+header/line declarations and COMPLETED journal entry commit
+or roll back together; all three injected failure points roll
+back. Only standalone `v8_preview_sandbox_returns`,
+`v8_preview_sandbox_return_lines` and the test-only
+idempotency journal are written. Explicit **non-restock
+policy** does not add product stock back to either real or
+sandbox stock; no cash refund, card/QR reversal, customer
+credit or fiscal credit note occurs. Return evidence is
+frozen, labeled `actual_refund_posted=False` and
+`stock_restocked=False`; `require_real_refund()`
+always hard-denies. This is intentionally narrower than
+Gate A/B commercial return requirements.
+
+**Reconciliation:** `11106f5368cd148e1f3e197a8935bbb896ae7dde`
+adds a read-only `reconcile_returns()` audit for
+original invoice/branch linkage, original sale-line
+quantity/barcode, cumulative total refund cents bounded
+by original line amounts, return header-line totals,
+one matching COMPLETED return journal and orphaned journal
+or line detection. Any inconsistency returns `balanced=False`;
+nothing is auto-repaired.
+
+**Replay integrity:** `f2a848d0b17217baca8a4add00ef0c34550873d5`
+requires a COMPLETED request's persisted deterministic
+reference, current actor, branch, shift, original sale,
+refund mode, exact line numbers/quantities and refund-cents
+sum to match before returning sandbox replay evidence.
+A journal row by itself is NEVER proof of a real refund.
+
+**Regressions:** `0ddb4d912b7b03da3b57007ff5357cd8146fc756`
+adds 8 disposable SQLite process tests in
+`tests/test_v8_sandbox_returns.py`: signed partial return,
+unchanged V7 stock/financial tables, exact-once replay and
+changed-request conflicts, quantity/amount limits,
+unauthorized session/branch/license/shift denial, rollback
+failpoints, tamper-detecting audit, nonexistent invoice and
+unsupported Credit/modes, hard commercial denial.
+`e078ac34dd235c4ed1eac5bccd34c7c150e01daa`
+adds 2 tests for tampered replayed quantities and
+orphaned completed return journals. **10 new regression
+methods written**, NOT yet executed by owner Windows or
+confirmed hosted GitHub Actions.
+
+**Verification/gates:** Latest verified owner Windows suite
+remains `da535008b708511fbb8cf64529e5c9d2fc983ebd`
+with 296/296 OK, zero skipped, exit 0. It is an older
+code SHA and does NOT verify subsequent sandbox sale,
+tender, or return commits. Github Actions workflow exists
+for Windows `develop-v8` pushes but hosted results have
+not been confirmed through available connectors. Phase 1
+remains IN PROGRESS, Phase 2 partial sandbox vertical slices;
+**0/5 commercial gates accepted**. A/B still require
+trusted commercial service authorization, true tender capture
+proof, verified customer credit, batch allocation/expiry,
+COGS/tax, audited refunds/reversals and end-to-end financial
+reconciliation. Cloud/licensing/final QA gates C/D/E
+remain outstanding.
+
+**Next feature direction:** Add test-only sandbox
+customer-credit and full return stock disposition
+policy, then reconcile refund declarations against
+original tender allocation and eventual accounting
+contra-revenue entries; keep all financial posting in
+production off until independently accepted Gates A/B.
+Do not request frequent owner PowerShell commands.

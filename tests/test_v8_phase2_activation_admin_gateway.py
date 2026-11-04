@@ -128,13 +128,10 @@ class PreviewSignedAdminGatewayTests(unittest.TestCase):
                 api.disable_operator(c, operator_id="ISSUER-A")
                 forbidden(sign(issuer, "ISSUER-A", "issue",
                                "request-issue-05", issue), minute=4)
-                assert c.execute(
+                row = c.execute(
                     "SELECT last_sequence,status FROM v8_preview_server_license_state "
-                    "WHERE license_id='LIC-A'").fetchone() == (1, "revoked") or (
-                    lambda row: row[0] == 1 and row[1] == "revoked")(
-                        c.execute("SELECT last_sequence,status FROM "
-                                  "v8_preview_server_license_state "
-                                  "WHERE license_id='LIC-A'").fetchone())
+                    "WHERE license_id='LIC-A'").fetchone()
+                assert row["last_sequence"] == 1 and row["status"] == "revoked"
                 try:
                     api.require_checkout()
                 except PermissionError:

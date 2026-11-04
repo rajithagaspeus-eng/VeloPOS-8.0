@@ -373,6 +373,8 @@ class PreviewSandboxSaleLedger:
                 "v8_preview_sandbox_stock",
                 "v8_preview_sandbox_stock_moves",
                 "v8_preview_request_journal",
+                "v8_preview_sandbox_tenders",
+                "v8_preview_sandbox_settlements",
             )
             found = {
                 row[0] for row in connection.execute(
@@ -418,6 +420,66 @@ class PreviewSandboxSaleLedger:
                 if (journal is None or journal["status"] != "COMPLETED"
                         or journal["result_ref"] != ref):
                     reasons.append("invoice_journal_mismatch:" + ref)
+
+            # Every persisted sandbox invoice must have exactly one
+            # allocation record. A declared tender is a TEST declaration
+            # only, NEVER evidence that funds were captured.
+            all_tenders = connection.execute(
+                "SELECT reference,line_no,method,amount_cents,reference_hint "
+                "FROM main.v8_preview_sandbox_tenders ORDER BY reference,line_no"
+            ).fetchall()
+            tender_by_ref = {}
+            for row in all_tenders:
+                tender_by_ref.setdefault(row["reference"], []).append(row)
+                if row["reference"] not in invoice_refs:
+                    reasons.append("orphan_tender_allocation")
+                if (row["method"] not in ("Cash","Card","QR")
+                        or type(row["amount_cents"]) is not int
+                        or row["amount_cents"] <= 0):
+                    reasons.append("invalid_tender_declaration")
+            settlements = connection.execute(
+                "SELECT reference,declared,due_cents,cash_cents,noncash_cents,"
+                "change_cents FROM main.v8_preview_sandbox_settlements"
+            ).fetchall()
+            settlement_by_ref = {row["reference"]: row for row in settlements}
+            if len(settlement_by_ref) != len(settlements):
+                reasons.append("duplicate_settlement_record")
+            if set(settlement_by_ref) != invoice_refs:
+                reasons.append("settlement_coverage_mismatch")
+            for sale in invoices:
+                ref = sale["reference"]
+                settled = settlement_by_ref.get(ref)
+                if settled is None:
+                    continue
+                if settled["due_cents"] != sale["subtotal_cents"]:
+                    reasons.append("settlement_invoice_mismatch:" + ref)
+                tenders = tender_by_ref.get(ref, ())
+                declared = settled["declared"]
+                if declared not in (0,1) or bool(tenders) != bool(declared):
+                    reasons.append("settlement_declaration_mismatch:" + ref)
+                cash = sum(
+                    row["amount_cents"] for row in tenders
+                    if row["method"] == "Cash"
+                )
+                noncash = sum(
+                    row["amount_cents"] for row in tenders
+                    if row["method"] != "Cash"
+                )
+                if (cash != settled["cash_cents"] or
+                        noncash != settled["noncash_cents"]):
+                    reasons.append("settlement_tender_total_mismatch:" + ref)
+                change = cash + noncash - sale["subtotal_cents"]
+                if declared:
+                    if (change < 0 or change > cash or
+                            change != settled["change_cents"] or
+                            noncash > sale["subtotal_cents"]):
+                        reasons.append("settlement_allocation_mismatch:" + ref)
+                elif any(
+                    settled[field] != 0 for field in (
+                        "cash_cents", "noncash_cents", "change_cents"
+                    )
+                ):
+                    reasons.append("unallocated_settlement_nonzero:" + ref)
 
             stock_rows = connection.execute(
                 "SELECT barcode,opening_qty,remaining_qty "

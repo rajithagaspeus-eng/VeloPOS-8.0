@@ -146,3 +146,45 @@ snapshot sale request across canonical service/branch/license checks and
 idempotency journal; obtain exact-head Windows CI and implement a
 separately reviewed service-owned transaction boundary. Real posting
 remains disabled.
+
+
+## Delivery acceleration rule — vertical feature slices instead of micro-commits
+
+**Owner constraint (2026-11-04):** The owner cannot repeatedly spend time
+running local Windows suites or reviewing a stream of small security-only
+batches. A 35% informal development estimate repeated after each batch is
+not useful evidence and does not establish actual readiness.
+
+- Deliver **end-to-end user-visible feature slices** and measure each by a
+  demonstrable screen/workflow, its domain rules, regressions and independent
+  acceptance evidence. Never pad the completion percentage for number of
+  commits, lines of code or unit tests.
+- Preserve Gate A/B service safety before enabling transactional POS.
+  Continue backend integration inside feature slices; don't treat the
+  safety blocks as permission to ship an unsafe workaround.
+- For every `develop-v8` push, use
+  `.github/workflows/v8-preview-windows.yml` to run an isolated Windows
+  full-suite check with missing dependencies or skipped tests counted as
+  verification failure. **Workflow has been committed but the hosted first
+  run is not yet independently verified.** Do not ask the owner for routine
+  local terminal runs between individual commits.
+- Batch requests for owner time into a **single milestone demonstration
+  and acceptance**. Owner decisions/manual hardware tests still matter at
+  a real release gate, not at every code checkpoint.
+- The immediate Billing Draft slice includes an in-memory receipt-style
+  preview with estimated discount/cash/change and copy action; it is
+  explicitly marked NOT A SALE and has no print or payment side effects.
+  This is a user-visible preview increment, NOT completion of Phase 2
+  financial posting.
+- Milestone reporting must say **working/blocked/accepted** for the
+  integrated feature and exact tested commit, rather than an arbitrary
+  percentage. Overall completion remains **unmeasured** until the team
+  maintains a weighted objective feature/acceptance ledger.
+
+**Current highest-value deliverable after the draft receipt slice:**
+a real, fully accounted sale path behind a service-owned authority
+boundary in disposable V8 storage, with idempotent stock/receipts/tenders
+and refunds integrated into the original service contract, then Gate A/B
+independent reconciliation. Only once proven and accepted can checkout
+be enabled. Cloud, licensing, premium UI and release gates follow the
+five-phase dependency structure above.

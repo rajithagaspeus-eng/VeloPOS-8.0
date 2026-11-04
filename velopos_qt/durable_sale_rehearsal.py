@@ -58,6 +58,24 @@ class DurablePreviewSaleJournal:
             conn.execute(
                 "INSERT OR IGNORE INTO preview_sequence(singleton,next_number) VALUES (1,1)"
             )
+            # An existing preview file is untrusted: refuse extra triggers,
+            # tables or views instead of executing attacker-supplied SQL.
+            objects = conn.execute(
+                "SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+            if set(objects) != {
+                ("table", "preview_rehearsals"),
+                ("table", "preview_sequence"),
+            }:
+                raise PermissionError("Unexpected preview database objects")
+            expected_columns = {
+                "preview_rehearsals": ("request_id", "fingerprint", "reference"),
+                "preview_sequence": ("singleton", "next_number"),
+            }
+            for table, names in expected_columns.items():
+                columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
+                if tuple(col[1] for col in columns) != names:
+                    raise PermissionError("Unexpected preview database schema")
 
     @contextmanager
     def _connect(self):

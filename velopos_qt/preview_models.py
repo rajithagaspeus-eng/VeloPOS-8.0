@@ -32,14 +32,15 @@ class InventoryReader:
         if str(limit).strip() != str(parsed_limit):
             raise ValueError("Invalid lookup limit")
         limit = max(1, min(parsed_limit, 200))
-        search = "%" + str(query).strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        term = str(query).strip()
+        search = "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         with self.database.db() as connection:
             rows = connection.execute(
                 "SELECT barcode, name_en, name_local, stock_qty, selling_price "
                 "FROM products WHERE barcode LIKE ? ESCAPE '\\' "
                 "OR name_en LIKE ? ESCAPE '\\' OR name_local LIKE ? ESCAPE '\\' "
-                "ORDER BY name_en, barcode LIMIT ?",
-                (search, search, search, limit),
+                "ORDER BY CASE WHEN barcode=? THEN 0 ELSE 1 END, name_en, barcode LIMIT ?",
+                (search, search, search, term, limit),
             ).fetchall()
         return [dict(row) for row in rows]
 

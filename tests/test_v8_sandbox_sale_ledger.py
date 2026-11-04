@@ -1339,6 +1339,51 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_next_sale_refuses_missing_historical_completed_journal(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_request_journal "
+                    "WHERE scope='sale' AND request_id=?", (args["request_id"],)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-missing-journal-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Missing historical journal accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
+    def test_next_sale_refuses_redirected_historical_completed_journal(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_request_journal SET result_ref=? "
+                    "WHERE scope='sale' AND request_id=?",
+                    ("SBX-" + "e" * 24, args["request_id"])
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-redirected-journal-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Redirected historical journal accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_third_sale_refuses_deleted_middle_stock_movement(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

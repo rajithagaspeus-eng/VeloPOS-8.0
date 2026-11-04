@@ -145,6 +145,17 @@ class DraftBillingKeyboardSearchTests(unittest.TestCase):
         self.assertIn("QLabel#billingSearchHelp", DARK)
         self.assertIn("QLabel#billingSearchHelp", LIGHT)
 
+    def test_draft_cart_rejects_malformed_quantity_without_mutation(self):
+        self.page.query.setText("RICE-B")
+        self.page.scan_or_add()
+        before = dict(self.page.cart.lines["RICE-B"])
+        for invalid in ("bad", "", "NaN", "Infinity", "-Infinity", "0", "-1"):
+            with self.assertRaises(ValueError, msg=invalid):
+                self.page.cart.add(self.inventory.records[1], quantity=invalid)
+            self.assertEqual(self.page.cart.lines["RICE-B"], before)
+        self.assertEqual(str(self.page.cart.subtotal()), "250.00")
+        self.assertFalse(hasattr(self.page, "checkout_button"))
+
     def test_only_one_match_and_no_checkout_or_financial_writes(self):
         self.page.query.setText("RICE-B")
         self.assertEqual(self.page.results.rowCount(), 1)

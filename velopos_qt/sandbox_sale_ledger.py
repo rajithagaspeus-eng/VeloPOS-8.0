@@ -466,7 +466,7 @@ class PreviewSandboxSaleLedger:
                                 # whose exactly-once journal was deleted or
                                 # redirected to a different result reference.
                                 journal_row = connection.execute(
-                                    "SELECT result_ref,status FROM "
+                                    "SELECT result_ref,status,payload_sha256 FROM "
                                     "main.v8_preview_request_journal "
                                     "WHERE scope='sale' AND request_id=?",
                                     (invoice["request_id"],)
@@ -475,6 +475,21 @@ class PreviewSandboxSaleLedger:
                                         or journal_row["status"] != "COMPLETED"
                                         or journal_row["result_ref"] != move_ref):
                                     raise ValueError("invoice journal mismatch")
+                                digest = journal_row["payload_sha256"]
+                                request_id_for_move = invoice["request_id"]
+                                if (type(digest) is not str
+                                        or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                                        or type(request_id_for_move) is not str
+                                        or re.fullmatch(
+                                            r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}",
+                                            request_id_for_move
+                                        ) is None
+                                        or "SBX-" + sha256(
+                                            (request_id_for_move + ":" + digest).encode(
+                                                "utf-8"
+                                            )
+                                        ).hexdigest()[:24] != move_ref):
+                                    raise ValueError("invoice journal fingerprint mismatch")
                                 # A forged but numerically balanced stock move
                                 # must match the actual persisted invoice lines.
                                 invoice_lines = connection.execute(

@@ -328,10 +328,13 @@ No Qt checkout, production V7 service, real licensing key, live database
 or financial posting path was changed. All decisions have
 `can_execute=False`, including valid-branch diagnostics.
 
-**Verification:** the feature branch's new tests and combined Windows CI
-are **NOT YET VERIFIED**. The successful base-branch run cannot be
-used as evidence that these new changes pass. Run `python run_v8_checks.py`
-in an isolated Windows environment before integrating this branch.
+**Verification:** Windows PR Actions run
+[41800587777](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41800587777)
+completed successfully on code head
+`3c50abfe15fb3370966bd7d239df3f605d107319`: **177 tests passed, 0 failed**.
+That CI exercised the new branch/shift tests, not just the old base code.
+The documentation-only commit after this milestone requires its own
+exact-head PR check before merge.
 
 **Next:** obtain exact-feature-head CI and repair failures; review branch
 registry provenance and initialization lifecycle; design a trusted

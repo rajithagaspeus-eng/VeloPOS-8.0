@@ -223,6 +223,53 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == "COMPLETED"
         """)
 
+    def test_sandbox_independent_audit_reconciles_invoice_stock_and_journal(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            second = sandbox.simulate_commit(**dict(
+                args, request_id="sandbox-audit-sale-0002",
+                lines=[{"barcode":"SOAP","qty":2,"price":25}]
+            ))
+            audited = sandbox.reconcile_sandbox()
+            assert audited.balanced, audited
+            assert audited.reasons == ()
+            assert audited.invoice_count == 2
+            assert audited.subtotal_cents == 30000
+            assert audited.can_checkout is False
+            with database.db() as c:
+                assert sandbox_stock(c) == {"RICE":"5", "SOAP":"1"}
+        """)
+
+    def test_independent_audit_fails_closed_after_invoice_or_stock_tamper(self):
+        self.isolated("""
+            sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_cents=line_cents+1 WHERE line_no=1"
+                )
+            bad_lines = sandbox.reconcile_sandbox()
+            assert not bad_lines.balanced
+            assert any(
+                reason.startswith("invoice_line_total_mismatch")
+                for reason in bad_lines.reasons
+            ), bad_lines
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_cents=line_cents-1 WHERE line_no=1"
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock "
+                    "SET remaining_qty='999' WHERE barcode='RICE'"
+                )
+            bad_stock = sandbox.reconcile_sandbox()
+            assert not bad_stock.balanced
+            assert "stock_balance_mismatch:RICE" in bad_stock.reasons
+            assert bad_stock.can_checkout is False
+        """)
+
     def test_two_sequential_sandbox_sales_reconcile_invoice_and_remaining_stock(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

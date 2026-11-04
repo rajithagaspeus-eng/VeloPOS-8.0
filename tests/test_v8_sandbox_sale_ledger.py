@@ -270,6 +270,21 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert bad_stock.can_checkout is False
         """)
 
+    def test_audit_detects_sold_stock_quantity_different_from_invoice_lines(self):
+        self.isolated("""
+            sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET sold_qty='999' WHERE barcode='SOAP'"
+                )
+            checked = sandbox.reconcile_sandbox()
+            assert not checked.balanced
+            assert "stock_line_quantity_mismatch" in checked.reasons
+            assert checked.can_checkout is False
+        """)
+
     def test_two_sequential_sandbox_sales_reconcile_invoice_and_remaining_stock(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

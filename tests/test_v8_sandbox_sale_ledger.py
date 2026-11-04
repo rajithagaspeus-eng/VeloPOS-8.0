@@ -340,6 +340,23 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_noncanonical_invoice_quantity_and_price(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET quantity='2.0',price='45.00' "
+                    "WHERE reference=? AND line_no=1", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "noncanonical_invoice_line_quantity" in audited.reasons, audited
+            assert "noncanonical_invoice_line_price" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_invalid_persisted_invoice_barcode(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

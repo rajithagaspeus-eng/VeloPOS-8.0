@@ -5,6 +5,7 @@ VeloPOS8PreviewData SQLite database by test fixtures. This inspector NEVER
 creates or edits those tables, changes V7 data, or authorizes a transaction.
 It requires the caller's canonical preview connection inside a transaction.
 A branch string supplied by a UI/client is not proof of branch membership.
+All registry, membership and shift lookups bind main.*, not TEMP shadows.
 """
 from dataclasses import dataclass
 
@@ -67,7 +68,7 @@ class PreviewBranchAuthorization:
 
         present = {
             row[0] for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' "
+                "SELECT name FROM main.sqlite_master WHERE type='table' "
                 "AND name IN (?,?,?)", tuple(sorted(_TABLES))
             ).fetchall()
         }
@@ -81,7 +82,7 @@ class PreviewBranchAuthorization:
 
         if valid_branch:
             branch = connection.execute(
-                "SELECT active FROM v8_preview_branch_registry WHERE branch_id=?",
+                "SELECT active FROM main.v8_preview_branch_registry WHERE branch_id=?",
                 (branch_id,),
             ).fetchone()
             if branch is None or branch["active"] != 1:
@@ -89,7 +90,7 @@ class PreviewBranchAuthorization:
 
         if valid_branch and isinstance(actor, str) and actor:
             membership = connection.execute(
-                "SELECT active FROM v8_preview_branch_memberships "
+                "SELECT active FROM main.v8_preview_branch_memberships "
                 "WHERE username=? AND branch_id=?",
                 (actor, branch_id),
             ).fetchone()
@@ -102,7 +103,7 @@ class PreviewBranchAuthorization:
             else:
                 shift = connection.execute(
                     "SELECT s.cashier, s.status, b.branch_id "
-                    "FROM shifts AS s LEFT JOIN v8_preview_branch_shifts AS b "
+                    "FROM main.shifts AS s LEFT JOIN main.v8_preview_branch_shifts AS b "
                     "ON b.shift_id=s.id WHERE s.id=?",
                     (shift_id,),
                 ).fetchone()

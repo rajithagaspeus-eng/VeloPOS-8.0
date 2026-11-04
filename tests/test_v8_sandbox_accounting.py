@@ -153,6 +153,38 @@ class SandboxCloseoutTests(unittest.TestCase):
                 ).fetchone()[0] == 3
         """)
 
+    def test_failed_return_preserves_paid_declaration_and_reconciliation(self):
+        self.isolated("""
+            options = dict(args,tenders=[
+                {"method":"Cash","amount":"250"}
+            ])
+            sale = sale_service.simulate_commit(**options)
+            baseline = closeout.closeout()
+            assert baseline.balanced and baseline.gross_cents == 25000
+            for stage in ("after_claim","after_lines","after_complete"):
+                try:
+                    return_service.simulate_return(**new_return(
+                        sale.reference, inject_failure_at=stage
+                    ))
+                except RuntimeError as exc:
+                    assert "Injected return failure" in str(exc), exc
+                else:
+                    raise AssertionError("Failed return stage: " + stage)
+                checked = closeout.closeout()
+                assert checked.balanced, checked
+                assert checked.return_count == 0
+                assert checked.net_after_declared_returns_cents == 25000
+                assert sale_service.reconcile_sandbox().balanced
+            returned = return_service.simulate_return(
+                **new_return(sale.reference)
+            )
+            assert returned.refund_cents == 4500
+            final = closeout.closeout()
+            assert final.balanced and final.return_count == 1, final
+            assert final.net_after_declared_returns_cents == 20500
+            assert final.actual_refunds_cents == 0
+        """)
+
     def test_two_partial_returns_on_original_line_reconcile_exact_cents(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

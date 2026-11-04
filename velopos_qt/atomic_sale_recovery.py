@@ -112,9 +112,24 @@ class PreviewAtomicSaleRecovery:
             machine_id=stable_kwargs["machine_id"],
             today=stable_kwargs.get("today"),
         )
-        journal = self.journal.inspect_request(
-            connection, "sale", sale_kwargs["request_id"], payload
+        # Journal presence and result_ref can reveal previous invoice activity.
+        # Do not even query the journal for an unverified caller/branch/shift,
+        # invalid license chain, or a rejected draft. These diagnostics are
+        # NOT commercial authorization: even the allowed read is test-only.
+        trusted_preview_context = (
+            readiness.session_bound
+            and readiness.branch_verified
+            and readiness.license_bound
+            and readiness.signed_chain_valid
+            and readiness.policy_consistent
+            and readiness.local_checks_consistent
         )
+        if trusted_preview_context:
+            journal = self.journal.inspect_request(
+                connection, "sale", stable_kwargs["request_id"], payload
+            )
+        else:
+            journal = RecoveryInspection("withheld_authorization_required")
         reasons = tuple(dict.fromkeys((
             *readiness.reasons,
             *(() if journal.state == "not_recorded" else

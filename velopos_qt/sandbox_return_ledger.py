@@ -356,6 +356,13 @@ class PreviewSandboxReturnLedger:
                         reasons.append("orphan_return_line")
                         continue
                     key = (header["original_ref"], row["sale_line_no"])
+                    try:
+                        quantity = Decimal(row["quantity"])
+                        if not quantity.is_finite() or quantity <= 0:
+                            raise ValueError("Invalid return quantity")
+                    except (ValueError, TypeError, ArithmeticError):
+                        reasons.append("invalid_return_line")
+                        continue
                     refunds_by_sale_line.setdefault(key, []).append(row)
                     original = connection.execute(
                         "SELECT barcode FROM "
@@ -364,8 +371,7 @@ class PreviewSandboxReturnLedger:
                     ).fetchone()
                     if original is None or original["barcode"] != row["barcode"]:
                         reasons.append("return_original_line_mismatch")
-                    if (Decimal(row["quantity"]) <= 0
-                            or row["refund_cents"] < 0):
+                    if row["refund_cents"] < 0:
                         reasons.append("invalid_return_line")
                     if (row["disposition"] not in ("DAMAGED","DISCARDED")
                             or row["restocked"] != 0):

@@ -62,3 +62,23 @@ First obtain a runner-executed Windows test result for the exact latest
 `develop-v8` SHA. Then address actual failures and build the trusted
 commercial transaction service behind an explicitly disabled release gate,
 using disposable data until all Gate A/B acceptance criteria are proven.
+
+## CI follow-up and sale service implementation (2026-11-05)
+
+- The latest inspected Windows run `41919490086` reports failure with
+  `runner_name=""` and `steps=[]`. Sandbox run `41919504663`
+  exposes `jobs=[]`. This confirms **no executed test result is available**
+  for these runs; it does not confirm a Python regression failure.
+- Prior CI test code contained a stale expectation that `sale_void` was an
+  unknown assessment action even though that action had been implemented.
+  The stale test was corrected.
+- Added `sale_request_service.py`: deterministic, side-effect-free draft
+  arithmetic, canonical SHA-256 request fingerprint, and an unconditional
+  mandatory-deny `commit()`. It neither accesses production data nor grants
+  checkout permission.
+- Integrated read-only rehearsal into `PreviewTransactionGateway` and added
+  unit/integration regressions. Both CI workflows now include its unit suite.
+- **Action needed for CI**: inspect GitHub Actions run annotations and account
+  runner eligibility/billing limits; re-run only when runners can actually
+  start. A zero-step run cannot certify tests. Do not weaken security gates
+  to make a CI badge green.

@@ -114,7 +114,15 @@ class ComposedActivationChainTests(unittest.TestCase):
                 with_wrong_action = check(action="purchase")
                 assert not with_wrong_action.policy_consistent
                 assert "role_not_permitted" in with_wrong_action.branch_reasons
-                forged_status = check(current_status=current[:-2] + "AA")
+                # Do not replace the final base64 symbols with "AA":
+                # a valid Ed25519 signature can itself already end in "AA",
+                # making that supposed tamper a rare no-op and a flaky test.
+                # Change a significant first signature sextet unconditionally.
+                signed_payload, signed_signature = current.split(".")
+                flipped_first = "B" if signed_signature[0] == "A" else "A"
+                tampered = signed_payload + "." + flipped_first + signed_signature[1:]
+                assert tampered != current
+                forged_status = check(current_status=tampered)
                 assert not forged_status.chain_signatures_valid
                 assert not forged_status.chain_consistent
                 stale = check(now=datetime(2026,11,8,10,tzinfo=timezone.utc))

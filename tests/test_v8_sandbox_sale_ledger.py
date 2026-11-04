@@ -1339,6 +1339,33 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_next_sale_refuses_historical_invoice_over_100_lines(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.executemany(
+                    "INSERT INTO main.v8_preview_sandbox_sale_lines "
+                    "(reference,line_no,barcode,quantity,price,line_cents) "
+                    "VALUES (?,?,?,?,?,?)",
+                    [
+                        (first.reference, n, "SOAP", "1", "0", 0)
+                        for n in range(4, 102)
+                    ]
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-historical-line-limit-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Historical invoice line count limit bypassed")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_next_sale_refuses_historical_aggregate_quantity_over_limit(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

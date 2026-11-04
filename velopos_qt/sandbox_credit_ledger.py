@@ -643,6 +643,15 @@ class PreviewSandboxCreditLedger:
             outstanding = self._balance(c,customer_id)
             if cents > outstanding:
                 raise PermissionError("Repayment exceeds outstanding sandbox credit")
+            if target is None and c.execute(
+                "SELECT 1 FROM main.v8_preview_sandbox_credit_allocations a "
+                "JOIN main.v8_preview_sandbox_credit_repayments r "
+                "ON r.reference=a.repayment_ref "
+                "WHERE r.customer_id=? LIMIT 1", (customer_id,)
+            ).fetchone() is not None:
+                raise PermissionError(
+                    "Unallocated repayment prohibited after invoice allocations"
+                )
             if target is not None:
                 note_cents = c.execute(
                     "SELECT COALESCE(SUM(amount_cents),0) FROM "

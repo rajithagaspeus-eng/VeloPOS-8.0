@@ -802,6 +802,42 @@ class PreviewSmokeTests(unittest.TestCase):
             page.close()
             page.deleteLater()
 
+    def test_smart_inventory_ui_validates_bounded_integer_filters(self):
+        from PySide6.QtGui import QValidator
+        from velopos_qt.inventory_insights_page import InventoryInsightsPage
+
+        class NoAccessReader:
+            def snapshot(self, **_kwargs):
+                raise AssertionError("Unauthorized stock query")
+
+        page = InventoryInsightsPage(
+            NoAccessReader(), self.window.t, lambda: False
+        )
+        try:
+            for field, maximum in ((page.low_input, 100000),
+                                   (page.days_input, 365)):
+                validator = field.validator()
+                self.assertIsNotNone(validator)
+                self.assertEqual(
+                    validator.validate(str(maximum), 0)[0],
+                    QValidator.State.Acceptable,
+                )
+                self.assertNotEqual(
+                    validator.validate("2.5", 0)[0],
+                    QValidator.State.Acceptable,
+                )
+                self.assertNotEqual(
+                    validator.validate("-1", 0)[0],
+                    QValidator.State.Acceptable,
+                )
+                self.assertNotEqual(
+                    validator.validate(str(maximum + 1), 0)[0],
+                    QValidator.State.Acceptable,
+                )
+        finally:
+            page.close()
+            page.deleteLater()
+
     def test_signout_clears_cashier_draft_and_discount(self):
         from velopos_qt.auth_model import PreviewIdentity
         self.window.identity = PreviewIdentity("owner", "Admin")

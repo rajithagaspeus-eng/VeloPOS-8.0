@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# Avoid spending Windows runner minutes on superseded develop-v8 commits.
+concurrency:
+  group: v8-preview-tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   preview-tests:
     runs-on: windows-latest
@@ -34,6 +39,9 @@ jobs:
       - name: Compile preview Python modules and tests
         shell: pwsh
         run: python -m compileall -q velopos_qt tests
+      - name: Verify fail-closed release and transaction proof contracts
+        shell: pwsh
+        run: python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment
       - name: Combined V8 test suite (no skips)
         shell: pwsh
         run: |

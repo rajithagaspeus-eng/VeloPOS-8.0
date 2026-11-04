@@ -111,6 +111,33 @@ class SandboxCloseoutTests(unittest.TestCase):
             assert result.actual_refunds_cents == 0
         """)
 
+    def test_closeout_rejects_nonfinite_and_nonpositive_return_quantity(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            return_service.simulate_return(**new_return(sale.reference))
+            assert closeout.closeout().balanced
+            with database.db() as c:
+                original = c.execute(
+                    "SELECT quantity FROM main.v8_preview_sandbox_return_lines "
+                    "WHERE sale_line_no=1"
+                ).fetchone()[0]
+            for corrupt in ("NaN", "Infinity", "-Infinity", "0", "-1"):
+                with database.db() as c:
+                    c.execute(
+                        "UPDATE main.v8_preview_sandbox_return_lines "
+                        "SET quantity=? WHERE sale_line_no=1", (corrupt,)
+                    )
+                result = closeout.closeout()
+                assert not result.balanced, corrupt
+                assert "invalid_return_quantity" in result.reasons, (corrupt,result)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_return_lines "
+                    "SET quantity=? WHERE sale_line_no=1", (original,)
+                )
+            assert closeout.closeout().balanced
+        """)
+
     def test_closeout_detects_tampered_sale_tenders_stock_and_return_records(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**dict(

@@ -1,0 +1,35 @@
+name: V8 sandbox regression (develop-v8 only)
+
+on:
+  push:
+    branches: [develop-v8]
+    paths:
+      - 'velopos_qt/**'
+      - 'velopos/**'
+      - 'tests/test_v8_sandbox_sale_ledger.py'
+      - 'tests/test_v8_phase2_atomic_sale_boundary.py'
+      - '.github/workflows/v8-sandbox-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox-regression:
+    if: github.ref == 'refs/heads/develop-v8'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      VELOPOS_HOME: ${{ runner.temp }}/VeloPOS8PreviewData
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install preview regression dependencies
+        run: python -m pip install 'cryptography>=42' 'pillow>=10' 'qrcode' 'customtkinter>=5.2' pyserial
+      - name: Compile sandbox modules and regression tests
+        run: python -m compileall -q velopos_qt/sandbox_sale_ledger.py velopos_qt/idempotency_ledger.py tests/test_v8_sandbox_sale_ledger.py tests/test_v8_phase2_atomic_sale_boundary.py
+      - name: Run isolated sandbox and atomic boundary regression suites
+        run: python -m unittest -v tests.test_v8_sandbox_sale_ledger tests.test_v8_phase2_atomic_sale_boundary

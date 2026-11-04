@@ -177,6 +177,19 @@ class DurablePreviewSaleJournal:
             for index in indexes
         ):
             raise PermissionError("Missing unique preview reference constraint")
+        # Extra indexes may change writes or conceal a forged schema.
+        # The canonical table has only the request-id PK and reference UNIQUE.
+        signatures = {
+            (index[3], index[2], tuple(col[2] for col in conn.execute(
+                f"PRAGMA index_info({index[1]})"
+            ).fetchall()))
+            for index in indexes
+        }
+        if signatures != {
+            ("pk", 1, ("request_id",)),
+            ("u", 1, ("reference",)),
+        } or len(indexes) != 2:
+            raise PermissionError("Unexpected preview index schema")
 
     def _identity(self):
         candidate = Path(self.path)

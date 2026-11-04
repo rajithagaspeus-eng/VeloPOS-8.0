@@ -760,6 +760,14 @@ class PreviewSandboxCreditLedger:
             note_refs = {row["reference"] for row in notes}
             charges_by_ref = {row["reference"]:row for row in charges}
             payments_by_ref = {row["reference"]:row for row in payments}
+            allocated_payment_refs = {row["repayment_ref"] for row in allocations}
+            customers_with_allocations = {
+                row["customer_id"] for row in allocations
+            }
+            for payment in payments:
+                if (payment["customer_id"] in customers_with_allocations
+                        and payment["reference"] not in allocated_payment_refs):
+                    issues.append("credit_mixed_repayment_modes")
             allocated_by_charge = {}
             for allocation in allocations:
                 payment = payments_by_ref.get(allocation["repayment_ref"])

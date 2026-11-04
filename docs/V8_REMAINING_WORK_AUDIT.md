@@ -350,3 +350,25 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   GitHub Actions account/billing/runner or workflow-validation diagnostics.
 - Full VeloPOS application regression suite still not executed in this
   environment. No changes to main, V7 or production data.
+
+## DDL regression fix and crash-after-commit contract (2026-11-05)
+
+- Discovered and fixed a real application defect: canonical DDL normalization
+  accidentally used regex `r"\\\\s+"` (literal backslash-s) instead of
+  `r"\\s+"` (whitespace). The bug caused valid initialized preview
+  journals to be rejected on reopen. Added a repository regression that
+  checks SQLite's retained newlines, reopen and idempotent replay.
+- Executed a direct local SQLite DDL reproduction: valid table DDL
+  normalization PASS with the corrected regex, FAIL with the old regex.
+  This is a focused SQL/regex reproduction, not the application suite.
+- Added a crash-after-COMMIT subprocess test to the dependency-free
+  SQLite contract, checking both request row and sequence durability
+  and full `PRAGMA integrity_check`.
+- Executed local equivalent SQLite contract tests: **5 PASS, 0 FAIL**,
+  including crash before and after COMMIT. This is not a checked-out
+  VeloPOS application regression run.
+- Windows run `41935712645` still fails with empty runner and zero
+  steps; Linux `41935710879` fails with no jobs. GitHub Actions
+  permissions/runner/billing diagnostics remain inaccessible via the
+  connector; root cause is not confirmed.
+- No main/V7/production changes. Commercial checkout remains blocked.

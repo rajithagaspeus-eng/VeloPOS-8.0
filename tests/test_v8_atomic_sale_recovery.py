@@ -506,6 +506,105 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert accepted.can_checkout is False
         """)
 
+    def test_temp_user_and_shift_tables_cannot_resurrect_revoked_session(self):
+        self.isolated("""
+            c = database.connect()
+            try:
+                # SQLite normally resolves bare FROM users/shifts to TEMP first.
+                c.execute("CREATE TEMP TABLE users AS SELECT * FROM main.users")
+                c.execute("CREATE TEMP TABLE shifts AS SELECT * FROM main.shifts")
+                c.execute("BEGIN IMMEDIATE")
+                c.execute(
+                    "UPDATE main.users SET role='Admin' WHERE username='cashier'"
+                )
+                c.execute(
+                    "UPDATE main.shifts SET status='CLOSED' WHERE id=?", (shift,)
+                )
+                observed = recovery.inspect_in_transaction(c, **args)
+                assert not observed.readiness.session_bound, observed
+                assert not observed.readiness.local_checks_consistent, observed
+                assert not observed.readiness.policy_consistent, observed
+                assert "verified_session_required" in observed.reasons
+                assert "shift_not_open" in observed.reasons
+                assert observed.journal.state == "withheld_authorization_required"
+                assert observed.can_checkout is False
+            finally:
+                c.rollback()
+                c.close()
+        """)
+
+    def test_temp_stock_and_branch_tables_cannot_mask_canonical_revocation(self):
+        self.isolated("""
+            with database.db() as c:
+                before = snapshot(c)
+            c = database.connect()
+            try:
+                for name in (
+                    "products", "batches", "v8_preview_branch_registry",
+                    "v8_preview_branch_memberships", "v8_preview_branch_shifts",
+                ):
+                    c.execute(
+                        "CREATE TEMP TABLE " + name +
+                        " AS SELECT * FROM main." + name
+                    )
+                c.execute("BEGIN IMMEDIATE")
+                c.execute(
+                    "UPDATE main.products SET stock_qty=0 WHERE barcode='RICE'"
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_branch_memberships "
+                    "SET active=0 WHERE username='cashier'"
+                )
+                observed = recovery.inspect_in_transaction(c, **args)
+                assert not observed.readiness.local_checks_consistent, observed
+                assert not observed.readiness.branch_verified, observed
+                assert "insufficient_stock:RICE" in observed.reasons
+                assert "actor_branch_membership_required" in observed.reasons
+                assert observed.journal.state == "withheld_authorization_required"
+            finally:
+                c.rollback()
+                c.close()
+            with database.db() as c:
+                assert snapshot(c) == before
+        """)
+
+    def test_temp_journal_shadow_cannot_hide_persistent_completed_request(self):
+        self.isolated("""
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(
+                    c, "sale", args["request_id"], "SIM-MAIN-JOURNAL"
+                )
+                c.commit()
+            finally:
+                c.close()
+            c = database.connect()
+            try:
+                c.execute(
+                    "CREATE TEMP TABLE v8_preview_request_journal "
+                    "AS SELECT * FROM main.v8_preview_request_journal WHERE 0"
+                )
+                c.execute("BEGIN IMMEDIATE")
+                observed = recovery.inspect_in_transaction(c, **args)
+                assert observed.journal.state == "journal_completed_unverified"
+                assert observed.journal.result_ref == "SIM-MAIN-JOURNAL"
+                replay = journal.claim(
+                    c, "sale", args["request_id"], payload_for(args)
+                )
+                assert not replay.is_new
+                assert replay.result_ref == "SIM-MAIN-JOURNAL"
+                assert c.execute(
+                    "SELECT COUNT(*) FROM temp.v8_preview_request_journal"
+                ).fetchone()[0] == 0
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_request_journal"
+                ).fetchone()[0] == 1
+            finally:
+                c.rollback()
+                c.close()
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

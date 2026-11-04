@@ -183,7 +183,11 @@ class PreviewSandboxSaleLedger:
                 if (not all(v.is_finite() for v in (before, sold, after))
                         or before < 0 or sold <= 0 or after < 0
                         or sold != Decimal(expected_qty)
-                        or before - sold != after):
+                        or before - sold != after
+                        or any(
+                            raw != canonical_decimal(value)
+                            for raw, value in zip(raw_values, (before, sold, after))
+                        )):
                     raise RuntimeError("Sandbox stock movements do not match replay")
         # An older sandbox database may predate tender tables. Never
         # silently treat its completed journal as a settled invoice.

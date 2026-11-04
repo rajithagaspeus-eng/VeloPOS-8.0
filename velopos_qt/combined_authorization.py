@@ -22,6 +22,7 @@ class PreviewCombinedDecision:
     signature_valid: bool
     entitled: bool
     can_execute: bool = False
+    signed_license_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class PreviewCombinedAuthorization:
             license_reasons=license_decision.reasons,
             signature_valid=license_decision.signature_valid,
             entitled=license_decision.entitled,
+            signed_license_id=license_decision.signed_license_id,
         )
 
     def require(self, connection, **kwargs):
@@ -79,9 +81,8 @@ class PreviewCombinedAuthorization:
                                 **authorization_kwargs):
         """Compose three diagnostics; never treat unsigned license_id as proof.
 
-        The entitlement envelope currently lacks a signed license identifier,
-        so activation-to-entitlement binding is NOT established. This is an
-        explicit release blocker even when all three individual checks pass.
+        Only explicitly versioned V8 entitlements with a signed license_id can
+        bind to the signed activation status. Legacy licenses remain unbound.
         """
         authorization = self.inspect(connection, **authorization_kwargs)
         status = PreviewActivationStatusInspector(
@@ -93,9 +94,12 @@ class PreviewCombinedAuthorization:
             now=now, last_seen_utc=last_seen_utc,
             max_offline_hours=max_offline_hours,
         )
+        bound = (authorization.signature_valid and authorization.entitled
+                 and authorization.signed_license_id is not None
+                 and authorization.signed_license_id == license_id)
         return PreviewActivationCombinedDecision(
             authorization=authorization,
-            activation_reasons=(*status.reasons, "signed_license_id_binding_unverified"),
+            activation_reasons=(*status.reasons, *(("signed_license_id_binding_unverified",) if not bound else ())),
             activation_signature_valid=status.signature_valid,
             activation_current=status.current,
         )

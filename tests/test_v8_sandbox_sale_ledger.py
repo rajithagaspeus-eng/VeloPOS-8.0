@@ -307,6 +307,10 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 assert "matching sandbox sale" in str(exc)
             else:
                 raise AssertionError("Missing sandbox invoice was trusted")
+            checked = sandbox.reconcile_sandbox()
+            assert not checked.balanced, checked
+            assert "orphan_completed_sale_journal" in checked.reasons, checked
+            assert checked.can_checkout is False
             with database.db() as c:
                 assert c.execute(
                     "SELECT COUNT(*) FROM main.v8_preview_sandbox_stock_moves"

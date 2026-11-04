@@ -754,6 +754,48 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert not credit_service.reconcile().balanced
         """)
 
+    def test_audit_detects_forged_unallocated_payment_after_allocations(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-payment-0001",**ctx()
+            )
+            assert credit_service.reconcile().balanced
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_credit_repayments "
+                    "(reference,request_id,customer_id,branch_id,amount_cents,method) "
+                    "VALUES('CRP-forged','forged-legacy-0001',?,'BRANCH-001',100,'Cash')",
+                    (customer_id,)
+                )
+            audit = credit_service.reconcile()
+            assert not audit.balanced
+            assert "credit_mixed_repayment_modes" in audit.reasons
+        """)
+
+    def test_invoice_allocation_wrong_customer_and_rollback_after_post(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            open_account("300",customer=other_customer)
+            issued = charge(invoice.reference)
+            try:
+                credit_service.declare_repayment(
+                    customer_id=other_customer,amount="10",
+                    charge_ref=issued.reference,
+                    request_id="wrong-customer-allocated-0001",**ctx()
+                )
+            except PermissionError as exc:
+                assert "target not in customer branch" in str(exc)
+            else:
+                raise AssertionError("Cross-customer repayment allocated")
+            assert credit_service.reconcile().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

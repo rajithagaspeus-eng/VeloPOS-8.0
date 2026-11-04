@@ -125,6 +125,18 @@ class PreviewSandboxSaleLedger:
         ).fetchone()[0]
         if count != len(plan.lines):
             raise RuntimeError("Sandbox invoice line count mismatch")
+        # An older sandbox database may predate tender tables. Never
+        # silently treat its completed journal as a settled invoice.
+        required = {"v8_preview_sandbox_settlements",
+                    "v8_preview_sandbox_tenders"}
+        present = {
+            row[0] for row in connection.execute(
+                "SELECT name FROM main.sqlite_master WHERE type='table' "
+                "AND name IN (?,?)", tuple(sorted(required))
+            )
+        }
+        if present != required:
+            raise RuntimeError("Sandbox tender schema needs manual reconciliation")
         settlement = connection.execute(
             "SELECT declared,due_cents,cash_cents,noncash_cents,change_cents "
             "FROM main.v8_preview_sandbox_settlements WHERE reference=?",
@@ -195,6 +207,12 @@ class PreviewSandboxSaleLedger:
         self.journal._validate_identity("sale", request_id)
         # Declare allocation only. No card processor, customer credit ledger
         # or payment capture exists here; credit cannot be simulated safely.
+        # Credit must be rejected explicitly: there is no verified
+        # customer balance/limit ledger in this disposable sandbox yet.
+        if tenders is not None and isinstance(tenders, (list, tuple)):
+            if any(isinstance(row, dict) and row.get("method") == "Credit"
+                   for row in tenders):
+                raise PermissionError("Sandbox credit requires an audited customer ledger")
         tender_plan = (
             plan_preview_tender(plan.subtotal, tenders)
             if tenders is not None else None

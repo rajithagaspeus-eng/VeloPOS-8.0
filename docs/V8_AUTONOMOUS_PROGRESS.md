@@ -1655,3 +1655,78 @@ service-owned transaction enforcement with persistent
 server-authoritative licensing, full stock/accounting invariants,
 concurrent retry/crash tests and no V7 bypass. No commerce enablement
 until Gate A and B evidence accepted.
+
+
+## Phase 1 lossless Decimal request identity and deterministic sale rounding — 2026-11-04
+
+**Scope:** `develop-v8` ONLY, using the five-phase plan and commercial
+release gates as acceptance criteria. Reviewed last user-confirmed
+`9753c4727cc36addbcff73ea458ce44c837897cb` Windows local
+`run_v8_checks.py`: **293 tests, OK, 139.399s**, compileall no errors.
+That proof is for the previous code SHA, NOT for this batch. GitHub
+combined CI status at prior checkpoint had no available statuses;
+hosted push Windows Actions remains separately unverified.
+
+**Confirmed correctness flaw:** `velopos_qt/sale_plan.py` previously
+called `Decimal.normalize()` when deriving canonical immutable sale
+request items. It respects ambient `decimal.getcontext().prec`
+(default 28) and can round distinct high-precision quantities such
+as `0.123456789012345678901234567890123456` and
+`0.123456789012345678901234567890123457` to the SAME canonical
+string; thus two different requests with equal receipt cents could
+share an idempotency hash. The Decimal behaviour was independently
+reproduced and verified without use of customer data.
+
+**Code fixes:**
+- `d6f605e2857a0bf1bd260d97abebf8532d3a3546`: lossless
+  `canonical_decimal` uses exact fixed-point `format(number, "f")`
+  and strips only insignificant fractional trailing zeroes.
+  No ambient precision-based rounding of identity values occurs.
+  The existing bounded number length/exponent guard remains.
+- `b6ec47dda45547f33325edd6b8b2873ef3601953`: subtotal,
+  line-level `ROUND_HALF_UP` quantization and combined duplicate
+  barcode quantities are calculated in a fixed private 512-digit
+  Decimal context, not a caller's thread-local precision, rounding
+  policy or Inexact trap setting. 512 exceeds the exact arithmetic
+  needs of the bounded 100-line / 128-digit test-only draft contract.
+  This is draft math, NOT certified tax, inventory, or checkout posting.
+
+**Regressions:**
+- `823c49d706d33954a80cd7b044489f5237845574`: different
+  low-order decimal digits must produce unequal canonical payloads
+  and fingerprints at precisions 6/28/50, even with equal cents;
+  equivalent zeros and exponent forms remain canonical.
+- `1c00259472501d052db76973b002d39fe47d1d16`: disposable
+  integrated journal test must raise `IdempotencyConflict` if a
+  previously completed request changes a deep-precision quantity,
+  even though displayed line totals are unchanged.
+- `448b6d24377df9bf745dc1d5d404f82f6bf15018`: use an
+  adversarial ambient Decimal context (`prec=3`, `ROUND_UP`,
+  `Inexact` trapped) and assert identical receipt cents,
+  exact stock quantities and journal fingerprints.
+  **Three new unittest methods** added across preexisting files.
+
+**Verification limitations:** An independent local Python smoke
+using the same built-in Decimal fixed-point arithmetic passed for
+four contexts; this is NOT an execution of repository tests.
+The newly committed test methods and exact-head Windows
+`python run_v8_checks.py` remain **UNVERIFIED**. Do NOT copy the
+older 293-test PASS claim onto the new code. The canonical hash
+changes for certain unusually high-precision preview journal
+requests that used the previously lossy format; a mismatch must
+fail closed / require manual reconciliation, never auto-rewrite
+or auto-replay stored journal rows. No production data migration
+was performed.
+
+**Commercial status:** Phase 1 IN PROGRESS, Phases 2–5 NOT
+ACCEPTED, Gate A/B BLOCKED, C/D/E outstanding (0/5 accepted).
+All V8 sale, payment, refund, stock, shift and GRN postings remain
+disabled; no V7 production database, paid keys or `main` modified.
+
+**Next strict priority:** Obtain exact-head Windows push Actions
+and no-skip combined regression evidence; fix any failures.
+Continue trusted service-owned, canonical session/branch/shift
+and signed-license enforcement integrated with persistent
+atomic ledger and crash-safe business mutation on disposable
+V8 storage only, and reconcile complete accounting/stock invariants
+before permitting any real posting.

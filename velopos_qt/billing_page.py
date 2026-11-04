@@ -490,7 +490,7 @@ class BillingPage(QWidget):
         if not term:
             return
         exact = next((i for i, product in enumerate(self.products)
-                      if str(product["barcode"]) == term), None)
+                      if str(product["barcode"]).casefold() == term.casefold()), None)
         if exact is not None:
             self.results.selectRow(exact)
             self.add_selected()

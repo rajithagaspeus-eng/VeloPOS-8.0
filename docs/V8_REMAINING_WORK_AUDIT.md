@@ -201,3 +201,24 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   remains unconfirmed.
 - Tests simulate abrupt process termination, not power loss or storage
   hardware failure. All paths remain disposable and checkout remains denied.
+
+## Executed dependency-free crash contract and sequence CHECK hardening (2026-11-05)
+
+- Added `tests/test_v8_sqlite_crash_contract.py`, a dependency-free
+  subprocess SQLite test module. Its identical source was executed locally:
+  `python -m unittest -v tests/test_v8_sqlite_crash_contract.py`
+  produced **3 tests, 0 failures**. This verifies SQLite rollback, committed
+  state recovery and uniqueness only, not the VeloPOS application integration.
+- Both Windows and Linux CI workflows now explicitly run the new module.
+- Durable rehearsal journal now checks SQLite sequence CHECK declarations
+  on initialization and every inspect; two application regression tests cover
+  removed constraints on reopen and after journal construction. These two
+  application tests have NOT been executed locally.
+- GitHub Actions Windows run `41926776026` was observed queued with no
+  runner/steps. Linux run `41926773698` failed with no jobs. Repository
+  runner/permissions and check-annotation API endpoints are blocked by
+  connector allowlisting (HTTP 400 INVALID_ARGUMENT), so the root cause
+  cannot be proven from available telemetry. Local git checkout cannot
+  resolve github.com.
+- All tests and database work remain preview-only. Production transaction
+  posting remains disabled.

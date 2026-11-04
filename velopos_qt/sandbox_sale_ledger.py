@@ -702,6 +702,12 @@ class PreviewSandboxSaleLedger:
                 movement_keys.add(key)
                 if move["reference"] not in invoice_refs:
                     reasons.append("orphan_stock_move")
+                move_barcode = move["barcode"]
+                if (type(move_barcode) is not str
+                        or not 1 <= len(move_barcode) <= 80
+                        or move_barcode != move_barcode.strip()
+                        or not move_barcode.isprintable()):
+                    reasons.append("invalid_stock_move_barcode")
                 try:
                     raw_sold = move["sold_qty"]
                     if type(raw_sold) is not str or len(raw_sold) > 128:
@@ -724,6 +730,11 @@ class PreviewSandboxSaleLedger:
             with localcontext(_CONTEXT):
                 for row in stock_rows:
                     barcode = row["barcode"]
+                    if (type(barcode) is not str
+                            or not 1 <= len(barcode) <= 80
+                            or barcode != barcode.strip()
+                            or not barcode.isprintable()):
+                        reasons.append("invalid_stock_barcode")
                     try:
                         raw_balances = (
                             row["opening_qty"], row["remaining_qty"],

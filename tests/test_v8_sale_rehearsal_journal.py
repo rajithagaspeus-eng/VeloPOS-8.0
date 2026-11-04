@@ -61,6 +61,27 @@ class SaleRehearsalJournalTests(unittest.TestCase):
         second = self.journal.inspect(request_id="journal-request-0002", lines=self.lines)
         self.assertNotEqual(first.reference, second.reference)
 
+    def test_capacity_fails_closed_but_existing_replay_survives(self):
+        journal = PreviewSaleRehearsalJournal(max_requests=1)
+        first = journal.inspect(
+            request_id="capacity-request-0001", lines=self.lines
+        )
+        with self.assertRaises(OverflowError):
+            journal.inspect(
+                request_id="capacity-request-0002", lines=self.lines
+            )
+        replay = journal.inspect(
+            request_id="capacity-request-0001", lines=self.lines
+        )
+        self.assertEqual(replay.reference, first.reference)
+        self.assertTrue(replay.replayed)
+
+    def test_invalid_capacity_rejected(self):
+        for value in (0, -1, True, 100001, "100"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    PreviewSaleRehearsalJournal(max_requests=value)
+
     def test_commit_always_denied(self):
         with self.assertRaises(PermissionError):
             self.journal.commit(license_valid=True, admin=True)

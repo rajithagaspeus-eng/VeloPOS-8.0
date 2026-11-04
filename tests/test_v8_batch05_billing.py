@@ -15,6 +15,25 @@ class DraftQuantityTests(unittest.TestCase):
         }
         self.cart.add(self.product)
 
+    def test_repeated_scan_keeps_draft_price_after_catalog_repricing(self):
+        repriced = dict(self.product, selling_price="29.95",
+                        name_en="Renamed Notebook")
+        self.cart.add(repriced)
+        line = self.cart.lines["0001234567890"]
+        self.assertEqual(line["qty"], Decimal("2"))
+        self.assertEqual(line["price"], Decimal("19.95"))
+        self.assertEqual(line["name"], "Sample Notebook")
+        self.assertEqual(self.cart.subtotal(), Decimal("39.90"))
+        self.assertEqual(len(self.cart.lines), 1)
+
+    def test_invalid_repeated_scan_does_not_change_existing_draft(self):
+        original = dict(self.cart.lines["0001234567890"])
+        for quantity in ("NaN", "bad", "0", "-2", "Infinity"):
+            with self.subTest(quantity=quantity), self.assertRaises(ValueError):
+                self.cart.add(dict(self.product, selling_price="29.95"),
+                              quantity=quantity)
+            self.assertEqual(self.cart.lines["0001234567890"], original)
+
     def test_change_quantity_updates_money_without_db_write(self):
         self.cart.set_quantity("0001234567890", "2.5")
         self.assertEqual(self.cart.lines["0001234567890"]["qty"], Decimal("2.5"))

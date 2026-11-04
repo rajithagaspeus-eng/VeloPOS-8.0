@@ -84,6 +84,22 @@ class DurablePreviewSaleJournal:
                             type(stored_reference) is not str or
                             _REFERENCE.fullmatch(stored_reference) is None):
                         raise PermissionError("Corrupt preview replay record")
+                sequence_rows = conn.execute(
+                    "SELECT singleton,next_number FROM preview_sequence"
+                ).fetchall()
+                if (len(sequence_rows) != 1 or
+                        type(sequence_rows[0][0]) is not int or
+                        sequence_rows[0][0] != 1 or
+                        type(sequence_rows[0][1]) is not int or
+                        not 1 <= sequence_rows[0][1] <= 100000000):
+                    raise PermissionError("Corrupt preview sequence")
+                seen_refs = set()
+                for index, (stored_fingerprint, stored_reference) in enumerate(rows, 1):
+                    if stored_reference in seen_refs:
+                        raise PermissionError("Duplicate preview reference")
+                    seen_refs.add(stored_reference)
+                if len(rows) >= sequence_rows[0][1]:
+                    raise PermissionError("Preview sequence behind recorded requests")
                 existing = conn.execute(
                     "SELECT fingerprint,reference FROM preview_rehearsals "
                     "WHERE request_id=?", (request_id,)
@@ -104,13 +120,10 @@ class DurablePreviewSaleJournal:
                     ).fetchone()[0]
                     if count >= self.max_requests:
                         raise OverflowError("Preview journal capacity exceeded")
-                    number = conn.execute(
-                        "SELECT next_number FROM preview_sequence WHERE singleton=1"
-                    ).fetchone()
-                    if (number is None or type(number[0]) is not int or
-                            not 1 <= number[0] <= 99999999):
-                        raise PermissionError("Corrupt preview sequence")
-                    reference = f"REHEARSAL-{number[0]:08d}"
+                    number = sequence_rows[0][1]
+                    if number > 99999999:
+                        raise OverflowError("Preview sequence exhausted")
+                    reference = f"REHEARSAL-{number:08d}"
                     conn.execute(
                         "INSERT INTO preview_rehearsals "
                         "(request_id,fingerprint,reference) VALUES (?,?,?)",
@@ -118,7 +131,7 @@ class DurablePreviewSaleJournal:
                     )
                     conn.execute(
                         "UPDATE preview_sequence SET next_number=? WHERE singleton=1",
-                        (number[0]+1,)
+                        (number+1,)
                     )
                     result = DurableRehearsalResult(
                         reference, draft.fingerprint, False

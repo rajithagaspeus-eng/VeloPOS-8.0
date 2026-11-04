@@ -626,3 +626,43 @@ PR head; fix any failures. Then separately verify exact post-merge
 backend contract with tenant-aware key custody, server-side revocation,
 device transfer recovery and commercial service-bound authorization.
 Keep zero mandatory paid costs for offline POS and preserve main/V7.
+
+
+## License renewal and device recovery reference (November 4, 2026)
+
+**Base verified:** `develop-v8` SHA
+`9b479de684a8b77d8ca107e16b53dcfb264930f6`, exact push Actions
+[41811611347](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41811611347):
+190/190 Windows tests PASS and Python compileall PASS.
+
+**Feature branch:** `feature/v8-license-renewal-device-recovery`.
+Added `velopos_qt/license_recovery_reference.py` with fail-closed
+admin-only renewal and device/branch-transfer reference methods.
+Signed gateway now accepts strict `renew` and `transfer` payloads
+only for active authenticated Admin operators. All operations
+require expected current server sequence and are journaled with
+immutable request IDs, and only re-deliver retries while current
+server state still matches the recorded transition.
+
+Renewal can only strictly extend expiry at most 366 days forward;
+device transfer requires exact previous device+branch binding.
+Both preserve the original license ID, activation sequence and
+prior payload SHA-256 digest and never un-revoke a revoked license.
+The prior signed activation receipt stops matching online server
+state until a new receipt is issued. Offline old grants may remain
+locally inspectable and NEVER authorize financial posting.
+
+Added `tests/test_v8_phase2_license_recovery.py` with three
+disposable-DB regression tests and full threat model at
+`docs/V8_LICENSE_RECOVERY_REFERENCE.md`.
+
+**Verification:** this feature SHA is currently NOT YET CI-verified;
+run exact-head Windows `python run_v8_checks.py` and compileall.
+Fix any failures; after merge confirm separate exact-head push CI.
+
+**NOT production:** no actual hosted service, real tenant/account
+recovery, proof-of-ownership/attestation, encrypted key custody,
+offline rollback protection or commercial transaction permission.
+No V7 money/stock, customer data or stable main branch touched.
+All commercial gates A/B/C/D/E remain blocked. Next: secure
+customer-owner approval/renewal and service-bound financial security.

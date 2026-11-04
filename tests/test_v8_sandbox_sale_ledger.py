@@ -1339,6 +1339,29 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_new_sale_refuses_orphan_movement_invoice_reference(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET reference=? WHERE reference=? AND barcode='RICE'",
+                    ("SBX-" + "f" * 24, first.reference)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-stock-chain-request-0004"
+                ))
+            except PermissionError as exc:
+                assert "movement history" in str(exc), exc
+            else:
+                raise AssertionError("Orphan stock chain accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_new_sale_refuses_corrupted_existing_stock_movement(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

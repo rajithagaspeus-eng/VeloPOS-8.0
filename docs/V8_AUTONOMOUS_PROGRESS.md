@@ -2266,3 +2266,93 @@ original tender allocation and eventual accounting
 contra-revenue entries; keep all financial posting in
 production off until independently accepted Gates A/B.
 Do not request frequent owner PowerShell commands.
+
+
+## Phase 2 integrated sandbox close-out and non-restocking return disposition — 2026-11-04
+
+**Delivery:** Added a one-snapshot, test-only financial close-out that
+reconciles sandbox invoices, item prices/quantities, stock consumption,
+tender allocations, partial return declarations and immutable sale/return
+journal references. Return lines now explicitly record non-restocking
+`DAMAGED` or `DISCARDED` disposition with a database CHECK
+`restocked=0`. **Customer credit remains disabled**; no customer
+balance/credit limit/repayment ledger is yet implemented. These are
+sandbox experiments and never constitute real revenue collection,
+cash disbursement, certified profit or financial permission.
+
+**New code:**
+- `9bcbcc885f9b7b0632e18d58ca4f61a2503b4014` creates
+  `velopos_qt/sandbox_accounting.py`. Its
+  `PreviewSandboxAccounting.closeout()` owns one
+  `BEGIN IMMEDIATE` canonical isolated SQLite transaction and
+  **always rolls back**. It verifies exact invoice-line sums,
+  journal/request links, tender declarations and cash-only change,
+  barcode/quantity/ordered stock moves, total returned quantities
+  versus original sale lines, per-item cumulative refund cents and
+  return-journal links. Missing/partial schema or tampered records
+  become `balanced=False` with diagnostic reasons; no auto-fixes
+  or production data writes. Frozen `SandboxCloseout` includes
+  gross invoice cents, refund-declaration contra revenue,
+  indicative net after returns, declared cash/external/change,
+  zero captured payment/refund cents and `certified_profit_cents=None`.
+  `require_certified_accounting()` hard denies.
+- `3b09f3c56428b4c31e598c853d77d4c8f98fc383` additionally
+  validates *each* line's exact price × quantity rounded at
+  currency cents, so changed unit prices do not hide behind
+  unchanged invoice subtotals.
+- `73430c541784a44d2a628f52f0f688763c00af46`
+  adds explicit non-restocking `disposition` and `restocked=0`
+  columns to sandbox return lines, includes disposition in
+  idempotency fingerprints and replay integrity checks. This
+  remains an unusable/damaged-goods TEST declaration; neither
+  sandbox stock nor legacy product stock is restocked.
+- `fc8188e23fa3e87b2c380180218cd2cfc2b708d2` extends
+  close-out to flag disposition corruption, independently of
+  the return-ledger audit.
+
+**New regressions (written, not executed):**
+- `01f48e1f03535306d8bd1e3c68b4644b41407037` creates
+  `tests/test_v8_sandbox_accounting.py` with 7 disposable
+  SQLite subprocess tests for no-schema fail closed, sale-only
+  close-out, mixed cash/Card/QR plus partial refund net,
+  two partial returns, invoice/tender/stock/refund tampering,
+  orphan journal/over-return, and incomplete return schema.
+- `f50bcea640d5b8c40aa48bbc75cad19afcf9d4c5` adds
+  disposition-corruption close-out test.
+- `5c963224cc88a366f0b1bcf991e8e59ff5d8b642` adds
+  sale line price tamper test with unchanged invoice subtotal.
+  **9 accounting regression methods** in this new module.
+- `8962d2c248d629b8be6e525d2c04673b6f5bdabd`
+  adds 3 new return tests for DISCARDED disposition, immutable
+  idempotency replay, rejection of RESTOCK/unknown values and
+  forced CHECK-constraint corruption. The return test module
+  now contains 13 methods (previous 10).
+  **12 new regression methods** across accounting/return tests.
+
+**Verification and release position:** These new source and test
+commits were saved on `develop-v8`, but repository full-suite
+Windows or hosted Actions execution for this latest code is
+**UNVERIFIED**. Attempting local `git clone` from this execution
+environment failed due to no GitHub DNS/network access, so no
+local test execution is claimed. The latest owner-confirmed local
+Windows evidence is still **296/296 passed, 0 skips, exit 0**
+at earlier SHA `da535008b708511fbb8cf64529e5c9d2fc983ebd`;
+do not transfer its PASS to the new code. A GitHub Actions
+workflow file was added previously, but available commit status
+and PR-only workflow lookups cannot verify push-run success.
+
+Phase 1 still IN PROGRESS, Phase 2 partial sandbox slices;
+**0/5 commercial gates accepted**; Gates A/B blocked,
+C/D/E outstanding. No V7 production financial records, private
+signing secrets, paid entitlements or stable `main` modified.
+No production sale, cash/Card/QR collection, customer credit,
+refund disbursement, GRN, batch restocking or shift posting
+enabled.
+
+**Next significant milestone:** Build a verified, customer-scoped
+sandbox credit limit/outstanding/repayment ledger with explicit
+authority and exact-once original sale linkage, plus refund
+allocation to original tender and real COGS/tax/batch policy
+reconciliation on copied V8 data. Do not enable real financial
+posting until independently accepted Gates A/B and current-code
+Windows CI. Avoid routine owner PowerShell burden.

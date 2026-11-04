@@ -477,6 +477,16 @@ class PreviewSandboxCreditLedger:
                 )
             if journal.state != "not_recorded":
                 raise PermissionError("Prior credit note needs reconciliation")
+            # Repayments are not yet invoice-allocated. Declaring a NEW
+            # credit note afterward could forgive another invoice's debt.
+            # Completed note replay above remains valid even after repayment.
+            if c.execute(
+                "SELECT 1 FROM main.v8_preview_sandbox_credit_repayments "
+                "WHERE customer_id=? LIMIT 1", (customer_id,)
+            ).fetchone() is not None:
+                raise PermissionError(
+                    "Credit note needs unpaid debt allocation after repayments"
+                )
             with localcontext(_CONTEXT):
                 prior = c.execute(
                     "SELECT quantity,amount_cents FROM "

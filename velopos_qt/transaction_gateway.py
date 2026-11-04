@@ -11,6 +11,7 @@ session before any commercial checkout or other financial UI is enabled.
 """
 from .transaction_policy import PreviewTransactionGate
 from .commercial_boundary_assessment import assess_commercial_boundary
+from .sale_request_service import PreviewSaleRequestService
 
 
 class PreviewTransactionGateway:
@@ -18,6 +19,12 @@ class PreviewTransactionGateway:
 
     def __init__(self, database):
         self._gate = PreviewTransactionGate(database)
+
+    def rehearse_sale(self, *, request_id, lines):
+        """Pure preview-only draft; never verifies or posts a sale."""
+        return PreviewSaleRequestService().inspect(
+            request_id=request_id, lines=lines
+        )
 
     def assess_future_boundary(self, action, evidence=None):
         """Read-only planning diagnostics; never unlocks any gateway method."""

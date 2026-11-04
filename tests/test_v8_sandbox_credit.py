@@ -523,6 +523,49 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert "sandbox_credit_note_quantity_mismatch" in checked.reasons
         """)
 
+    def test_new_note_after_customer_repayment_is_denied_without_invoice_allocation(self):
+        self.isolated("""
+            first = sale_service.simulate_commit(**args)
+            second = sale_service.simulate_commit(**dict(
+                args,request_id="credit-second-sale-0004",
+                lines=[{"barcode":"SOAP","qty":1,"price":25}]
+            ))
+            open_account("400")
+            first_charge = charge(first.reference)
+            charge(second.reference,request_id="credit-second-charge-0004")
+            repay("20")
+            try:
+                credit_service.declare_credit_note(
+                    customer_id=customer_id,charge_ref=first_charge.reference,
+                    sale_line_no=1,quantity="1",request_id="credit-note-late-0004",
+                    **ctx()
+                )
+            except PermissionError as exc:
+                assert "after repayments" in str(exc)
+            else:
+                raise AssertionError("Unallocated repayment permitted new note")
+            assert credit_service.reconcile().balanced
+        """)
+
+    def test_existing_credit_note_replays_after_later_repayment(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            charged = charge(invoice.reference)
+            options = dict(
+                customer_id=customer_id,charge_ref=charged.reference,
+                sale_line_no=1,quantity="1",request_id="credit-note-0001",
+                **ctx()
+            )
+            first = credit_service.declare_credit_note(**options)
+            assert first.outstanding_cents == 20500
+            repay("50")
+            replay = credit_service.declare_credit_note(**options)
+            assert replay.replayed and replay.reference == first.reference
+            assert replay.outstanding_cents == 15500
+            assert credit_service.reconcile().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

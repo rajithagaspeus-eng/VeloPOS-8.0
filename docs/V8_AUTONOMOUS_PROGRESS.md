@@ -969,3 +969,14 @@ Read master roadmap, commercial release gates, durable progress and GitHub push 
 **This checkpoint batch:** CI evidence and next-task documentation only; no code or regression tests executed locally and no claim of new tests. All real transaction actions remain disabled; Gate A/B/C/D/E are still not commercially accepted.
 
 **Next highest-priority substantive batch:** inspect canonical session, branch, shift and license checks in `velopos_qt/atomic_sale_boundary.py` and original `velopos.services` entry points. Implement service-bound authorization and persistent transaction idempotency with disposable SQLite tests, including cross-branch, demotion, crash and retry cases; keep all production checkout/payment/stock mutations disabled. Require exact-head Windows CI after each code batch. Do not change main or V7 production data.
+
+
+## Integrated atomic return readiness diagnostic — November 4, 2026
+
+Merged PR #18 to `develop-v8`: `PreviewAtomicReturnBoundary` inspects persisted session/role, cashier shift, canonical branch membership, signed return entitlement, activation chain, original invoice eligibility and cumulative returnable quantities under one caller-owned SQLite transaction. It reports a rounded return amount as diagnostic evidence only. No refund, payment, stock, idempotency, or legacy service writes are made; owned transactions always roll back and `require()` always denies.
+
+Disposable Windows regressions cover partial returns, duplicate return quantities, invalid and void invoices, forged session and activation status, revoked branch membership, closed shifts, malformed input, caller-owned transaction safety, and production-like path refusal. The first exact-head run failed only because the production-path test reused a fixture initialized in preview mode. The test setup was separated and rerun.
+
+Exact PR head `efe4b3f511f9cb42e8cbd95c5d20928202b72afc`: Windows CI run [41844487031](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41844487031) **SUCCESS**, **242 tests PASS**, compileall PASS. Merged as `6ff51bf74c39b76386f89a0cae07c61732561b56`; post-merge Windows push CI run [41845037558](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41845037558) also **SUCCESS**, **242 tests PASS**, compileall PASS.
+
+No financial return or checkout was enabled. Commercial Gates A/B/C/D/E remain unapproved; the diagnostic is not a production service. Stable `main`, V7 data, and signing keys remain untouched. Next substantive priority: service-bound authorization/idempotency architecture for a separately reviewed commercial engine; keep legacy direct services unchanged until compatibility and transaction ownership can be safely refactored.

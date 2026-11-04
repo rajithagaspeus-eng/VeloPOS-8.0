@@ -134,6 +134,22 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
                 request_id="durable-request-0001", lines=self.lines
             )
 
+    def test_trigger_added_after_open_is_rejected_before_write(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "CREATE TRIGGER preview_late AFTER INSERT ON preview_rehearsals "
+                "BEGIN UPDATE preview_sequence SET next_number=99; END"
+            )
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+        with sqlite3.connect(self.path) as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0]
+        self.assertEqual(count, 0)
+
     def test_existing_trigger_is_rejected_before_reopen(self):
         with sqlite3.connect(self.path) as conn:
             conn.execute(

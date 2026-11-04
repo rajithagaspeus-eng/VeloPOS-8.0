@@ -14,7 +14,12 @@ def money(value):
         raise ValueError("Invalid money amount") from exc
     if not amount.is_finite() or amount < 0:
         raise ValueError("Money amount must be finite and nonnegative")
-    return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    try:
+        return amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except InvalidOperation as exc:
+        # Decimal's default precision rejects extreme magnitudes. Expose a
+        # stable validation error instead of leaking a low-level exception.
+        raise ValueError("Money amount is outside the supported range") from exc
 
 
 class InventoryReader:

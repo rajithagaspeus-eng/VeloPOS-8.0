@@ -71,3 +71,22 @@ licensing/recovery and full Windows QA. Latest Billing security tightening
 rechecks the current cashier permission for customer search and loyalty
 projections, and clears stale customer details on failed lookups. These new
 changes are committed on `develop-v8` but await the next Windows combined run.
+
+
+## Five-phase execution and acceptance map (2026-11-04)
+
+The owner's implementation plan now organizes the complete scope into **five
+dependency-ordered acceptance phases**, fully documented in
+[Five-phase execution plan](V8_FIVE_PHASE_EXECUTION_PLAN.md):
+(1) trusted service authorization and crash-safe transaction foundation;
+(2) core POS operations, inventory and finance reconciliation;
+(3) optional offline-first branches/cloud/mobile owner reporting;
+(4) commercial licensing/recovery/installer safety;
+(5) premium UI, localization, hardware and final Windows QA.
+
+These are NOT five claims of delivered functionality. Security licensing
+checks required by Gate A belong in Phase 1 even though operational licensing,
+activation lifecycle and commercial recovery are finalized in Phase 4.
+Gate A/B remain hard blockers to all production financial writes. All commercial
+gates must be verified before READY FOR MANUAL QA. See
+`docs/V8_AUTONOMOUS_PROGRESS.md` for exact commit-level evidence.

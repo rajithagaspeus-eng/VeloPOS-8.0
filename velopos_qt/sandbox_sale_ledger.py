@@ -563,6 +563,14 @@ class PreviewSandboxSaleLedger:
                     reasons.append("invoice_line_sequence_mismatch:" + ref)
             for sale in invoices:
                 ref = sale["reference"]
+                if (type(ref) is not str or not ref.startswith("SBX-")
+                        or len(ref) != 28
+                        or any(char not in "0123456789abcdef" for char in ref[4:])):
+                    reasons.append("invalid_sandbox_invoice_reference")
+                if (type(sale["request_id"]) is not str
+                        or not sale["request_id"].strip()
+                        or len(sale["request_id"]) > 128):
+                    reasons.append("invalid_sandbox_invoice_request_id")
                 if (type(sale["subtotal_cents"]) is not int
                         or sale["subtotal_cents"] < 0):
                     reasons.append("invalid_invoice_subtotal:" + ref)

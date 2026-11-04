@@ -605,6 +605,48 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                 c.close()
         """)
 
+    def test_forged_temp_journal_cannot_block_a_new_canonical_claim(self):
+        self.isolated("""
+            c = database.connect()
+            try:
+                c.execute(
+                    "CREATE TEMP TABLE v8_preview_request_journal ("
+                    "scope TEXT,request_id TEXT,payload_sha256 TEXT,"
+                    "status TEXT,result_ref TEXT)"
+                )
+                c.execute(
+                    "INSERT INTO temp.v8_preview_request_journal "
+                    "VALUES (?,?,?,?,?)",
+                    ("sale", args["request_id"], "forged-fingerprint",
+                     "COMPLETED", "SIM-FORGED"),
+                )
+                c.execute("BEGIN IMMEDIATE")
+                assert recovery.inspect_in_transaction(
+                    c, **args
+                ).journal.state == "not_recorded"
+                claimed = journal.claim(
+                    c, "sale", args["request_id"], payload_for(args)
+                )
+                assert claimed.is_new and claimed.result_ref is None
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_request_journal"
+                ).fetchone()[0] == 1
+                assert c.execute(
+                    "SELECT COUNT(*) FROM temp.v8_preview_request_journal"
+                ).fetchone()[0] == 1
+                assert c.execute(
+                    "SELECT result_ref FROM temp.v8_preview_request_journal"
+                ).fetchone()[0] == "SIM-FORGED"
+            finally:
+                c.rollback()
+                c.close()
+            with database.db() as check:
+                assert check.execute(
+                    "SELECT COUNT(*) FROM main.sqlite_master "
+                    "WHERE type='table' AND name='v8_preview_request_journal'"
+                ).fetchone()[0] == 0
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

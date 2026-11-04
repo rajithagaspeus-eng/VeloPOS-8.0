@@ -245,7 +245,9 @@ class DurablePreviewSaleJournal:
                     if tuple(col[1] for col in columns) != names:
                         raise PermissionError("Unexpected preview database schema")
                 self._check_constraints(conn)
-                integrity = conn.execute("PRAGMA quick_check").fetchall()
+                # Full integrity_check validates indexes and UNIQUE constraints;
+                # quick_check alone does not verify index consistency.
+                integrity = conn.execute("PRAGMA integrity_check").fetchall()
                 if integrity != [("ok",)]:
                     raise PermissionError("Preview SQLite integrity check failed")
                 # Verify the complete disposable journal before returning any

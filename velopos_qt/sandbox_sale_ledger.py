@@ -544,9 +544,9 @@ class PreviewSandboxSaleLedger:
                                     "WHERE reference=?", (move_ref,)
                                 ).fetchone()
                                 all_invoice_lines = connection.execute(
-                                    "SELECT quantity,price,line_cents FROM "
-                                    "main.v8_preview_sandbox_sale_lines "
-                                    "WHERE reference=?", (move_ref,)
+                                    "SELECT line_no,barcode,quantity,price,line_cents "
+                                    "FROM main.v8_preview_sandbox_sale_lines "
+                                    "WHERE reference=? ORDER BY line_no", (move_ref,)
                                 ).fetchall()
                                 if (invoice_total is None
                                         or type(invoice_total["subtotal_cents"]) is not int
@@ -562,7 +562,14 @@ class PreviewSandboxSaleLedger:
                                 # than the barcode currently being sold. A
                                 # forged line and forged subtotal can otherwise
                                 # cancel each other out.
-                                for historical_line in all_invoice_lines:
+                                for expected_line_no, historical_line in enumerate(
+                                    all_invoice_lines, 1
+                                ):
+                                    if (type(historical_line["line_no"]) is not int
+                                            or historical_line["line_no"] != expected_line_no
+                                            or type(historical_line["barcode"]) is not str
+                                            or not historical_line["barcode"]):
+                                        raise ValueError("historical invoice line identity mismatch")
                                     raw_qty = historical_line["quantity"]
                                     raw_price = historical_line["price"]
                                     if (type(raw_qty) is not str

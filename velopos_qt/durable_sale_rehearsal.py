@@ -101,6 +101,21 @@ class DurablePreviewSaleJournal:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
+                objects = conn.execute(
+                    "SELECT type,name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+                ).fetchall()
+                if set(objects) != {
+                    ("table", "preview_rehearsals"),
+                    ("table", "preview_sequence"),
+                }:
+                    raise PermissionError("Unexpected preview database objects")
+                for table, names in {
+                    "preview_rehearsals": ("request_id", "fingerprint", "reference"),
+                    "preview_sequence": ("singleton", "next_number"),
+                }.items():
+                    columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
+                    if tuple(col[1] for col in columns) != names:
+                        raise PermissionError("Unexpected preview database schema")
                 integrity = conn.execute("PRAGMA quick_check").fetchall()
                 if integrity != [("ok",)]:
                     raise PermissionError("Preview SQLite integrity check failed")

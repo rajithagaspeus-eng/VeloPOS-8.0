@@ -412,6 +412,10 @@ class PreviewSandboxSaleLedger:
                         "FROM main.v8_preview_sandbox_stock_moves "
                         "WHERE barcode=? ORDER BY rowid", (barcode,)
                     ).fetchall()
+                    if row is None and existing_moves:
+                        raise PermissionError(
+                            "Orphan sandbox stock movements require reconciliation"
+                        )
                     if row is not None:
                         current = opening
                         if not existing_moves:

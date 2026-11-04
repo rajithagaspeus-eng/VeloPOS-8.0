@@ -133,6 +133,16 @@ QPushButton#quickAction:hover { background:#205362; }
 QPushButton:disabled { background:#253342; color:#798899; }
 QScrollBar:vertical { background:#111d2d; width:10px; margin:3px; }
 QScrollBar::handle:vertical { background:#40576c; border-radius:5px; min-height:36px; }
+QFrame#searchPanel { background:#152638; border:1px solid #2d4761; border-radius:16px; }
+QLabel#screenTitle { color:#edf6ff; font-size:21pt; font-weight:750; }
+QLabel#sectionTitle { color:#e9f6fc; font-size:13pt; font-weight:750; }
+QLabel#previewSafetyNotice { color:#f8d9a3; background:#3a3028; border:1px solid #695139; border-radius:9px; padding:11px 13px; }
+QLabel#catalogStatus { color:#91a8b9; font-size:9pt; }
+QLineEdit#barcodeSearch { background:#102235; border:2px solid #376b79; border-radius:11px; min-height:45px; font-size:12pt; padding-left:15px; }
+QLineEdit#barcodeSearch:focus { border:2px solid #49e4c0; }
+QTableWidget#catalogTable, QTableWidget#draftCartTable, QTableWidget#searchResults { border:1px solid #31495e; border-radius:12px; }
+QFrame#billingTotals { background:#154343; border:1px solid #368778; border-radius:15px; }
+QFrame#billingTotals QLabel { color:#d2fff4; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 """
 LIGHT += """
@@ -157,6 +167,16 @@ QPushButton#quickAction:hover { background:#d9f0eb; }
 QPushButton:disabled { background:#e8edf2; color:#8da0ab; }
 QScrollBar:vertical { background:#ffffff; width:10px; margin:3px; }
 QScrollBar::handle:vertical { background:#c4d4df; border-radius:5px; min-height:36px; }
+QFrame#searchPanel { background:#f7fbff; border:1px solid #d1e1ed; border-radius:16px; }
+QLabel#screenTitle { color:#17384c; font-size:21pt; font-weight:750; }
+QLabel#sectionTitle { color:#173b4b; font-size:13pt; font-weight:750; }
+QLabel#previewSafetyNotice { color:#86561c; background:#fff5e8; border:1px solid #f2d4ac; border-radius:9px; padding:11px 13px; }
+QLabel#catalogStatus { color:#5e788c; font-size:9pt; }
+QLineEdit#barcodeSearch { background:white; border:2px solid #a7cfcf; border-radius:11px; min-height:45px; font-size:12pt; padding-left:15px; }
+QLineEdit#barcodeSearch:focus { border:2px solid #059e87; }
+QTableWidget#catalogTable, QTableWidget#draftCartTable, QTableWidget#searchResults { border:1px solid #d7e3ec; border-radius:12px; }
+QFrame#billingTotals { background:#ddf5ed; border:1px solid #a5d7c8; border-radius:15px; }
+QFrame#billingTotals QLabel { color:#14594d; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 """
 

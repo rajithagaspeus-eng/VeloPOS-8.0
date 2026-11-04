@@ -165,3 +165,21 @@ using disposable data until all Gate A/B acceptance criteria are proven.
 - No claim is made that the newly added tests executed or passed.
 - Inode checks are defense-in-depth, not a guarantee against every filesystem
   race; production database posting remains disabled.
+
+## Durable journal error handling and SQLite local checks (2026-11-05)
+
+- Fixed journal initialization to validate file identity before commit,
+  and avoid masking an original error by rolling back after commit.
+- Added validation for required NOT NULL declarations and all persisted
+  request ID formats; three additional repository regression cases cover
+  these error paths.
+- Executed **three standalone SQLite stdlib tests locally**, all PASS:
+  transaction rollback, rollback of uncommitted work on connection close,
+  and SQLite schema/index PRAGMA inspection. These are NOT the repository's
+  VeloPOS regression tests and do not establish VeloPOS test pass status.
+- GitHub Actions Windows run `41924230708` attempt 2 completed
+  `failure`, runner empty, steps zero. Job log download for the earlier
+  run failed with HTTP 404 (BlobNotFound). No Python test output exists.
+- Repository Actions permissions/runners endpoints remain inaccessible via
+  connector; root cause is not yet proven.
+- This remains a disposable preview-only ledger, not production checkout.

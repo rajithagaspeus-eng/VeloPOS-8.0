@@ -567,6 +567,21 @@ os._exit(19)
                 request_id="durable-request-0001", lines=self.lines
             )
 
+    def test_forged_column_type_is_rejected_before_reopen(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute(
+                "CREATE TABLE preview_rehearsals ("
+                "request_id TEXT PRIMARY KEY, fingerprint BLOB NOT NULL, "
+                "reference TEXT NOT NULL UNIQUE)"
+            )
+        with self.assertRaisesRegex(PermissionError, "column types"):
+            DurablePreviewSaleJournal(self.path)
+        with self.assertRaisesRegex(PermissionError, "column types"):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

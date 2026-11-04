@@ -19,9 +19,22 @@ class InventoryInsightsReader:
         _guard(self.database)
         if self.authorize is not None and not self.authorize():
             raise PermissionError("Preview Admin sign-in required for stock insights")
-        low_level = int(low_level)
-        expiry_days = int(expiry_days)
-        limit = int(limit)
+        # Reject fractional, boolean and non-finite filters instead of
+        # silently truncating them into misleading stock/expiry results.
+        def bounded_integer(value, name):
+            if isinstance(value, bool):
+                raise ValueError("Invalid " + name)
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError("Invalid " + name) from exc
+            if str(value).strip() != str(parsed):
+                raise ValueError("Invalid " + name)
+            return parsed
+
+        low_level = bounded_integer(low_level, "stock threshold")
+        expiry_days = bounded_integer(expiry_days, "expiry window")
+        limit = bounded_integer(limit, "result limit")
         if not 0 <= low_level <= 100000 or not 0 <= expiry_days <= 365:
             raise ValueError("Invalid stock threshold or expiry window")
         limit = max(1, min(limit, 100))

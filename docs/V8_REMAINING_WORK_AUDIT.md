@@ -306,3 +306,26 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   Full application regression execution remains blocked by GitHub
   Actions and container github.com DNS failure.
 - Preview-only changes. Main/V7/production data/commercial posting untouched.
+
+## Preview journal mode and fault-injection follow-up (2026-11-05)
+
+- Corrected precommit inode fault-injection test: the second identity check
+  during inspect is the pre-COMMIT check; previously the test targeted a
+  nonexistent third call. This fixes a test defect, not a verified PASS.
+- SQLite preview connections now reject non-DELETE journal modes (including
+  WAL) to avoid unpinned `-wal`/`-shm` persistence; the code does not
+  silently rewrite a database's journal mode. Added a regression asserting
+  WAL refusal leaves the ledger row count and sequence unchanged.
+- Executed local stdlib sqlite3 compatibility checks for default DELETE
+  mode and WAL switching (PASS), but these are not the application's
+  repository test suite.
+- The latest available Windows run `41928502888` failed with runner
+  empty and zero steps; its job requested `windows-latest`. Linux
+  workflow `41928500689` failed with zero jobs. Repository metadata
+  reports private=true, archived=false, disabled=false, admin=true.
+  This narrows investigation to GitHub Actions scheduling/account/workflow
+  configuration, but does not establish a specific root cause.
+- GitHub cannot be resolved by DNS in the local container, and the
+  GitHub connector provides file APIs but no executable checkout/test
+  runner. Consequently the current application regression suite remains
+  UNEXECUTED, not PASS. Production/V7/main unchanged.

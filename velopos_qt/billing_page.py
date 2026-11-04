@@ -10,13 +10,14 @@ from decimal import Decimal
 from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
-    QLineEdit, QMessageBox, QPushButton, QScrollArea, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QApplication, QComboBox, QDialog, QFrame, QHBoxLayout,
+    QHeaderView, QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
+    QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from .preview_models import Cart, preview_existing_bill, cash_estimate, money
 from .customer_loyalty import projected_points_for_paid_bill
+from .draft_receipt import draft_receipt_text
 
 
 class BillingPage(QWidget):
@@ -205,6 +206,10 @@ class BillingPage(QWidget):
         self.resume_button.setObjectName("secondaryAction")
         self.resume_button.clicked.connect(self.resume_draft)
         hold_row.addWidget(self.resume_button)
+        self.receipt_button = QPushButton()
+        self.receipt_button.setObjectName("draftReceiptPreviewButton")
+        self.receipt_button.clicked.connect(self.show_draft_receipt)
+        hold_row.addWidget(self.receipt_button)
         self.hold_note = QLabel()
         self.hold_note.setObjectName("hint")
         self.hold_note.setWordWrap(True)
@@ -287,6 +292,7 @@ class BillingPage(QWidget):
         self.refresh_customer_summary()
         self.hold_button.setText(self.text("hold_draft"))
         self.resume_button.setText(self.text("resume_draft"))
+        self.receipt_button.setText(self.text("draft_receipt_preview"))
         self.hold_button.setToolTip("F6")
         self.resume_button.setToolTip("F7")
         self._refresh_hold_controls()
@@ -593,9 +599,50 @@ class BillingPage(QWidget):
         self.refresh_cart()
         self._refresh_hold_controls()
 
+    def show_draft_receipt(self):
+        """Display an in-memory receipt-style DRAFT, never print or checkout."""
+        if not self.cart.lines:
+            return
+        try:
+            preview = draft_receipt_text(
+                self.cart, discount=self.discount_input.text(),
+                tendered=self.tender_input.text(), bill_preview=self.bill_preview,
+            )
+        except (ValueError, KeyError, TypeError, OSError, RuntimeError) as exc:
+            QMessageBox.warning(self, self.text("draft_receipt_title"), str(exc))
+            return
+
+        dialog = QDialog(self)
+        dialog.setObjectName("draftReceiptPreviewDialog")
+        dialog.setWindowTitle(self.text("draft_receipt_title"))
+        dialog.resize(540, 550)
+        layout = QVBoxLayout(dialog)
+        warning = QLabel(self.text("draft_only_warning"))
+        warning.setWordWrap(True)
+        layout.addWidget(warning)
+        body = QPlainTextEdit(dialog)
+        body.setObjectName("draftReceiptPreviewText")
+        body.setReadOnly(True)
+        body.setPlainText(preview)
+        layout.addWidget(body)
+        actions = QHBoxLayout()
+        copy_button = QPushButton(self.text("draft_receipt_copy"))
+        copy_button.clicked.connect(
+            lambda: QApplication.clipboard().setText(body.toPlainText())
+        )
+        actions.addWidget(copy_button)
+        actions.addStretch(1)
+        close_button = QPushButton(self.text("draft_receipt_close"))
+        close_button.setObjectName("secondaryAction")
+        close_button.clicked.connect(dialog.accept)
+        actions.addWidget(close_button)
+        layout.addLayout(actions)
+        dialog.exec()
+
     def refresh_cart(self, selected_barcode=None):
         lines = list(self.cart.lines.values())
         self._refresh_hold_controls()
+        self.receipt_button.setEnabled(bool(lines))
         self.cart_table.setRowCount(len(lines))
         for row, line in enumerate(lines):
             values = (line["name"], f'{line["qty"]:g}', f'{line["price"]:,.2f}',

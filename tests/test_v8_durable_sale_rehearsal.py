@@ -473,6 +473,23 @@ os._exit(19)
                 0,
             )
 
+    def test_full_sqlite_integrity_after_replay_and_restart(self):
+        first = self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        replay = DurablePreviewSaleJournal(self.path).inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        self.assertEqual(replay.reference, first.reference)
+        self.assertTrue(replay.replayed)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(conn.execute("PRAGMA integrity_check").fetchall(),
+                             [("ok",)])
+            self.assertEqual(
+                conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
+                2,
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

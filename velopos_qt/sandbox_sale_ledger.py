@@ -187,13 +187,13 @@ class PreviewSandboxSaleLedger:
         if settlement["declared"] != int(declared):
             raise RuntimeError("Sandbox settlement declaration mismatch")
         expected_tenders = (
-            [(line.method, int(line.amount * 100), line.reference)
-             for line in tender_plan.tenders] if declared else []
+            [(n, line.method, int(line.amount * 100), line.reference)
+             for n, line in enumerate(tender_plan.tenders, 1)] if declared else []
         )
         recorded = [
-            (row["method"], row["amount_cents"], row["reference_hint"])
+            (row["line_no"], row["method"], row["amount_cents"], row["reference_hint"])
             for row in connection.execute(
-                "SELECT method,amount_cents,reference_hint "
+                "SELECT line_no,method,amount_cents,reference_hint "
                 "FROM main.v8_preview_sandbox_tenders "
                 "WHERE reference=? ORDER BY line_no", (reference,)
             )

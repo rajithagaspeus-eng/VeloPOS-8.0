@@ -493,7 +493,7 @@ class PreviewSandboxSaleLedger:
                                 # A forged but numerically balanced stock move
                                 # must match the actual persisted invoice lines.
                                 invoice_lines = connection.execute(
-                                    "SELECT quantity FROM "
+                                    "SELECT quantity,price,line_cents FROM "
                                     "main.v8_preview_sandbox_sale_lines "
                                     "WHERE reference=? AND barcode=?",
                                     (move_ref, barcode)
@@ -512,6 +512,29 @@ class PreviewSandboxSaleLedger:
                                             or line_qty.adjusted() < -18
                                             or raw_line_qty != canonical_decimal(line_qty)):
                                         raise ValueError("invalid invoice line quantity")
+                                    raw_line_price = invoice_line["price"]
+                                    line_cents = invoice_line["line_cents"]
+                                    if (type(raw_line_price) is not str
+                                            or len(raw_line_price) > 128
+                                            or type(line_cents) is not int
+                                            or line_cents < 0):
+                                        raise ValueError("invalid historical line amount")
+                                    line_price = Decimal(raw_line_price)
+                                    if (not line_price.is_finite()
+                                            or line_price < 0
+                                            or line_price > Decimal("100000000")
+                                            or raw_line_price != canonical_decimal(line_price)):
+                                        raise ValueError("invalid historical line price")
+                                    with localcontext(Context(
+                                        prec=512, rounding=ROUND_HALF_UP
+                                    )):
+                                        expected_cents = int(
+                                            (line_qty * line_price).quantize(
+                                                Decimal("0.01")
+                                            ) * 100
+                                        )
+                                    if line_cents != expected_cents:
+                                        raise ValueError("historical line amount mismatch")
                                     invoice_quantity += line_qty
                                 raw_move = (
                                     move["before_qty"], move["sold_qty"],

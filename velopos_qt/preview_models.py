@@ -65,11 +65,14 @@ class Cart:
         next_qty = qty + (old["qty"] if old else 0)
         if next_qty > Decimal("1000000"):
             raise ValueError("Quantity is too large")
+        # A repeated scan extends the same draft line at its original
+        # displayed price. Catalog repricing is reported by the separate
+        # read-only stock inspector, never silently applied to held items.
         self.lines[barcode] = {
             "barcode": barcode,
-            "name": str(product["name_en"]),
+            "name": old["name"] if old else str(product["name_en"]),
             "qty": next_qty,
-            "price": price,
+            "price": old["price"] if old else price,
         }
 
     def set_quantity(self, barcode, quantity):

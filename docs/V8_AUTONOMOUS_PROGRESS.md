@@ -736,3 +736,36 @@ All commercial release gates A/B/C/D/E remain blocked.
 focus, 100%/125%/150% scaling and premium visual polish.
 Continue service-side financial safety and commercial release
 gates only in separately tested future batches.
+
+
+## Premium V8 compact shell / keyboard sidebar (November 4, 2026)
+
+**Base:** Verified merged `develop-v8` SHA
+`f3e98da8f1887ec5cd0eec682e25ce4ab5f2d567`;
+Windows Actions [41819057960](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41819057960)
+**200/200 PASS, 0 failures + compileall PASS**. Stable `main`
+and existing V7 live transactions/customer data untouched.
+
+**Feature branch:** `feature/v8-responsive-preview-shell`.
+`velopos_qt/app.py` adds a responsive 1040px width breakpoint:
+on compact windows the 244px sidebar initially collapses,
+the workspace/outer margins contract, and a permanent menu button
+plus Ctrl+B keyboard shortcut can reveal the 216px sidebar.
+Choosing a page from the compact sidebar hides it again.
+Desktop starts with the full sidebar; manual toggle within a
+width range is retained. The small header shows shorter
+`VeloPOS 8` / `Ctrl+K` labels while preserving full accessible
+descriptions and controls in all three languages.
+
+`velopos_qt/i18n.py` adds menu accessibility text in English,
+Sinhala and Tamil. Six new Qt offscreen tests cover compact,
+desktop, keyboard toggle, nontransactional Billing, language,
+theme and continued Ctrl+K page selection.
+`docs/V8_RESPONSIVE_SHELL_ACCEPTANCE.md` provides owner manual
+Windows QA for 760px/820px, threshold edges and scaling.
+
+**Verification pending**: exact SHA Windows compileall and combined
+`python run_v8_checks.py` must pass with zero skips/failures;
+after PR merge verify exact SHA `develop-v8` push Actions.
+No commercial checkout/stock/payment action is enabled;
+security and commercial Gates A/B/C/D/E remain BLOCKED.

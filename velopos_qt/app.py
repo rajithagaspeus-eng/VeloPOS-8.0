@@ -134,6 +134,9 @@ QPushButton#quickAction { background:#183e4c; color:#e0fbf6; border:1px solid #2
 QPushButton#quickAction:hover { background:#205362; }
 QPushButton#quickJumpAction { background:#1a3545; color:#b7f3e8; border:1px solid #35666e; padding:6px 12px; }
 QPushButton#quickJumpAction:hover { background:#245267; }
+QPushButton#sidebarToggle { background:#193a4d; color:#d2fbf4; border:1px solid #376775; min-width:37px; padding:6px; }
+QPushButton#sidebarToggle:hover { background:#24576b; }
+QPushButton#sidebarToggle:checked { background:#165b59; border:1px solid #50cdb2; }
 QLabel#quickJumpHeading { color:#edffff; font-size:17pt; font-weight:750; }
 QListWidget#quickJumpResults { background:#101d2e; border:1px solid #2d4961; border-radius:12px; }
 QPushButton:disabled { background:#253342; color:#798899; }
@@ -177,6 +180,9 @@ QPushButton#quickAction { background:#edf8f6; color:#125e5b; border:1px solid #b
 QPushButton#quickAction:hover { background:#d9f0eb; }
 QPushButton#quickJumpAction { background:#eff9f8; color:#11695f; border:1px solid #c4dfdc; padding:6px 12px; }
 QPushButton#quickJumpAction:hover { background:#d9f1eb; }
+QPushButton#sidebarToggle { background:#eaf6f4; color:#135a5d; border:1px solid #b5d7d6; min-width:37px; padding:6px; }
+QPushButton#sidebarToggle:hover { background:#d0ece7; }
+QPushButton#sidebarToggle:checked { background:#c8ebe0; border:1px solid #2a9d8d; }
 QLabel#quickJumpHeading { color:#164f4c; font-size:17pt; font-weight:750; }
 QListWidget#quickJumpResults { background:#ffffff; border:1px solid #d1e3e6; border-radius:12px; }
 QPushButton:disabled { background:#e8edf2; color:#8da0ab; }
@@ -232,6 +238,7 @@ class SettingsPreview(QMainWindow):
         self.identity = None
         self.saved = adapter.read()
         self.controls = {}
+        self._compact_mode = None
         stored_locale = str(self.preferences.value("language", "en"))
         self.locale = stored_locale if stored_locale in LANGUAGES else "en"
         self.translatable_labels = []
@@ -243,16 +250,25 @@ class SettingsPreview(QMainWindow):
         root = QWidget()
         self.setCentralWidget(root)
         outer = QVBoxLayout(root)
+        self.outer_layout = outer
         outer.setContentsMargins(20, 18, 20, 18)
         outer.setSpacing(14)
         brand_bar = QFrame()
         brand_bar.setObjectName("brandBar")
         brand_row = QHBoxLayout(brand_bar)
+        self.brand_row = brand_row
         brand_row.setContentsMargins(20, 13, 20, 13)
-        title = QLabel("VeloPOS 8.0")
-        title.setObjectName("appTitle")
-        brand_row.addWidget(title)
+        self.brand_title = QLabel("VeloPOS 8.0")
+        self.brand_title.setObjectName("appTitle")
+        brand_row.addWidget(self.brand_title)
         brand_row.addStretch()
+        self.menu_button = QPushButton("☰")
+        self.menu_button.setObjectName("sidebarToggle")
+        self.menu_button.setAccessibleName(self.t("navigation_toggle"))
+        self.menu_button.setToolTip(self.t("navigation_toggle_hint"))
+        self.menu_button.setCheckable(True)
+        self.menu_button.clicked.connect(self.toggle_sidebar)
+        brand_row.addWidget(self.menu_button)
         self.quick_jump_button = QPushButton(self.t("quick_jump_action"))
         self.quick_jump_button.setObjectName("quickJumpAction")
         self.quick_jump_button.setToolTip(self.t("quick_jump_hint"))
@@ -295,6 +311,7 @@ class SettingsPreview(QMainWindow):
         body = QHBoxLayout()
         outer.addLayout(body, 1)
         navpanel = QFrame()
+        self.navpanel = navpanel
         navpanel.setObjectName("navigationPanel")
         navlayout = QVBoxLayout(navpanel)
         navlayout.setContentsMargins(15, 19, 15, 17)
@@ -324,6 +341,7 @@ class SettingsPreview(QMainWindow):
         content = QFrame()
         content.setObjectName("workspacePanel")
         contentlayout = QVBoxLayout(content)
+        self.workspace_layout = contentlayout
         contentlayout.setContentsMargins(27, 24, 27, 22)
         self.pages = QStackedWidget()
         contentlayout.addWidget(self.pages)
@@ -332,11 +350,16 @@ class SettingsPreview(QMainWindow):
         # Lazy-create each page on first navigation; never repaint a giant form.
         self._pages = {}
         self.nav.currentRowChanged.connect(self.open_page)
+        self.nav.currentRowChanged.connect(self._close_compact_sidebar_on_navigation)
+        self.sidebar_shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
+        self.sidebar_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.sidebar_shortcut.activated.connect(self.toggle_sidebar)
         self.quick_jump_shortcut = QShortcut(QKeySequence("Ctrl+K"), self)
         self.quick_jump_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.quick_jump_shortcut.activated.connect(self.open_quick_jump)
         self.nav.setCurrentRow(0)
         self._apply_theme()
+        self._apply_responsive_layout()
 
     nav_keys = ("dashboard", "inventory", "billing", "customers", "suppliers", "shop_profile", "appearance", "printer_receipts", "about", "reports", "smart_inventory", "purchasing", "analytics", "forecast_title")
 
@@ -352,6 +375,9 @@ class SettingsPreview(QMainWindow):
         self.logout_button.setText(self.t("preview_sign_out"))
         self.quick_jump_button.setText(self.t("quick_jump_action"))
         self.quick_jump_button.setToolTip(self.t("quick_jump_hint"))
+        self.menu_button.setAccessibleName(self.t("navigation_toggle"))
+        self.menu_button.setToolTip(self.t("navigation_toggle_hint"))
+        self._refresh_header_navigation()
         self.locale_label.setText(self.t("language"))
         for index, key in enumerate(self.nav_keys):
             self.nav.item(index).setText(self.t(key))
@@ -418,6 +444,58 @@ class SettingsPreview(QMainWindow):
 
     def _is_preview_cashier(self):
         return self._current_preview_role() in ("Admin", "Cashier")
+
+    def _refresh_header_navigation(self):
+        """Keep compact controls understandable in every preview language."""
+        if self._compact_mode:
+            self.quick_jump_button.setText("Ctrl+K")
+            self.brand_title.setText("VeloPOS 8")
+        else:
+            self.quick_jump_button.setText(self.t("quick_jump_action"))
+            self.brand_title.setText("VeloPOS 8.0")
+        self.quick_jump_button.setAccessibleName(self.t("quick_jump_action"))
+        self.menu_button.setChecked(not self.navpanel.isHidden())
+
+    def _apply_responsive_layout(self):
+        """Reserve the content workspace on compact desktop windows."""
+        compact = self.width() < 1040
+        changed = compact != self._compact_mode
+        self._compact_mode = compact
+        self.outer_layout.setContentsMargins(
+            *(10, 10, 10, 10) if compact else (20, 18, 20, 18)
+        )
+        self.brand_row.setContentsMargins(
+            *(10, 9, 10, 9) if compact else (20, 13, 20, 13)
+        )
+        self.workspace_layout.setContentsMargins(
+            *(12, 14, 12, 14) if compact else (27, 24, 27, 22)
+        )
+        self.navpanel.setFixedWidth(216 if compact else 244)
+        if changed:
+            # On crossing the width breakpoint, restore the predictable
+            # default. Within a width range preserve the user's toggle.
+            self.navpanel.setVisible(not compact)
+        self._refresh_header_navigation()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "navpanel") and self._compact_mode is not None:
+            self._apply_responsive_layout()
+
+    def toggle_sidebar(self):
+        """One visible menu entry remains when the sidebar is collapsed."""
+        should_show = self.navpanel.isHidden()
+        self.navpanel.setVisible(should_show)
+        self.menu_button.setChecked(should_show)
+        if should_show:
+            self.nav.setFocus()
+        else:
+            self.menu_button.setFocus()
+
+    def _close_compact_sidebar_on_navigation(self, _index):
+        if self._compact_mode and not self.navpanel.isHidden():
+            self.navpanel.hide()
+            self.menu_button.setChecked(False)
 
     def open_quick_jump(self):
         """Navigation-only command palette; canonical open_page checks still run."""

@@ -1231,3 +1231,65 @@ session/role/branch/shift/signed-entitlement checks and transactional
 idempotency, with a dedicated posting simulation that ALWAYS rolls
 back. No real financial mutations or V7 services may be unlocked.
 `main`, V7 production data and signing secrets untouched.
+
+
+## Integrated sale authorization + durable journal recovery snapshot — 2026-11-04
+
+**Branch:** `develop-v8` only. Reviewed `docs/V8_MASTER_ROADMAP.md`,
+`docs/V8_COMMERCIAL_RELEASE_GATES.md`, the last checkpoint, recent
+`develop-v8` changes, `atomic_sale_boundary.py`,
+`service_authorization.py`, `checkout_preflight.py`,
+`sale_plan.py` and `idempotency_ledger.py`.
+Discovered three intervening commits after `8cd01a4` that tightened
+journal result-reference integrity and added regression cases; preserved
+those changes.
+
+**Code:** `1477caa24b52b030ccdf13de979b37d61352ade7` creates
+`velopos_qt/atomic_sale_recovery.py`, a **read-only, rollback-only**
+V8 test-data diagnostic that inspects canonical cashier/shift/branch,
+signed license/activation observations, stock/price preflight AND durable
+idempotency journal triage in the SAME caller-owned SQLite transaction.
+The pure canonical request payload binds claimed branch, actor, shift,
+license, machine, draft lines and day. These are untrusted request
+identity fields, **not** authorization. Distinct request identity with
+the same request id fails closed. Results remain frozen,
+`can_checkout=False` and `can_execute=False`; `require()` always
+raises `PermissionError`. No journal reservation, sale, payment or stock
+movement is committed by this module.
+
+**Tests:** `617a28499a06445fa53d47082862ac700a200442`,
+test correction `a5a58a04280c53dd2ac160a60fd19d64daf21f84`,
+and canonical Decimal replay test `2213e4e5d317eef145ca1bcc1883121ecc052bba`.
+`tests/test_v8_atomic_sale_recovery.py` now has **six** disposable
+subprocess/SQLite unittest methods: healthy policy still denied and no
+writes; pending and completed journal states; immutable identity
+conflicts for branch/device/actor/shift/draft; revocation plus closed
+shift after a completed journal; caller-owned/foreign connection safety;
+and numeric-equivalent immutable replay. An orphaned PENDING claim is
+deliberately NOT auto-completed or retried; the completed-claim test uses
+a **different** request id with claim and completion in one transaction.
+
+**Verification:** Previous user-provided local Windows run on
+`dd7ae38b4adfdfb53f0b23fe9690fd3d76f7ba70` passed **263
+tests, 0 failures, 88.806s**, with compileall returning no errors;
+that evidence is for an **older commit**, not the new code.
+GitHub combined status for new test SHA `2213e4e` returned no
+statuses; the connector's PR-event workflow lookup returned zero runs
+and does not cover push Actions. New six test methods and exact-head
+Windows compileall remain **UNVERIFIED**. Do not claim these tests pass
+until executed; do not inherit 263/263 from the older SHA.
+
+**Progress tracking:** Historical ~35% *subjective* development
+estimate unchanged (not measured). **0/5 commercial release gates
+accepted**: A/B hard BLOCKED, C/D/E incomplete. This batch does not
+unlock any real transactions or remove a commercial gate.
+
+**Next priority:** Verify the exact-head Windows push Actions + no-skip
+`python run_v8_checks.py` and repair failures. Then build a separately
+reviewed **service-owned** transaction boundary that revalidates
+canonical persisted session/role, branch and shift, server-authenticated
+signed licensing and immutable journal within the same disposable
+DB transaction before any business posting. Add concurrent/crash and
+cross-branch regression evidence; keep checkout and legacy V7 services
+strictly disabled for V8 until Gates A/B actually pass. Do not touch
+stable `main`, production data, private keys or customer licenses.

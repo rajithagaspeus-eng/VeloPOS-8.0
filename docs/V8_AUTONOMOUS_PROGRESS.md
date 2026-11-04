@@ -490,3 +490,44 @@ Never extrapolate an earlier PASS to an unverified commit.
 **Next:** verify and repair CI, then design authenticated server
 activation API and bounded/offline grace with careful key custody;
 do not enable real sales until every service-bound acceptance gate passes.
+
+
+## Signed operator activation command gateway (November 4, 2026)
+
+**Base checkpoint:** `develop-v8` SHA
+`51aad6e0be72130417d59dd91f06fc011ed02dc9`, verified by Windows
+push Actions 41807248172: 185/185 V8 preview tests passed.
+
+New feature branch: `feature/v8-signed-activation-admin-gateway`.
+`velopos_qt/activation_admin_gateway.py` is a preview-only signed-command
+contract, layered over the isolated server activation authority reference.
+The server roster stores Ed25519 operator public keys and active Admin /
+Issuer roles. Signed version-8 commands have bounded UTC freshness,
+strict schemas and canonical immutable request IDs. Admins can register/
+revoke/issue; Issuers can issue only. Idempotent signed retries retain
+the original response/sequence and reject conflicting reused request IDs.
+Issue retries after revocation/expiration/supersession do not re-deliver
+obsolete signed activation receipts.
+
+New tests: `tests/test_v8_phase2_activation_admin_gateway.py`,
+with ephemeral Ed25519 keys and disposable DB; no real financial writes.
+The Windows PR workflow now checks `python -m compileall -q velopos_qt tests`
+before the full V8 test suite to catch syntax defects in unimported modules.
+
+**Security / commercial limitations:** NOT a deployed API, authenticated
+operator bootstrap, trusted backend clock, production key custody,
+hosted anti-rollback database, offline grace service or POS financial gateway.
+Operator provisioning/disable methods are test fixtures with NO
+production authentication, and must NEVER be exported to shop clients.
+All V8 commercial transaction decisions remain `can_execute=False`.
+V7 services, `main`, existing customer data and production signing keys
+are untouched. Gates A/B/C/D/E remain blocked.
+
+**Verification:** exact feature-head CI **NOT YET VERIFIED** at this
+checkpoint. Run Windows compileall + `run_v8_checks.py` and fix any
+failures. Verify final PR head, then post-merge `develop-v8` SHA separately.
+
+**Next:** review this authenticated-command model and replay/expiry
+semantics; design a real authenticated activation service, server-owned
+key storage, operator onboarding, and offline grace/recovery separately.
+See `docs/V8_ACTIVATION_ADMIN_COMMAND_CONTRACT.md`.

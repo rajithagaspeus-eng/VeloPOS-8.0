@@ -592,6 +592,10 @@ class BillingPage(QWidget):
             return
         held_lines, discount, tender, held_customer_id = self._held_draft
         self.cart.lines = deepcopy(held_lines)
+        # A held draft may have become stale while stock/price changed.
+        # Force a fresh read-only stock check on resume, even if its line
+        # signature matches the one inspected before holding.
+        self._last_stock_signature = None
         self._held_draft = None
         self.discount_input.setText(discount)
         self.tender_input.setText(tender)

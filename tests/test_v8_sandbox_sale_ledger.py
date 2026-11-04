@@ -524,6 +524,11 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 assert c.execute(
                     "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
                 ).fetchone()[0] == 1
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert any(reason.startswith("settlement_tender_line_sequence_mismatch:")
+                       for reason in audited.reasons), audited
+            assert audited.can_checkout is False
         """)
 
     def test_replay_refuses_missing_or_changed_tender_rows(self):

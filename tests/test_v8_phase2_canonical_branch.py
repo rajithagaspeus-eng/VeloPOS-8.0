@@ -91,7 +91,7 @@ class PreviewCanonicalBranchTests(unittest.TestCase):
                 else:
                     raise AssertionError("Preview allowed commercial transaction")
 
-                wrong_signed = inspect(token=license_for("BRANCH-B"))
+                # Branch membership cannot override a persisted role denial.\n                role_denied = policy.branches.inspect(\n                    c, action="purchase", identity=identity,\n                    branch_id="BRANCH-A")\n                assert not role_denied.branch_verified, role_denied\n                assert "role_not_permitted" in role_denied.reasons\n                # A valid member with a missing shift must also fail closed.\n                no_shift = policy.branches.inspect(\n                    c, action="sale", identity=identity,\n                    branch_id="BRANCH-A", shift_id=None)\n                assert not no_shift.branch_verified\n                assert "open_assigned_shift_required" in no_shift.reasons\n                wrong_signed = inspect(token=license_for("BRANCH-B"))
                 assert "signed_branch_scope_mismatch" in wrong_signed.authorization.license_reasons
                 assert not wrong_signed.authorization.entitled
                 assert not inspect(branch_id="BRANCH-B").branch_verified

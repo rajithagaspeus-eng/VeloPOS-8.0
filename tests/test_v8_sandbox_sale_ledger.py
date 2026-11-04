@@ -1135,6 +1135,21 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 assert "invalid_invoice_line_quantity" in result.reasons, result
         """)
 
+    def test_audit_rejects_noncanonical_stock_balance(self):
+        self.isolated("""
+            sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock "
+                    "SET remaining_qty='5.0' WHERE barcode='RICE'"
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "noncanonical_stock_balance:RICE" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_replay_rejects_noncanonical_stock_move_decimal(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)
@@ -1145,7 +1160,8 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                     (first.reference,)
                 )
             audited = sandbox.reconcile_sandbox()
-            assert audited.balanced, audited
+            assert not audited.balanced, audited
+            assert "noncanonical_stock_move:RICE" in audited.reasons, audited
             try:
                 sandbox.simulate_commit(**args)
             except RuntimeError as exc:

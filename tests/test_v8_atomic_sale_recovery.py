@@ -163,6 +163,28 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert denied.can_checkout is False
         """)
 
+    def test_equivalent_decimal_lines_share_one_immutable_request_payload(self):
+        self.isolated("""
+            from decimal import Decimal
+            normalized = dict(args, lines=[
+                {"barcode": "RICE", "qty": Decimal("2.000"), "price": "45.00"},
+                {"barcode": "RICE", "qty": "3", "price": Decimal("45.0")},
+                {"barcode": "SOAP", "qty": "1.00", "price": "25.0"},
+            ])
+            assert payload_for(normalized) == payload_for(args)
+            c = journal_tx()
+            try:
+                journal.claim(c, "sale", args["request_id"], payload_for(args))
+                journal.complete(c, "sale", args["request_id"], "SIM-CANONICAL")
+                c.commit()
+            finally:
+                c.close()
+            replay = recovery.inspect(**normalized)
+            assert replay.journal.state == "journal_completed_unverified"
+            assert replay.journal.result_ref == "SIM-CANONICAL"
+            assert replay.can_checkout is False
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

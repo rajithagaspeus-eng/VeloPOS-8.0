@@ -2548,3 +2548,12 @@ milestones as commercial security gates permit.
 - `d5845b602e4f5acb794326e50c8a16424648f366`: adds `tests/test_v8_check_runner.py` with two regression methods: empty discovery returns failure and nested successful suite returns success.
 - A local Python smoke check verified `unittest.TestSuite.countTestCases()` returns 0 for empty and 1 for nested single-test suites. **Full repository test execution was not possible** in the available container (GitHub host DNS unavailable); no Windows CI pass/fail job log was accessible via the GitHub connector.
 - Next: inspect actual Windows workflow run and verbose artifact for exact-head failures; do not promote to production until release gates. `develop-v8` sandbox-only; 0/5 commercial gates, ~35% planning estimate.
+
+
+## Scheduled batch: sandbox return and inventory filter integrity — 2026-11-05
+
+- Branch strictly `develop-v8`; latest code commit `64ae11e36ede28e6e5a0cca2714785cfe041ec76`.
+- Read master roadmap, release gates, this checkpoint and recent commits. The prior verified Windows baseline is run `41888713584` at `bb7bf5d` (success). Latest run `41889941038` at `9c4a821` was still running when checked; setup, dependencies and compilation succeeded, combined regression suite in progress. **Do not claim the new head passed.**
+- Recent substantive sandbox-only commits: `ec516ad` guards independent return reconciliation against nonfinite/nonpositive/malformed persisted quantities; `bbfebb6` adds tamper regression; `2393492` rejects lossy/nonfinite/boolean inventory insight filters; `6dae504` adds input regressions; `9c4a821` adds Qt bounded integer validators; `64ae11e` adds offscreen UI regression for those validators.
+- No real financial posting, production inventory movement, signing key, V7 database or `main` change. All commercial release gates remain **0/5 accepted**. The previous ~39% figure is an informal planning estimate, not acceptance evidence.
+- **Next exact action:** inspect Windows Actions for `64ae11e` and preceding `9c4a821`, obtain full job logs and diagnostic artifact, repair any failures. Then audit sandbox return and stock reconciliation for malformed original sale quantity/price, duplicate movements, branch ownership, and invoice/journal cross-checks. Add isolated tamper regressions before code changes. Continue Gate A transaction authorization and Gate B accounting hard blockers; no commercial checkout.

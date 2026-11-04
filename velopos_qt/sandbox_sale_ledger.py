@@ -477,12 +477,25 @@ class PreviewSandboxSaleLedger:
             # A completed sale journal without its durable sandbox invoice is
             # a broken exactly-once record, even if no invoice row remains.
             completed_journals = connection.execute(
-                "SELECT result_ref FROM main.v8_preview_request_journal "
+                "SELECT request_id,result_ref FROM main.v8_preview_request_journal "
                 "WHERE scope='sale' AND status='COMPLETED'"
             ).fetchall()
             if any(row["result_ref"] not in invoice_refs
                    for row in completed_journals):
                 reasons.append("orphan_completed_sale_journal")
+            # The journal must be a one-to-one mapping to committed invoices.
+            # A forged second completed request pointing to an existing
+            # invoice must not pass merely because its result_ref exists.
+            completed_pairs = {
+                (row["request_id"], row["result_ref"])
+                for row in completed_journals
+            }
+            invoice_pairs = {
+                (sale["request_id"], sale["reference"]) for sale in invoices
+            }
+            if (completed_pairs != invoice_pairs
+                    or len(completed_journals) != len(invoices)):
+                reasons.append("completed_sale_journal_coverage_mismatch")
             if set(expected_lines) - invoice_refs:
                 reasons.append("orphan_invoice_line")
             for ref, numbers in line_numbers.items():

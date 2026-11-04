@@ -78,6 +78,8 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
 
     def test_pending_claim_then_completed_journal_still_no_sale(self):
         self.isolated("""
+            with database.db() as c:
+                before = snapshot(c)
             c = journal_tx()
             try:
                 assert journal.claim(
@@ -90,19 +92,27 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert pending.journal.state == "pending_manual_reconciliation"
             assert "journal_pending_manual_reconciliation" in pending.reasons
             assert pending.can_checkout is False
+            # A stranded PENDING claim must never be silently completed.
+            # Test a separate correctly owned claim/completion transaction.
+            another = dict(args, request_id="atomic-completed-0002")
             c = journal_tx()
             try:
-                journal.complete(c, "sale", args["request_id"], "SIM-ONLY-123")
+                assert journal.claim(
+                    c, "sale", another["request_id"], payload_for(another)
+                ).is_new
+                journal.complete(c, "sale", another["request_id"], "SIM-ONLY-123")
                 c.commit()
             finally:
                 c.close()
-            completed = recovery.inspect(**args)
+            completed = recovery.inspect(**another)
             assert completed.journal.state == "journal_completed_unverified"
             assert completed.journal.result_ref == "SIM-ONLY-123"
             assert completed.can_checkout is False
             with database.db() as c:
-                assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
-                assert c.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0] == 2
+                after = snapshot(c)
+            for field in ("sales", "sale_items", "returns", "stock",
+                          "moves", "payments"):
+                assert after[field] == before[field], (field, before, after)
         """)
 
     def test_same_key_cannot_cross_branch_device_actor_shift_or_draft(self):

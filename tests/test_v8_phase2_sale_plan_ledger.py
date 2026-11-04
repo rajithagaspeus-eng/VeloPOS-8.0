@@ -50,6 +50,29 @@ class PreviewSalePlanTests(unittest.TestCase):
         self.assertEqual(canonical_decimal(Decimal("1E+3")), "1000")
         self.assertEqual(a.subtotal, Decimal("50.00"))
 
+    def test_untrusted_iterator_is_bounded_to_101_inputs(self):
+        """A bad generator must not consume unbounded scan lines or hang."""
+        row = {"barcode": "RICE", "qty": 1, "price": 25}
+        pulled = []
+
+        def untrusted_stream():
+            for index in range(101):
+                pulled.append(index)
+                yield row
+            raise AssertionError("Planner consumed beyond 101 draft entries")
+
+        with self.assertRaisesRegex(ValueError, "1-100 lines"):
+            plan_preview_sale(untrusted_stream())
+        self.assertEqual(len(pulled), 101)
+
+    def test_exactly_100_generator_lines_remain_supported(self):
+        row = {"barcode": "RICE", "qty": "0.1", "price": "0.05"}
+        generated = (dict(row) for _ in range(100))
+        plan = plan_preview_sale(generated)
+        self.assertEqual(plan.line_count, 100)
+        self.assertEqual(plan.quantities, (("RICE", Decimal("10.0")),))
+        self.assertEqual(plan.subtotal, Decimal("1.00"))
+
     def test_invalid_lines_and_limits_fail_closed(self):
         good = {"barcode": "RICE", "qty": 1, "price": "25.00"}
         for bad in (

@@ -564,6 +564,37 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert not sandbox.reconcile_sandbox().balanced
         """)
 
+
+    def test_missing_settlement_row_fails_closed_on_replay_and_audit(self):
+        self.isolated("""
+            original = sandbox.simulate_commit(**dict(
+                args, tenders=[{"method":"Cash","amount":"250"}]
+            ))
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_settlements "
+                    "WHERE reference=?", (original.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, tenders=[{"method":"Cash","amount":"250"}]
+                ))
+            except RuntimeError as exc:
+                assert "settlement reconciliation" in str(exc).lower(), exc
+            else:
+                raise AssertionError("Missing settlement was accepted on replay")
+            checked = sandbox.reconcile_sandbox()
+            assert not checked.balanced, checked
+            assert checked.can_checkout is False
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.sales"
+                ).fetchone()[0] == 0
+        """)
+
     def test_two_sequential_sandbox_sales_reconcile_invoice_and_remaining_stock(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

@@ -918,6 +918,21 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_handles_binary_orphan_line_reference_without_crashing(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET reference=? WHERE reference=? AND line_no=1",
+                    (b"binary-orphan-line", first.reference)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "orphan_invoice_line" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_handles_binary_stock_barcode_without_crashing(self):
         self.isolated("""
             sandbox.simulate_commit(**args)

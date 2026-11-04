@@ -408,7 +408,7 @@ class PreviewSandboxSaleLedger:
                     # authoritative quantity that can be edited independently.
                     # Verify the complete movement chain before extending it.
                     existing_moves = connection.execute(
-                        "SELECT before_qty,sold_qty,after_qty "
+                        "SELECT reference,before_qty,sold_qty,after_qty "
                         "FROM main.v8_preview_sandbox_stock_moves "
                         "WHERE barcode=? ORDER BY rowid", (barcode,)
                     ).fetchall()
@@ -422,6 +422,21 @@ class PreviewSandboxSaleLedger:
                             raise PermissionError("Sandbox stock history missing")
                         try:
                             for move in existing_moves:
+                                # A balanced chain is not sufficient if its
+                                # movement is detached from an actual invoice.
+                                move_ref = move["reference"]
+                                if (type(move_ref) is not str
+                                        or not move_ref.startswith("SBX-")
+                                        or len(move_ref) != 28
+                                        or any(char not in "0123456789abcdef"
+                                               for char in move_ref[4:])):
+                                    raise ValueError("invalid movement reference")
+                                invoice = connection.execute(
+                                    "SELECT 1 FROM main.v8_preview_sandbox_sales "
+                                    "WHERE reference=?", (move_ref,)
+                                ).fetchone()
+                                if invoice is None:
+                                    raise ValueError("orphan stock movement")
                                 raw_move = (
                                     move["before_qty"], move["sold_qty"],
                                     move["after_qty"],

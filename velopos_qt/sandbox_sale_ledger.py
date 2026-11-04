@@ -21,6 +21,7 @@ from .atomic_sale_recovery import (
 from .idempotency_ledger import PreviewIdempotencyLedger, request_fingerprint
 from .product_editor import _guard
 from .sale_plan import canonical_decimal, plan_preview_sale
+from .tender_plan import plan_preview_tender
 
 
 _CONTEXT = Context(prec=512)
@@ -37,6 +38,8 @@ class SandboxSaleEvidence:
     payment_captured: bool = False
     can_checkout: bool = False
     can_execute: bool = False
+    tender_declared: bool = False
+    change_cents: int = 0
 
 
 @dataclass(frozen=True)
@@ -90,9 +93,23 @@ class PreviewSandboxSaleLedger:
             "before_qty TEXT NOT NULL, sold_qty TEXT NOT NULL, "
             "after_qty TEXT NOT NULL, PRIMARY KEY(reference,barcode))"
         )
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS main.v8_preview_sandbox_tenders ("
+            "reference TEXT NOT NULL, line_no INTEGER NOT NULL, "
+            "method TEXT NOT NULL, amount_cents INTEGER NOT NULL "
+            "CHECK(amount_cents>0), reference_hint TEXT NOT NULL, "
+            "PRIMARY KEY(reference,line_no))"
+        )
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS main.v8_preview_sandbox_settlements ("
+            "reference TEXT PRIMARY KEY, declared INTEGER NOT NULL "
+            "CHECK(declared IN (0,1)), due_cents INTEGER NOT NULL, "
+            "cash_cents INTEGER NOT NULL, noncash_cents INTEGER NOT NULL, "
+            "change_cents INTEGER NOT NULL)"
+        )
 
     @staticmethod
-    def _read_exact_sale(connection, reference, request_id, plan):
+    def _read_exact_sale(connection, reference, request_id, plan, tender_plan):
         row = connection.execute(
             "SELECT request_id, subtotal_cents FROM main.v8_preview_sandbox_sales "
             "WHERE reference=?", (reference,)
@@ -108,9 +125,44 @@ class PreviewSandboxSaleLedger:
         ).fetchone()[0]
         if count != len(plan.lines):
             raise RuntimeError("Sandbox invoice line count mismatch")
-        return SandboxSaleEvidence(reference, expected_cents, count, replayed=True)
+        settlement = connection.execute(
+            "SELECT declared,due_cents,cash_cents,noncash_cents,change_cents "
+            "FROM main.v8_preview_sandbox_settlements WHERE reference=?",
+            (reference,)
+        ).fetchone()
+        if settlement is None or settlement["due_cents"] != expected_cents:
+            raise RuntimeError("Sandbox settlement reconciliation failed")
+        declared = tender_plan is not None
+        if settlement["declared"] != int(declared):
+            raise RuntimeError("Sandbox settlement declaration mismatch")
+        expected_tenders = (
+            [(line.method, int(line.amount * 100), line.reference)
+             for line in tender_plan.tenders] if declared else []
+        )
+        recorded = [
+            (row["method"], row["amount_cents"], row["reference_hint"])
+            for row in connection.execute(
+                "SELECT method,amount_cents,reference_hint "
+                "FROM main.v8_preview_sandbox_tenders "
+                "WHERE reference=? ORDER BY line_no", (reference,)
+            )
+        ]
+        if recorded != expected_tenders:
+            raise RuntimeError("Sandbox declared tender mismatch")
+        if (settlement["cash_cents"] != (
+                int(tender_plan.cash_total * 100) if declared else 0)
+                or settlement["noncash_cents"] != (
+                    int(tender_plan.noncash_total * 100) if declared else 0)
+                or settlement["change_cents"] != (
+                    int(tender_plan.change_due * 100) if declared else 0)):
+            raise RuntimeError("Sandbox settlement totals mismatch")
+        return SandboxSaleEvidence(
+            reference, expected_cents, count, replayed=True,
+            tender_declared=declared,
+            change_cents=settlement["change_cents"],
+        )
 
-    def simulate_commit(self, *, inject_failure_at=None, **sale_kwargs):
+    def simulate_commit(self, *, inject_failure_at=None, tenders=None, **sale_kwargs):
         """Commit a *disposable sandbox* sale/stock/journal together, never commerce.
 
         Signed, persisted session/branch/shift and stock/price/expiry checks
@@ -141,12 +193,27 @@ class PreviewSandboxSaleLedger:
         )
         request_id = stable["request_id"]
         self.journal._validate_identity("sale", request_id)
+        # Declare allocation only. No card processor, customer credit ledger
+        # or payment capture exists here; credit cannot be simulated safely.
+        tender_plan = (
+            plan_preview_tender(plan.subtotal, tenders)
+            if tenders is not None else None
+        )
+        if tender_plan is not None and tender_plan.credit_due:
+            raise PermissionError("Sandbox credit requires an audited customer ledger")
         payload = canonical_sale_recovery_payload(
             identity=frozen_actor, shift_id=stable["shift_id"],
             lines=frozen_lines, expected_branch_id=stable["expected_branch_id"],
             license_id=stable["license_id"], machine_id=stable["machine_id"],
             today=day,
         )
+        if tender_plan is not None:
+            payload["sandbox_tender_declarations"] = [
+                {"method": line.method, "amount_cents": int(line.amount * 100),
+                 "reference": line.reference}
+                for line in tender_plan.tenders
+            ]
+            payload["sandbox_change_cents"] = int(tender_plan.change_due * 100)
         fingerprint = request_fingerprint(payload)
         reference = "SBX-" + sha256(
             (request_id + ":" + fingerprint).encode("utf-8")
@@ -154,8 +221,12 @@ class PreviewSandboxSaleLedger:
         connection = self.database.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            checked = self.recovery.inspect_in_transaction(connection, **stable)
-            readiness = checked.readiness
+            # The recovery diagnostic hashes sale-only inputs. For this
+            # richer sandbox tender payload, authorize through its identical
+            # locked boundary but inspect the journal with the FULL payload.
+            readiness = self.recovery.boundary.inspect_in_transaction(
+                connection, **stable
+            )
             healthy = (
                 readiness.session_bound and readiness.branch_verified
                 and readiness.license_bound and readiness.signed_chain_valid
@@ -164,15 +235,19 @@ class PreviewSandboxSaleLedger:
             )
             if not healthy:
                 raise PermissionError("Sandbox-only transaction checks denied")
-            if checked.journal.state == "journal_completed_unverified":
+            journal = self.journal.inspect_request(
+                connection, "sale", request_id, payload
+            )
+            if journal.state == "journal_completed_unverified":
                 evidence = self._read_exact_sale(
-                    connection, checked.journal.result_ref, request_id, plan
+                    connection, journal.result_ref, request_id,
+                    plan, tender_plan
                 )
                 # No write on replay. A complete journal is not sufficient by
                 # itself; only a matching sandbox sale can be returned.
                 connection.rollback()
                 return evidence
-            if checked.journal.state != "not_recorded":
+            if journal.state != "not_recorded":
                 raise PermissionError("Sandbox journal requires manual reconciliation")
 
             self._create_sandbox_tables(connection)
@@ -244,11 +319,38 @@ class PreviewSandboxSaleLedger:
                 )
             if inject_failure_at == "after_invoice":
                 raise RuntimeError("Injected sandbox failure after invoice")
+            declaration = tender_plan is not None
+            cash_cents = int(tender_plan.cash_total * 100) if declaration else 0
+            noncash_cents = (
+                int(tender_plan.noncash_total * 100) if declaration else 0
+            )
+            change_cents = (
+                int(tender_plan.change_due * 100) if declaration else 0
+            )
+            connection.execute(
+                "INSERT INTO main.v8_preview_sandbox_settlements "
+                "(reference,declared,due_cents,cash_cents,noncash_cents,"
+                "change_cents) VALUES (?,?,?,?,?,?)",
+                (reference,int(declaration),cents,cash_cents,
+                 noncash_cents,change_cents)
+            )
+            if declaration:
+                for n, line in enumerate(tender_plan.tenders, 1):
+                    connection.execute(
+                        "INSERT INTO main.v8_preview_sandbox_tenders "
+                        "(reference,line_no,method,amount_cents,reference_hint) "
+                        "VALUES (?,?,?,?,?)",
+                        (reference,n,line.method,int(line.amount*100),
+                         line.reference)
+                    )
             self.journal.complete(connection, "sale", request_id, reference)
             if inject_failure_at == "after_complete":
                 raise RuntimeError("Injected sandbox failure after complete")
             connection.commit()
-            return SandboxSaleEvidence(reference,cents,len(plan.lines),replayed=False)
+            return SandboxSaleEvidence(
+                reference,cents,len(plan.lines),replayed=False,
+                tender_declared=declaration,change_cents=change_cents
+            )
         except BaseException:
             connection.rollback()
             raise

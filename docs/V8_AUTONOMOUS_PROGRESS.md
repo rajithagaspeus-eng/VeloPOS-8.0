@@ -2525,3 +2525,10 @@ milestones as commercial security gates permit.
 - **Positive regression added:** `9871e3072e5ab05440d1f452ec993278e02bdf94` tests a fractional 0.01-unit credit note within the original sale quantity and confirms the credit reconciliation remains balanced. **31 sandbox credit test methods** are now defined.
 - **CI status:** exact-head Windows Actions pass/fail still **unverified**. GitHub's exposed connector returns no commit status entries and only lists PR-triggered workflow runs; direct Actions page retrieval was not available. Do not present the absence of results as a pass. Next step is to obtain the push-run logs, run full test suite, and fix any real tracebacks.
 - Scope `develop-v8` only, sandbox financial declarations, no production V7 changes; overall ~35% planning estimate, 0/5 commercial gates accepted.
+
+
+## Cross-suite fractional return compatibility — 2026-11-04
+
+- Reviewed the credit-note and return regression fixtures together. Credit-note tests refer to a 5-unit aggregated RICE invoice quantity; sandbox return tests refer to **sale line #1 with 2 units**. The return negative test's original 1 + 1 + 0.01 rejection is correct. An intermediate edit mistakenly changed that rejection quantity to 1 (`4b276e5d599736363b150e51fa363c2621bdaf4c`); it was restored immediately in `567978a5c73cdc75891d5e92fd644e6eeedd5448`. No behavior change to the original negative test remains.
+- Added a positive return fractional-quantity regression (`4405d877c6900a637d9eb61eb53dd8a921d69aa1`): 1 + 0.01 of the original 2 units is valid, with return reconciliation expected to remain balanced. Test method exists but has not been executed here.
+- GitHub Actions exact-head Windows push CI remains unverified. No failures or green checks are asserted without job logs. All changes confined to `develop-v8`, disposable preview tests; 0/5 commercial release gates accepted, ~35% planning estimate.

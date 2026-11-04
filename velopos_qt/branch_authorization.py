@@ -9,7 +9,7 @@ A branch string supplied by a UI/client is not proof of branch membership.
 from dataclasses import dataclass
 
 from .idempotency_ledger import PreviewIdempotencyLedger
-from .service_authorization import _ACTION_ROLES, _SHIFT_ACTIONS
+from .service_authorization import PreviewServiceAuthorization, _ACTION_ROLES, _SHIFT_ACTIONS
 
 
 _TABLES = frozenset({
@@ -35,12 +35,18 @@ class PreviewBranchAuthorization:
     def __init__(self, database):
         self.database = database
         self._connection_gate = PreviewIdempotencyLedger(database)
+        self._service = PreviewServiceAuthorization(database)
 
-    def inspect(self, connection, *, action, actor, branch_id, shift_id=None):
+    def inspect(self, connection, *, action, identity=None, branch_id, shift_id=None):
         self._connection_gate._check_connection(connection)
         if action not in _ACTION_ROLES:
             raise ValueError("Unknown protected financial action")
-
+        # Revalidate the signed-in identity against canonical persisted user
+        # and shift state. A client-provided username is never trusted.
+        service = self._service.inspect(
+            connection, action=action, identity=identity, shift_id=shift_id
+        )
+        actor = service.actor
         reasons = []
         valid_branch = (
             type(branch_id) is str

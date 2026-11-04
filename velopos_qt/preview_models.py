@@ -56,7 +56,8 @@ class Cart:
     lines: dict = field(default_factory=dict)
 
     def add(self, product, quantity=1):
-        barcode = str(product["barcode"])
+        raw_barcode = product["barcode"]
+        barcode = str(raw_barcode).strip() if raw_barcode is not None else ""
         if not barcode:
             raise ValueError("A product barcode is required")
         try:

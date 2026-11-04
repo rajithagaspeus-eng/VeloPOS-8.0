@@ -10,6 +10,7 @@ never commit, roll back or reserve a journal row. No V7 service is invoked.
 """
 from dataclasses import dataclass
 
+from .auth_model import PreviewIdentity
 from .atomic_sale_boundary import PreviewAtomicSaleBoundary
 from .idempotency_ledger import (
     PreviewIdempotencyLedger, RecoveryInspection,
@@ -83,7 +84,22 @@ class PreviewAtomicSaleRecovery:
         frozen_day = PreviewAtomicSaleBoundary._day(
             sale_kwargs.get("today")
         ).isoformat()
-        stable_kwargs = dict(sale_kwargs, lines=frozen_lines, today=frozen_day)
+        # Freeze the caller-provided (and potentially mutable) identity once.
+        # Persisted user/role/password hash and the active HMAC session token
+        # are STILL revalidated inside the same SQLite transaction. This
+        # snapshot itself cannot grant permission or revive a revoked session.
+        original_identity = sale_kwargs["identity"]
+        frozen_identity = None
+        if original_identity is not None:
+            frozen_identity = PreviewIdentity(
+                username=getattr(original_identity, "username", None),
+                role=getattr(original_identity, "role", None),
+                credential_tag=getattr(original_identity, "credential_tag", None),
+            )
+        stable_kwargs = dict(
+            sale_kwargs, lines=frozen_lines, today=frozen_day,
+            identity=frozen_identity,
+        )
         readiness = self.boundary.inspect_in_transaction(
             connection, **stable_kwargs
         )

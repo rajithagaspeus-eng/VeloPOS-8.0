@@ -110,13 +110,20 @@ class PreviewSandboxSaleLedger:
         )
 
     @staticmethod
-    def _read_exact_sale(connection, reference, request_id, plan, tender_plan):
+    def _read_exact_sale(connection, reference, request_id, plan, tender_plan,
+                         expected_actor, expected_branch, expected_shift):
         row = connection.execute(
-            "SELECT request_id, subtotal_cents FROM main.v8_preview_sandbox_sales "
+            "SELECT request_id,actor,branch_id,shift_id,subtotal_cents "
+            "FROM main.v8_preview_sandbox_sales "
             "WHERE reference=?", (reference,)
         ).fetchone()
         if row is None or row["request_id"] != request_id:
             raise RuntimeError("Journal result has no matching sandbox sale")
+        if (row["actor"] != expected_actor
+                or row["branch_id"] != expected_branch
+                or type(row["shift_id"]) is not int
+                or row["shift_id"] != expected_shift):
+            raise RuntimeError("Sandbox invoice identity does not match replay")
         expected_cents = int(plan.subtotal * 100)
         if row["subtotal_cents"] != expected_cents:
             raise RuntimeError("Journal/sandbox invoice reconciliation failed")
@@ -312,7 +319,8 @@ class PreviewSandboxSaleLedger:
             if journal.state == "journal_completed_unverified":
                 evidence = self._read_exact_sale(
                     connection, journal.result_ref, request_id,
-                    plan, tender_plan
+                    plan, tender_plan, frozen_actor.username,
+                    stable["expected_branch_id"], stable["shift_id"]
                 )
                 # No write on replay. A complete journal is not sufficient by
                 # itself; only a matching sandbox sale can be returned.

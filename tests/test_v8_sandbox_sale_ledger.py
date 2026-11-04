@@ -1339,6 +1339,24 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_second_valid_sandbox_sale_extends_verified_stock_chain(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            second = sandbox.simulate_commit(**dict(
+                args, request_id="second-valid-stock-chain-0001"
+            ))
+            assert first.reference != second.reference
+            assert second.replayed is False
+            audited = sandbox.reconcile_sandbox()
+            assert audited.balanced, audited
+            assert audited.invoice_count == 2
+            with database.db() as c:
+                assert sandbox_stock(c) == {"RICE": "0", "SOAP": "2"}
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 2
+        """)
+
     def test_new_sale_refuses_orphan_movement_invoice_reference(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

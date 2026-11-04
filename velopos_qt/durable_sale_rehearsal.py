@@ -258,6 +258,10 @@ class DurablePreviewSaleJournal:
             conn.execute("PRAGMA foreign_keys=ON")
             # Rehearsal crash tests depend on durable SQLite commit semantics.
             conn.execute("PRAGMA synchronous=FULL")
+            # WAL introduces independent -wal/-shm files outside the pinned
+            # database inode. Refuse it rather than silently switching modes.
+            if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "delete":
+                raise PermissionError("Unsupported preview SQLite journal mode")
             conn.execute("PRAGMA busy_timeout=10000")
             yield conn
         finally:

@@ -23,7 +23,15 @@ class InventoryReader:
         self.database = database
 
     def search(self, query="", limit=100):
-        limit = max(1, min(int(limit), 200))
+        if isinstance(limit, bool):
+            raise ValueError("Invalid lookup limit")
+        try:
+            parsed_limit = int(limit)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("Invalid lookup limit") from exc
+        if str(limit).strip() != str(parsed_limit):
+            raise ValueError("Invalid lookup limit")
+        limit = max(1, min(parsed_limit, 200))
         search = "%" + str(query).strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         with self.database.db() as connection:
             rows = connection.execute(
@@ -95,7 +103,15 @@ class DirectoryReader:
         return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
     def customers(self, query="", limit=100):
-        limit = max(1, min(int(limit), 200))
+        if isinstance(limit, bool):
+            raise ValueError("Invalid lookup limit")
+        try:
+            parsed_limit = int(limit)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("Invalid lookup limit") from exc
+        if str(limit).strip() != str(parsed_limit):
+            raise ValueError("Invalid lookup limit")
+        limit = max(1, min(parsed_limit, 200))
         search = self._pattern(query)
         with self.database.db() as connection:
             records = connection.execute(
@@ -110,7 +126,15 @@ class DirectoryReader:
         return [dict(row) for row in records]
 
     def suppliers(self, query="", limit=100):
-        limit = max(1, min(int(limit), 200))
+        if isinstance(limit, bool):
+            raise ValueError("Invalid lookup limit")
+        try:
+            parsed_limit = int(limit)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("Invalid lookup limit") from exc
+        if str(limit).strip() != str(parsed_limit):
+            raise ValueError("Invalid lookup limit")
+        limit = max(1, min(parsed_limit, 200))
         search = self._pattern(query)
         with self.database.db() as connection:
             records = connection.execute(

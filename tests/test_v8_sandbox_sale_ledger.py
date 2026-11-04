@@ -886,6 +886,35 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_corrupted_invoice_reference_format(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sales "
+                    "SET reference='SBX-invalid' WHERE reference=?",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_sandbox_invoice_reference" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_invalid_invoice_request_id(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sales "
+                    "SET request_id=' ' WHERE reference=?", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_sandbox_invoice_request_id" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_invalid_invoice_line_number(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

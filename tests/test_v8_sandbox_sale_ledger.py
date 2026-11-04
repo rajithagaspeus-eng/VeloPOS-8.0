@@ -415,6 +415,41 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 assert c.execute("SELECT COUNT(*) FROM main.sales").fetchone()[0] == 0
         """)
 
+    def test_audit_flags_stranded_pending_sale_request(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_request_journal "
+                    "(scope,request_id,payload_sha256,status,result_ref) "
+                    "SELECT scope,'stranded-sandbox-0002',payload_sha256,"
+                    "'PENDING',NULL FROM main.v8_preview_request_journal "
+                    "WHERE scope='sale' AND request_id=?",
+                    (args["request_id"],)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "pending_sale_journal_requires_reconciliation" in audited.reasons
+            assert audited.can_checkout is False
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM main.sales").fetchone()[0] == 0
+        """)
+
+    def test_audit_flags_invoice_with_all_lines_removed(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_sale_lines "
+                    "WHERE reference=?", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invoice_has_no_lines:" + first.reference in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_sandbox_independent_audit_reconciles_invoice_stock_and_journal(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

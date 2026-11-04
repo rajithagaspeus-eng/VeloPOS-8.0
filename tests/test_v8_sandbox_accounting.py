@@ -204,6 +204,23 @@ class SandboxCloseoutTests(unittest.TestCase):
             assert checked.can_checkout is False
         """)
 
+    def test_closeout_rejects_line_price_tamper_even_if_invoice_total_unchanged(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            assert closeout.closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET price='999' WHERE reference=? AND line_no=1",
+                    (sale.reference,)
+                )
+            checked = closeout.closeout()
+            assert not checked.balanced
+            assert "sale_price_quantity_mismatch" in checked.reasons
+            assert checked.gross_cents == 25000
+            assert checked.can_checkout is False
+        """)
+
     def test_accounting_requires_a_complete_return_schema(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

@@ -85,6 +85,13 @@ class ActivationStatusTests(unittest.TestCase):
             assert "local_clock_rollback_suspected" in check(
                 sign(), last_seen_utc=now + timedelta(hours=3)
             ).reasons
+            # Previously observed signed status must not be replayed to
+            # extend offline grace, even if the local clock is current.
+            replay = check(sign(), last_seen_utc=now - timedelta(minutes=30))
+            assert "activation_observation_replay_suspected" in replay.reasons
+            assert replay.current is False and replay.can_execute is False
+            same = check(sign(), last_seen_utc=now - timedelta(hours=1))
+            assert same.current is True, same
             assert check(sign(), max_offline_hours=0).current is False
             assert "activation_status_signature_invalid" in check("garbage").reasons
             assert "activation_status_signature_invalid" in check(

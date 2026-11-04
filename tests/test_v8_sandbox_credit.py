@@ -796,6 +796,77 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert credit_service.reconcile().balanced
         """)
 
+    def test_closeout_flags_mixed_repayment_modes_independently(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-closeout-0001",**ctx()
+            )
+            assert credit_service.reconcile().balanced
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_credit_repayments "
+                    "(reference,request_id,customer_id,branch_id,amount_cents,method) "
+                    "VALUES('CRP-forged','forged-mixed-closeout-0001',"
+                    "?,'BRANCH-001',100,'Cash')",
+                    (customer_id,)
+                )
+            assert "credit_mixed_repayment_modes" in credit_service.reconcile().reasons
+            audit = PreviewSandboxAccounting(database).closeout()
+            assert not audit.balanced
+            assert "sandbox_credit_mixed_repayment_modes" in audit.reasons
+        """)
+
+    def test_closeout_rejects_allocation_tamper_and_invoice_overallocation(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-closeout-0002",**ctx()
+            )
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_allocations "
+                    "SET amount_cents=999999"
+                )
+            audit = PreviewSandboxAccounting(database).closeout()
+            assert not audit.balanced
+            assert "sandbox_credit_allocation_mismatch" in audit.reasons
+            assert "sandbox_credit_invoice_overallocated" in audit.reasons
+            assert "credit_repayment_allocation_mismatch" in credit_service.reconcile().reasons
+        """)
+
+    def test_closeout_rejects_orphan_allocation_even_without_repayment(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_sandbox_credit_allocations "
+                    "(repayment_ref,charge_ref,customer_id,branch_id,amount_cents) "
+                    "VALUES('CRP-orphan',? ,?,'BRANCH-001',100)",
+                    (issued.reference,customer_id)
+                )
+            credit_audit = credit_service.reconcile()
+            closeout = PreviewSandboxAccounting(database).closeout()
+            assert not credit_audit.balanced and not closeout.balanced
+            assert "credit_repayment_allocation_mismatch" in credit_audit.reasons
+            assert "sandbox_credit_allocation_mismatch" in closeout.reasons
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

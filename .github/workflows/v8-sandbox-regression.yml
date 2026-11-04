@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: v8-sandbox-regression-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sandbox-regression:
     if: github.ref == 'refs/heads/develop-v8'
@@ -35,7 +39,7 @@ jobs:
         run: python -m pip check
       - name: Verify commercial release gates remain closed
         run: |
-          python -m unittest -v tests.test_v8_release_readiness
+          python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment
           python -m velopos_qt.release_readiness > v8-release-readiness.json
       - name: Preserve release readiness report
         if: always()

@@ -55,7 +55,7 @@ class PreviewRollbackOnlySaleProbe:
         journal cycle was rolled back. This never attempts any financial write.
         Old completed or pending claims require reconciliation, not replay.
         """
-        if inject_failure_at not in (None, *self._FAILPOINTS):
+        if inject_failure_at is not None and inject_failure_at not in self._FAILPOINTS:
             raise ValueError("Unknown preview failure injection point")
         _guard(self.database)
         # Capture caller-owned mutable data once, before any authorization
@@ -89,6 +89,7 @@ class PreviewRollbackOnlySaleProbe:
         # transaction; no invalid hashable values reach the journal.
         digest = request_fingerprint(payload)
         request_id = stable["request_id"]
+        self.journal._validate_identity("sale", request_id)
         simulated_ref = "SIM-" + sha256(
             (request_id + ":" + digest).encode("utf-8")
         ).hexdigest()[:24]

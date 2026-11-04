@@ -71,12 +71,16 @@ class PreviewSandboxReturnLedger:
             "reference TEXT NOT NULL, line_no INTEGER NOT NULL, "
             "sale_line_no INTEGER NOT NULL, barcode TEXT NOT NULL, "
             "quantity TEXT NOT NULL, refund_cents INTEGER NOT NULL "
-            "CHECK(refund_cents>=0), PRIMARY KEY(reference,line_no), "
+            "CHECK(refund_cents>=0), disposition TEXT NOT NULL "
+            "CHECK(disposition IN ('DAMAGED','DISCARDED')), "
+            "restocked INTEGER NOT NULL DEFAULT 0 CHECK(restocked=0), "
+            "PRIMARY KEY(reference,line_no), "
             "UNIQUE(reference,sale_line_no))"
         )
 
     def simulate_return(self, *, identity, shift_id, request_id, original_ref,
-                        returns, refund_mode="Cash", expected_branch_id,
+                        returns, refund_mode="Cash", disposition="DAMAGED",
+                        expected_branch_id,
                         license_id, machine_id, license_key,
                         server_public_key_b64, previous_status, current_status,
                         today=None, now=None, max_offline_hours=24,
@@ -90,6 +94,8 @@ class PreviewSandboxReturnLedger:
             raise ValueError("Canonical original sandbox reference required")
         if refund_mode not in ("Cash", "Card", "QR") or type(refund_mode) is not str:
             raise ValueError("Unsupported sandbox refund declaration")
+        if type(disposition) is not str or disposition not in ("DAMAGED", "DISCARDED"):
+            raise ValueError("Only explicitly non-restocking disposition is supported")
         if not isinstance(returns, (list, tuple)) or not 1 <= len(returns) <= 100:
             raise ValueError("Provide 1-100 return line requests")
         frozen = []
@@ -120,7 +126,7 @@ class PreviewSandboxReturnLedger:
             "shift_id": shift_id, "branch_id": expected_branch_id,
             "license_id": license_id, "machine_id": machine_id,
             "day": day, "refund_mode": refund_mode,
-            "non_restock": True,
+            "disposition": disposition, "non_restock": True,
             "lines": [{"line_no": n, "qty": q} for n, q in frozen],
         }
         digest = request_fingerprint(payload)
@@ -185,8 +191,8 @@ class PreviewSandboxReturnLedger:
                     (journal.result_ref, request_id)
                 ).fetchone()
                 recorded = connection.execute(
-                    "SELECT sale_line_no,quantity,refund_cents "
-                    "FROM main.v8_preview_sandbox_return_lines "
+                    "SELECT sale_line_no,quantity,refund_cents,disposition,"
+                    "restocked FROM main.v8_preview_sandbox_return_lines "
                     "WHERE reference=? ORDER BY line_no",
                     (journal.result_ref,)
                 ).fetchall()
@@ -198,6 +204,8 @@ class PreviewSandboxReturnLedger:
                         or saved["shift_id"] != shift_id
                         or [(row["sale_line_no"], row["quantity"])
                             for row in recorded] != frozen
+                        or any(row["disposition"] != disposition or
+                               row["restocked"] != 0 for row in recorded)
                         or sum(row["refund_cents"] for row in recorded)
                             != saved["refund_cents"]
                         or saved["refund_cents"] <= 0):
@@ -268,9 +276,10 @@ class PreviewSandboxReturnLedger:
             for n, (sale_line_no, barcode, qty, cents) in enumerate(processed,1):
                 connection.execute(
                     "INSERT INTO main.v8_preview_sandbox_return_lines "
-                    "(reference,line_no,sale_line_no,barcode,quantity,refund_cents) "
-                    "VALUES(?,?,?,?,?,?)",
-                    (ref,n,sale_line_no,barcode,qty,cents)
+                    "(reference,line_no,sale_line_no,barcode,quantity,"
+                    "refund_cents,disposition,restocked) "
+                    "VALUES(?,?,?,?,?,?,?,0)",
+                    (ref,n,sale_line_no,barcode,qty,cents,disposition)
                 )
             if inject_failure_at == "after_lines":
                 raise RuntimeError("Injected return failure after lines")
@@ -315,7 +324,8 @@ class PreviewSandboxReturnLedger:
                 "main.v8_preview_sandbox_returns"
             ).fetchall()
             lines = connection.execute(
-                "SELECT reference,sale_line_no,barcode,quantity,refund_cents "
+                "SELECT reference,sale_line_no,barcode,quantity,refund_cents,"
+                "disposition,restocked "
                 "FROM main.v8_preview_sandbox_return_lines"
             ).fetchall()
             invoice_map = {
@@ -346,6 +356,9 @@ class PreviewSandboxReturnLedger:
                     if (Decimal(row["quantity"]) <= 0
                             or row["refund_cents"] < 0):
                         reasons.append("invalid_return_line")
+                    if (row["disposition"] not in ("DAMAGED","DISCARDED")
+                            or row["restocked"] != 0):
+                        reasons.append("invalid_nonrestock_disposition")
                 for (original_ref,line_no), entries in refunds_by_sale_line.items():
                     original = connection.execute(
                         "SELECT quantity,price,line_cents FROM "

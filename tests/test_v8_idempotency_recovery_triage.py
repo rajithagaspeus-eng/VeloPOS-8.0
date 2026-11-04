@@ -102,7 +102,7 @@ class IdempotencyRecoveryTriageTests(unittest.TestCase):
         self.isolated("""
             c = transaction()
             ledger.claim(c, "sale", request_id, payload)
-            for bad in ("", " ", " SIM-001", "SIM-001 ", "SIM\\n001", "SIM\\x00001"):
+            for bad in ("", " ", " SIM-001", "SIM-001 ", "SIM\n001", "SIM\x00001"):
                 try:
                     ledger.complete(c, "sale", request_id, bad)
                 except ValueError:

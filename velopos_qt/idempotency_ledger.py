@@ -6,6 +6,8 @@ business mutations MUST commit or roll back together on the same connection.
 
 No existing V7 sale service or Qt checkout path uses this ledger yet.
 Creating a journal record does not grant permission to sell.
+All journal SQL explicitly targets main.*, never caller-created TEMP or
+ATTACHed tables that could shadow canonical persistent ledger state.
 """
 import hashlib
 import json
@@ -135,14 +137,14 @@ class PreviewIdempotencyLedger:
         self._validate_identity(scope, request_id)
         fingerprint = request_fingerprint(payload)
         exists = connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' "
+            "SELECT 1 FROM main.sqlite_master WHERE type='table' "
             "AND name='v8_preview_request_journal'"
         ).fetchone()
         if not exists:
             return RecoveryInspection("not_recorded")
         row = connection.execute(
             "SELECT payload_sha256,status,result_ref "
-            "FROM v8_preview_request_journal WHERE scope=? AND request_id=?",
+            "FROM main.v8_preview_request_journal WHERE scope=? AND request_id=?",
             (scope, request_id),
         ).fetchone()
         if row is None:
@@ -165,7 +167,7 @@ class PreviewIdempotencyLedger:
         self._validate_identity(scope, request_id)
         fingerprint = request_fingerprint(payload)
         connection.execute(
-            "CREATE TABLE IF NOT EXISTS v8_preview_request_journal ("
+            "CREATE TABLE IF NOT EXISTS main.v8_preview_request_journal ("
             "scope TEXT NOT NULL, request_id TEXT NOT NULL, "
             "payload_sha256 TEXT NOT NULL, status TEXT NOT NULL "
             "CHECK(status IN ('PENDING','COMPLETED')), "
@@ -181,7 +183,7 @@ class PreviewIdempotencyLedger:
         )
         row = connection.execute(
             "SELECT payload_sha256,status,result_ref "
-            "FROM v8_preview_request_journal WHERE scope=? AND request_id=?",
+            "FROM main.v8_preview_request_journal WHERE scope=? AND request_id=?",
             (scope, request_id),
         ).fetchone()
         if row:
@@ -191,7 +193,7 @@ class PreviewIdempotencyLedger:
                 raise RuntimeError("Previous request has no trustworthy committed result")
             return ClaimResult(False, row["result_ref"])
         connection.execute(
-            "INSERT INTO v8_preview_request_journal "
+            "INSERT INTO main.v8_preview_request_journal "
             "(scope,request_id,payload_sha256,status) VALUES(?,?,?,'PENDING')",
             (scope, request_id, fingerprint),
         )
@@ -204,7 +206,7 @@ class PreviewIdempotencyLedger:
         if not _valid_result_ref(result_ref):
             raise ValueError("Invalid result reference")
         updated = connection.execute(
-            "UPDATE v8_preview_request_journal SET status='COMPLETED', "
+            "UPDATE main.v8_preview_request_journal SET status='COMPLETED', "
             "result_ref=? WHERE scope=? AND request_id=? AND status='PENDING'",
             (result_ref, scope, request_id),
         )

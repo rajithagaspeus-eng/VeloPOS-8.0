@@ -2,7 +2,7 @@
 from decimal import Decimal
 import unittest
 
-from velopos_qt.preview_models import Cart
+from velopos_qt.preview_models import Cart, money
 
 
 class DraftQuantityTests(unittest.TestCase):
@@ -14,6 +14,16 @@ class DraftQuantityTests(unittest.TestCase):
             "selling_price": "19.95",
         }
         self.cart.add(self.product)
+
+    def test_extreme_catalog_money_is_rejected_without_mutation(self):
+        original = dict(self.cart.lines["0001234567890"])
+        for value in ("1e999", "999999999999999999999999999999999999"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                money(value)
+            with self.assertRaises(ValueError):
+                self.cart.add(dict(self.product, selling_price=value))
+            self.assertEqual(self.cart.lines["0001234567890"], original)
+        self.assertEqual(self.cart.subtotal(), Decimal("19.95"))
 
     def test_repeated_scan_keeps_draft_price_after_catalog_repricing(self):
         repriced = dict(self.product, selling_price="29.95",

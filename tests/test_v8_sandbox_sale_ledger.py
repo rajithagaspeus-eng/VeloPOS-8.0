@@ -1501,6 +1501,32 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_new_sale_refuses_orphan_invoice_lines_without_stock_or_moves(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_stock_moves "
+                    "WHERE barcode='RICE'"
+                )
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_stock "
+                    "WHERE barcode='RICE'"
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="second-orphan-invoice-request-0001"
+                ))
+            except PermissionError as exc:
+                assert "Orphan sandbox invoice lines" in str(exc), exc
+            else:
+                raise AssertionError("Orphan invoice lines accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_new_sale_refuses_orphan_stock_movements_without_balance_row(self):
         self.isolated("""
             sandbox.simulate_commit(**args)

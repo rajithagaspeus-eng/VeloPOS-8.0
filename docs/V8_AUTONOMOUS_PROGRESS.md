@@ -1065,3 +1065,59 @@ license keys and `main` untouched.
 failures, then build service-owned persistent transaction authorization
 (session, shift, canonical branch and signed license) with crash/retry
 and concurrency evidence in disposable V8 storage. No live checkout.
+
+
+## Bounded journal requests + crash/concurrency regressions — 2026-11-04
+
+**Branch:** `develop-v8` only. At run start reread
+`docs/V8_MASTER_ROADMAP.md`, `docs/V8_COMMERCIAL_RELEASE_GATES.md`,
+this checkpoint, `velopos_qt/idempotency_ledger.py`,
+`velopos_qt/service_authorization.py`, and journal regression tests.
+Last confirmed historical Windows push CI job
+[41847710848](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41847710848)
+was SUCCESS at prior SHA `e19232a5098fdf5fc19b236f2d29dfc8746f59e1`,
+NOT the current head. Exact-head status entries and PR-filtered workflow
+runs for this batch returned empty; the available lookup does not cover
+all push-triggered CI, so it cannot confirm pass/fail.
+
+**Corrections & code:**
+- `e7eedfe4240555350449cf34e77ec590f2a4e9c5` fixes escaping in
+  `tests/test_v8_idempotency_recovery_triage.py`: the outer Python
+  triple-quoted subprocess script now passes literal escapes for newline
+  and NUL into the child interpreter. The previous single-backslash
+  literals could expand to a syntactically malformed child script or NUL
+  in subprocess arguments.
+- `9c960c68a0840aa5472d326175d94750d6b418ab` caps canonical
+  idempotency fingerprint serialization to 256 KiB and traversed
+  request nodes to 10,000, avoiding excessively large attacker-supplied
+  request payloads. Invalid Unicode surrogate encodings become a
+  fail-closed ValueError rather than an uncaught UnicodeEncodeError.
+  Existing canonical well-sized payload hashes are unchanged.
+- `e8cf87018868dea009c089c87d6c2de7aea4c87b` adds three
+  regression methods for payload size/node caps, invalid Unicode
+  and ordinary deterministic hashing.
+- `8102edb1bcf974da2475113b44e3dcf16cd3874c` adds two
+  disposable SQLite integration regression methods: hard process
+  exit after an uncommitted claim/completion must leave no durable
+  journal, and competing connections must produce one committed
+  completed row plus replay without a second reservation.
+
+**Verification:** These five newly committed unittest methods were
+NOT executed in this tool session, and exact-head Windows compileall
+and `python run_v8_checks.py` remain **UNVERIFIED**. Do not reuse
+the older 245-test PASS figure for this head. The source and tests
+have been inspected; no fabricated passing count is asserted.
+
+**All commercial blockers:** Gate A transaction authorization and
+Gate B accounting reconciliation remain BLOCKED; cloud Gate C,
+commercial licensing Gate D and final QA Gate E remain outstanding.
+No transaction-capable V8 service, live sales, GRNs, returns, payments,
+stock writes or shift mutations were enabled. No V7 production data,
+keys or stable main changed.
+
+**Next:** Obtain exact-head Windows push Actions result and repair any
+failing test (especially the nested subprocess/Windows concurrency
+regressions). Then implement strictly service-owned verified
+session/role, canonical branch/shift and signed-license checks in the
+same isolated DB transaction as durable journal and posting simulation;
+never connect to real checkout while Gate A/B fail.

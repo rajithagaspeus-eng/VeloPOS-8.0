@@ -1733,3 +1733,52 @@ and signed-license enforcement integrated with persistent
 atomic ledger and crash-safe business mutation on disposable
 V8 storage only, and reconcile complete accounting/stock invariants
 before permitting any real posting.
+
+
+## Owner-confirmed Windows 296/296 no-skip local PASS on da53500 — 2026-11-04
+
+**Evidence from the owner's actual Windows PowerShell terminal:**
+Local `develop-v8` had fast-forwarded to code SHA
+`da535008b708511fbb8cf64529e5c9d2fc983ebd` (short `da53500`).
+The first attempted combined run gave
+**Ran 296 tests in 132.887s — OK (skipped=59)**, so it was NOT
+accepted as a complete run. Re-running after explicitly activating
+`C:\\Users\\user\\VeloPOS8\\.venv\\Scripts\\Activate.ps1`
+confirmed that `python` resolved to the virtual environment
+`C:\\Users\\user\\VeloPOS8\\.venv\\Scripts\\python.exe`
+and imports `PySide6.QtWidgets` and `cryptography` succeeded.
+`python -m compileall -q velopos_qt tests` produced no visible errors.
+The corrected `python run_v8_checks.py` run printed
+**Ran 296 tests in 121.843s — OK**, with **0 failures, 0 skips**,
+and **Suite exit code: 0**. PySide6 font and
+`propagateSizeHints()` warnings were nonfatal. The 59 skipped
+tests issue is resolved on the explicitly verified virtual
+environment run; do not mark the earlier skip-containing run green.
+
+**Version and CI distinction:** This is **exact-code local Windows**
+verification for `da53500` only, including the lossless Decimal
+and deterministic rounding regressions. GitHub verified that
+`da53500` equaled `develop-v8` *before* writing this
+documentation checkpoint. The GitHub-hosted Windows push Actions
+workflow remains **UNVERIFIED**; empty legacy commit statuses or
+PR-filtered workflow runs cannot prove it passed. Subsequent
+documentation-only SHAs are not independently executed on Windows.
+Release-gates evidence was updated in
+`07589b5b411e80c8a8d3b6fe33f6ec540e03f8f5`.
+
+**Release gates:** Five-phase Phase 1 still IN PROGRESS;
+Phases 2–5 not accepted; **0/5 commercial release gates
+accepted**. Gates A/B remain BLOCKED and cloud/licensing/final
+QA gates C/D/E outstanding. V8 remains isolated TEST DATA ONLY.
+No checkout, financial posting, supplier payment, refunds, GRNs,
+stock or shift business mutation enabled; stable `main`,
+customer V7 production data and signing keys untouched.
+
+**Next priority:** independently validate the exact-head GitHub
+Actions Windows push job; move Phase 1 toward reviewed trusted
+service-owned transaction enforcement with authoritative signed
+activation, current session/role/branch/shift and persistent
+idempotency + crash recovery on one disposable SQLite transaction.
+Only after Gate A/B financial, stock and accounting invariants
+are genuinely accepted may any production financial capability
+be considered.

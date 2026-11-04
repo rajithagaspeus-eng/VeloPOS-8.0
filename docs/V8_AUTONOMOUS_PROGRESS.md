@@ -676,3 +676,29 @@ customer-owner approval/renewal and service-bound financial security.
 reissue or extend a separately signed V8 entitlement/license file;
 real license renewal payment/identity verification and new signed
 entitlement distribution are still unimplemented.
+
+
+## Recovery boundary adversarial regression — November 4, 2026
+
+Reviewed the master roadmap, commercial release gates, prior checkpoint,
+recent branch history, and Windows push CI. Baseline develop-v8 SHA
+`ce0f265ae3b26c9d2b9062bbc7860e6bc0a1648f` completed Windows
+push Actions [41813917120](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41813917120)
+SUCCESS (compileall and combined test steps). This is baseline evidence,
+not verification of the new test.
+
+Added `tests/test_v8_phase2_recovery_boundary.py` at code commit
+`6aba3568b7059c882fac2ee015811d8d0dad4ea3`. It uses disposable
+preview data and ephemeral Ed25519 signing keys to assert that server
+clock rollback and an expired license cannot transfer machine/branch
+binding, and that failed recovery preserves persisted binding, expiry,
+sequence and receipt digest. It also asserts recovery cannot authorize
+checkout. No real license, customer record or money/stock path touched.
+
+**Verification:** new test and this checkpoint require exact-head Windows
+push CI. Do not claim new tests passed until the run completes. Commercial
+Gates A/B/C/D/E remain blocked; the reference service is not deployed.
+
+**Next priority:** inspect and repair exact-head CI, then implement
+trusted service-bound session/branch/shift authorization and persistent
+idempotency on a disposable transaction schema before any financial writes.

@@ -73,7 +73,7 @@ class FingerprintKeySafetyTests(unittest.TestCase):
             request_fingerprint({low_surrogate: "entry"})
         # The literal backslash-u sequence remains a legitimate barcode.
         self.assertEqual(
-            request_fingerprint({"barcode": r"\\ud800"}),
+            request_fingerprint({"barcode": r"\ud800"}),
             request_fingerprint({"barcode": chr(92) + "ud800"}),
         )
 

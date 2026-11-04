@@ -91,6 +91,34 @@ class PreviewGatewayTests(unittest.TestCase):
             """
         )
 
+    def test_gateway_rehearses_sale_without_posting_legacy_invoice(self):
+        self.isolated(
+            """
+            from velopos import database
+            from velopos_qt.transaction_gateway import PreviewTransactionGateway
+            database.init_db()
+            gateway = PreviewTransactionGateway(database)
+            lines = [{"barcode": "RICE", "qty": "2", "price": "12.50"}]
+            preview = gateway.rehearse_sale(
+                request_id="gateway-rehearsal-0001", lines=lines
+            )
+            assert preview.subtotal_cents == 2500
+            assert preview.can_checkout is False
+            assert preview.can_post is False
+            try:
+                gateway.sale(
+                    identity=None, request_id="gateway-rehearsal-0001",
+                    lines=lines, license_valid=True
+                )
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Preview rehearsal unlocked checkout")
+            with database.db() as c:
+                assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+            """
+        )
+
     def test_production_like_folder_denied_at_construction(self):
         self.isolated(
             """

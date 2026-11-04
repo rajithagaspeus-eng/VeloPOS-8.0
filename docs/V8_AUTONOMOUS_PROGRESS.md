@@ -1782,3 +1782,58 @@ idempotency + crash recovery on one disposable SQLite transaction.
 Only after Gate A/B financial, stock and accounting invariants
 are genuinely accepted may any production financial capability
 be considered.
+
+
+## Phase 1 hardening batch — canonical SQLite schema binding (2026-11-04)
+
+**Code head before checkpoint:** `d38bb54ba5f7b2c182eefb83095b4dde52630cf4`.
+This batch closes a specific *preview-only* SQLite name-resolution risk:
+SQLite normally resolves unqualified table names against `TEMP` before
+`main`. An already-open caller-owned connection to the canonical
+disposable V8 database could therefore supply shadow `TEMP` tables
+for users, shifts, products, batches, branch bindings or the request
+journal. Checking only the `main` file path was not sufficient to
+ensure that authorization, inventory and journal queries read
+canonical persisted rows.
+
+**Implemented on `develop-v8` only:**
+- `velopos_qt/service_authorization.py`: persisted cashier and shift
+  lookups now explicitly reference `main.users` and `main.shifts`.
+- `velopos_qt/branch_authorization.py`: branch registry existence and
+  membership/shift joins explicitly reference `main.sqlite_master`
+  and `main.*` tables.
+- `velopos_qt/checkout_preflight.py`: session, shift, inventory,
+  batch-expiry and price checks explicitly use `main.*` tables.
+- `velopos_qt/idempotency_ledger.py`: journal existence, creation,
+  claim, replay and completion explicitly use `main.*`; a forged
+  `TEMP` journal cannot shadow durable idempotency state.
+- `tests/test_v8_atomic_sale_recovery.py`: added four isolated
+  subprocess regressions for shadow users/shifts, stock/branch,
+  completed journal and forged new-claim journal. They use disposable
+  V8 data and no production business mutation.
+
+**Verification status:** These four new tests and the entire
+combined suite are **NOT YET VERIFIED** on Windows or GitHub Actions
+for this new code head. Previous owner's exact-code `da53500`
+Windows local milestone remains **296 tests, 0 skips, exit code 0**;
+do not transfer that result to this batch. The intended combined
+suite count is **300** (296 prior + four added), pending execution.
+The GitHub connector's commit workflow-run lookup returned an empty
+list for `d38bb54`, but that endpoint only exposes PR-triggered
+runs; it does **not** establish success, failure or absence of
+push-triggered Windows CI. Independently verify push Actions by
+exact head SHA and inspect job logs before claiming CI success.
+
+**Commercial gates:** Phase 1 IN PROGRESS, Phases 2–5 NOT ACCEPTED,
+0/5 release gates accepted. Gate A/B remain BLOCKED, C/D/E outstanding.
+All checkout, refund, purchasing, shift, stock and financial postings
+remain disabled. No `main` branch, V7 production data, paid keys or
+customer records touched.
+
+**Exact next priority:** Execute new shadow-table regressions and
+the complete no-skip Windows suite against the current exact code
+SHA. Fix any failures. Then audit remaining unqualified SQL in
+preview service-owned authorization and recovery, and advance
+trusted service-owned license/session/branch/shift checks with
+persistent idempotency and crash-safe accounting invariants on
+disposable V8 storage only.

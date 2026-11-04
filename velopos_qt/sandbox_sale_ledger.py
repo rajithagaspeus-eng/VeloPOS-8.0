@@ -39,6 +39,15 @@ class SandboxSaleEvidence:
     can_execute: bool = False
 
 
+@dataclass(frozen=True)
+class SandboxReconciliation:
+    balanced: bool
+    reasons: tuple[str, ...]
+    invoice_count: int
+    subtotal_cents: int
+    can_checkout: bool = False
+
+
 class PreviewSandboxSaleLedger:
     """Own a single BEGIN IMMEDIATE transaction for sandbox-only posting."""
 
@@ -244,6 +253,115 @@ class PreviewSandboxSaleLedger:
             connection.rollback()
             raise
         finally:
+            connection.close()
+
+    def reconcile_sandbox(self):
+        """Independently audit sandbox invoice totals, stock and journal links.
+
+        This is a read-only evidence check. It does not repair missing rows
+        or modify V7 products, sales or real payment records.
+        """
+        _guard(self.database)
+        connection = self.database.connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            required = (
+                "v8_preview_sandbox_sales",
+                "v8_preview_sandbox_sale_lines",
+                "v8_preview_sandbox_stock",
+                "v8_preview_sandbox_stock_moves",
+                "v8_preview_request_journal",
+            )
+            found = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM main.sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if not set(required).issubset(found):
+                return SandboxReconciliation(False, ("sandbox_tables_missing",), 0, 0)
+
+            reasons = []
+            invoices = connection.execute(
+                "SELECT reference,request_id,subtotal_cents "
+                "FROM main.v8_preview_sandbox_sales ORDER BY reference"
+            ).fetchall()
+            all_lines = connection.execute(
+                "SELECT reference,line_cents FROM main.v8_preview_sandbox_sale_lines"
+            ).fetchall()
+            expected_lines = {}
+            for line in all_lines:
+                expected_lines[line["reference"]] = (
+                    expected_lines.get(line["reference"], 0) + line["line_cents"]
+                )
+            invoice_refs = {sale["reference"] for sale in invoices}
+            if set(expected_lines) - invoice_refs:
+                reasons.append("orphan_invoice_line")
+            for sale in invoices:
+                ref = sale["reference"]
+                if expected_lines.get(ref) != sale["subtotal_cents"]:
+                    reasons.append("invoice_line_total_mismatch:" + ref)
+                journal = connection.execute(
+                    "SELECT status,result_ref FROM main.v8_preview_request_journal "
+                    "WHERE scope='sale' AND request_id=?",
+                    (sale["request_id"],)
+                ).fetchone()
+                if (journal is None or journal["status"] != "COMPLETED"
+                        or journal["result_ref"] != ref):
+                    reasons.append("invoice_journal_mismatch:" + ref)
+
+            stock_rows = connection.execute(
+                "SELECT barcode,opening_qty,remaining_qty "
+                "FROM main.v8_preview_sandbox_stock"
+            ).fetchall()
+            moves = connection.execute(
+                "SELECT reference,barcode,before_qty,sold_qty,after_qty "
+                "FROM main.v8_preview_sandbox_stock_moves ORDER BY rowid"
+            ).fetchall()
+            moves_by_barcode = {}
+            for move in moves:
+                moves_by_barcode.setdefault(move["barcode"], []).append(move)
+                if move["reference"] not in invoice_refs:
+                    reasons.append("orphan_stock_move")
+            listed = {row["barcode"] for row in stock_rows}
+            if set(moves_by_barcode) - listed:
+                reasons.append("untracked_stock_move")
+            with localcontext(_CONTEXT):
+                for row in stock_rows:
+                    barcode = row["barcode"]
+                    start = Decimal(row["opening_qty"])
+                    remaining = Decimal(row["remaining_qty"])
+                    current = start
+                    if not start.is_finite() or not remaining.is_finite():
+                        reasons.append("nonfinite_stock:" + barcode)
+                        continue
+                    for move in moves_by_barcode.get(barcode, ()):
+                        before = Decimal(move["before_qty"])
+                        sold = Decimal(move["sold_qty"])
+                        after = Decimal(move["after_qty"])
+                        if (before != current or sold <= 0
+                                or after != before - sold or after < 0):
+                            reasons.append("stock_chain_mismatch:" + barcode)
+                        current = after
+                    if current != remaining or remaining < 0:
+                        reasons.append("stock_balance_mismatch:" + barcode)
+            total_cents = sum(sale["subtotal_cents"] for sale in invoices)
+            # Every completed sandbox-scoped journal must point at one
+            # actual sandbox invoice, not just claim it was completed.
+            for journal in connection.execute(
+                "SELECT result_ref FROM main.v8_preview_request_journal "
+                "WHERE scope='sale' AND status='COMPLETED'"
+            ):
+                if journal["result_ref"] not in invoice_refs:
+                    reasons.append("orphan_completed_journal")
+
+            return SandboxReconciliation(
+                balanced=not reasons,
+                reasons=tuple(dict.fromkeys(reasons)),
+                invoice_count=len(invoices),
+                subtotal_cents=total_cents,
+            )
+        finally:
+            connection.rollback()
             connection.close()
 
     def require_commercial_sale(self, **_kwargs):

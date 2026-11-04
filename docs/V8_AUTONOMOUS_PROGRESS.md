@@ -446,3 +446,43 @@ and record GitHub Actions evidence before considering merge.
 **Next:** Review and test this composition, then design the future
 server-maintained per-license monotonic activation anchor and
 service-bound transaction enforcement. `main` and paid V7 data untouched.
+
+
+## Reference server-owned activation ledger (November 4, 2026)
+
+**Branch:** `feature/v8-preview-server-activation-ledger` from exact
+`develop-v8` SHA `c16b5fb723f597aa76fbb4e0869ceeef53b6d539`.
+The previous base Windows CI passed **182 tests** at this SHA
+(run 41804733823). The base CI does not verify this new batch.
+
+New `velopos_qt/server_activation_reference.py` is an *isolated*
+backend reference (not a deployed service): the server's latest signed
+activation sequence/payload digest and active/revoked license state are
+kept inside a disposable SQLite database. Duplicate registration is
+rejected; a successful issue atomically increments signed sequence and
+links the prior signed payload. A reference server-side inspection detects
+old signed receipt replay when its independently held state is intact.
+
+Added `tests/test_v8_phase2_server_activation_reference.py` with
+ephemeral Ed25519 keys and tests for stale/replayed receipts, forged
+signatures, revoked/expired credentials, duplicate registrations,
+wrong branch/machine, clock rollback, transaction rollback, preview-only
+storage enforcement, and no financial writes.
+Read `docs/V8_SERVER_ACTIVATION_REFERENCE.md` for the threat model.
+
+**Unimplemented/blocked:** no hosted/authenticated activation API,
+server-held production database, trusted server clock/key storage,
+revocation delivery, secure offline grace, client hardware binding,
+real V8 license installation or commercial checkout integration.
+Local preview storage is *not* trusted anti-rollback; entirely offline
+licensing on a customer-controlled PC can be reset/bypassed.
+All commercial Gates A/B/C/D/E remain blocked.
+
+**Verification:** New code has not yet passed exact-feature-head
+Windows CI at checkpoint creation. Required: `python run_v8_checks.py`
+in the PR run and a separate post-merge Windows push run.
+Never attribute prior CI success to unverified commits.
+
+**Next:** verify and repair CI, then design authenticated server
+activation API and bounded/offline grace with careful key custody;
+do not enable real sales until every service-bound acceptance gate passes.

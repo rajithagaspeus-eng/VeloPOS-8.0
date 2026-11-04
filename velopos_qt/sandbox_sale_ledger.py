@@ -404,6 +404,51 @@ class PreviewSandboxSaleLedger:
                             raise PermissionError(
                                 "Invalid sandbox stock balance"
                             ) from exc
+                    # Existing sandbox stock is derived evidence, not an
+                    # authoritative quantity that can be edited independently.
+                    # Verify the complete movement chain before extending it.
+                    existing_moves = connection.execute(
+                        "SELECT before_qty,sold_qty,after_qty "
+                        "FROM main.v8_preview_sandbox_stock_moves "
+                        "WHERE barcode=? ORDER BY rowid", (barcode,)
+                    ).fetchall()
+                    if row is not None:
+                        current = opening
+                        if not existing_moves:
+                            raise PermissionError("Sandbox stock history missing")
+                        try:
+                            for move in existing_moves:
+                                raw_move = (
+                                    move["before_qty"], move["sold_qty"],
+                                    move["after_qty"],
+                                )
+                                if any(
+                                    type(raw) is not str or len(raw) > 128
+                                    for raw in raw_move
+                                ):
+                                    raise ValueError("invalid movement encoding")
+                                before, quantity, after_move = map(Decimal, raw_move)
+                                if (any(
+                                    not value.is_finite()
+                                    or (value != 0
+                                        and not -18 <= value.adjusted() <= 18)
+                                    or raw != canonical_decimal(value)
+                                    for raw, value in zip(
+                                        raw_move, (before, quantity, after_move)
+                                    )
+                                ) or before != current or quantity <= 0
+                                        or after_move < 0
+                                        or before - quantity != after_move):
+                                    raise ValueError("invalid movement chain")
+                                current = after_move
+                        except (InvalidOperation, TypeError, ValueError) as exc:
+                            raise PermissionError(
+                                "Sandbox stock movement history invalid"
+                            ) from exc
+                        if current != remaining:
+                            raise PermissionError(
+                                "Sandbox stock movement balance mismatch"
+                            )
                     if sold > remaining:
                         raise PermissionError("Sandbox available stock insufficient")
                     after = remaining - sold

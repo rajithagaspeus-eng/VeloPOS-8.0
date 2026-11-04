@@ -164,6 +164,52 @@ class IdempotencyRecoveryTriageTests(unittest.TestCase):
         """)
 
 
+    def test_journal_sql_schema_denies_malformed_completion_rows(self):
+        self.isolated("""
+            c = transaction()
+            ledger.claim(c, "sale", request_id, payload)
+            fingerprint = request_fingerprint(payload)
+            for index, bad_ref in enumerate((
+                " ", "leading ", "trailing ", "line\\nfeed",
+                "carriage\\rreturn", "tab\\tref", "X" * 129,
+            )):
+                try:
+                    c.execute(
+                        "INSERT INTO v8_preview_request_journal "
+                        "(scope,request_id,payload_sha256,status,result_ref) "
+                        "VALUES(?,?,?,?,?)",
+                        ("sale", "malformed-row-%04d" % index, fingerprint,
+                         "COMPLETED", bad_ref),
+                    )
+                except sqlite3.IntegrityError:
+                    pass
+                else:
+                    raise AssertionError("Schema allowed unsafe result ref: " + repr(bad_ref))
+            assert c.execute(
+                "SELECT COUNT(*) FROM v8_preview_request_journal"
+            ).fetchone()[0] == 1
+            c.rollback()
+            c.close()
+        """)
+
+    def test_completion_rejects_invalid_request_id_without_mutation(self):
+        self.isolated("""
+            c = transaction()
+            ledger.claim(c, "sale", request_id, payload)
+            for bad in ("", "bad", " space id", "invalid/id", None, True):
+                try:
+                    ledger.complete(c, "sale", bad, "SIM-001")
+                except ValueError:
+                    pass
+                else:
+                    raise AssertionError("Invalid completion identity accepted")
+            assert ledger.inspect_request(
+                c, "sale", request_id, payload
+            ).state == "pending_manual_reconciliation"
+            c.rollback()
+            c.close()
+        """)
+
     def test_process_crash_before_commit_leaves_no_durable_claim(self):
         self.isolated("""
             import os

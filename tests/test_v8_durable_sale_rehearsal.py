@@ -391,6 +391,10 @@ os._exit(19)
         )
         self.assertEqual(next_result.reference, "REHEARSAL-00000002")
 
+    def test_connection_requests_full_synchronous_mode(self):
+        with self.journal._connect() as conn:
+            self.assertEqual(conn.execute("PRAGMA synchronous").fetchone()[0], 2)
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

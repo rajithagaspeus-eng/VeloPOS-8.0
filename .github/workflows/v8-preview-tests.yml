@@ -18,10 +18,12 @@ concurrency:
 jobs:
   preview-tests:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       QT_QPA_PLATFORM: offscreen
       PYTHONUTF8: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - name: Check out branch
         uses: actions/checkout@v4
@@ -35,7 +37,19 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt PySide6
+          python -m pip install -r requirements.txt "PySide6>=6.7,<7"
+          python -m pip check
+          python -c "import sys; import PySide6, cryptography; print('Python:', sys.version); print('Qt:', PySide6.__version__)"
+      - name: Prepare isolated test home and record exact checkout
+        shell: pwsh
+        run: |
+          $isolated = Join-Path $env:RUNNER_TEMP 'VeloPOS8PreviewData'
+          "VELOPOS_HOME=$isolated" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Tested checkout SHA: $(git rev-parse HEAD)"
+          Write-Host "GitHub event SHA: $env:GITHUB_SHA"
+          if ((git rev-parse HEAD) -ne $env:GITHUB_SHA) {
+            throw "CI checkout does not match requested commit"
+          }
       - name: Compile preview Python modules and tests
         shell: pwsh
         run: python -m compileall -q velopos_qt tests
@@ -47,6 +61,7 @@ jobs:
       - name: Combined V8 test suite (no skips)
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Continue'
           python run_v8_checks.py --verbose 2>&1 | Tee-Object -FilePath v8-preview-test-results.txt
           $testExit = $LASTEXITCODE
           if ($testExit -ne 0) {
@@ -61,3 +76,10 @@ jobs:
           path: v8-preview-test-results.txt
           if-no-files-found: warn
           retention-days: 14
+      - name: Report failed step and exact SHA
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "Final checkout SHA: $(git rev-parse HEAD)"
+          Write-Host "Workflow outcome: ${{ job.status }}"
+          Write-Host "Commercial release remains blocked regardless of test outcome."

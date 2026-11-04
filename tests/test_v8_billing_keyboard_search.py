@@ -153,6 +153,29 @@ class DraftBillingKeyboardSearchTests(unittest.TestCase):
         self.assertIn("QLabel#billingSearchHelp", DARK)
         self.assertIn("QLabel#billingSearchHelp", LIGHT)
 
+    def test_failed_stock_read_is_retried_for_unchanged_cart(self):
+        class FlakyStock:
+            def __init__(self):
+                self.calls = 0
+
+            def inspect(self, cart):
+                self.calls += 1
+                if self.calls == 1:
+                    raise OSError("temporary sandbox read failure")
+                return []
+
+        reader = FlakyStock()
+        self.page.stock_reader = reader
+        self.page.query.setText("RICE-B")
+        self.page.scan_or_add()
+        self.assertEqual(reader.calls, 1)
+        self.assertIsNone(self.page._last_stock_signature)
+        self.page.refresh_cart()
+        self.assertEqual(reader.calls, 2)
+        self.assertIsNotNone(self.page._last_stock_signature)
+        self.assertEqual(list(self.page.cart.lines), ["RICE-B"])
+        self.assertFalse(hasattr(self.page, "checkout_button"))
+
     def test_resumed_draft_forces_fresh_stock_inspection(self):
         class CountingStock:
             def __init__(self):

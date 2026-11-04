@@ -22,6 +22,37 @@ class InventoryEditIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_catalog_search_limits_reject_lossy_inputs_without_writes(self):
+        with tempfile.TemporaryDirectory(prefix="velopos8_catalog_limits_") as folder:
+            home = Path(folder) / "VeloPOS8PreviewData"
+            self._child(
+                """
+                from velopos import database, services
+                from velopos_qt.preview_models import InventoryReader, DirectoryReader
+                database.init_db()
+                services.save_product("LIMIT-1", "Limit Item", "demo", sell=20, stock=3)
+                stock = InventoryReader(database)
+                directory = DirectoryReader(database)
+                assert len(stock.search("Limit", limit="1")) == 1
+                assert len(stock.search("Limit", limit=1)) == 1
+                for reader in (stock.search, directory.customers, directory.suppliers):
+                    for invalid in (True, False, 1.5, "1.5",
+                                    float("nan"), float("inf"), None):
+                        try:
+                            reader("", limit=invalid)
+                        except ValueError:
+                            pass
+                        else:
+                            raise AssertionError((reader, invalid))
+                with database.db() as c:
+                    assert c.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+                    assert c.execute(
+                        "SELECT stock_qty FROM products WHERE barcode='LIMIT-1'"
+                    ).fetchone()[0] == 3
+                """,
+                home,
+            )
+
     def test_add_and_edit_use_original_ledger_and_audit(self):
         with tempfile.TemporaryDirectory(prefix="velopos8_editor_") as folder:
             home = Path(folder) / "VeloPOS8PreviewData"

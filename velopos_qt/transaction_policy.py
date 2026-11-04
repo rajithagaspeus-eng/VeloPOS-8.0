@@ -22,6 +22,9 @@ class PreviewTransactionGate:
     protected = frozenset({
         "sale", "return", "purchase", "supplier_payment", "credit_payment",
         "points_redemption", "shift_open", "shift_close", "receipt_print",
+        "sale_void", "purchase_void", "cash_move", "expense_add",
+        "expense_delete", "stock_adjustment", "stock_take_finalize",
+        "batch_receive",
     })
 
     def __init__(self, database):

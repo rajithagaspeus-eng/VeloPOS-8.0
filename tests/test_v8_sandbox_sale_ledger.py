@@ -192,6 +192,42 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 raise AssertionError("Reordered invoice line accepted on replay")
         """)
 
+    def test_audit_rejects_equal_subtotal_line_price_and_amount_tampering(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET price='46',line_cents=line_cents+100 "
+                    "WHERE reference=? AND line_no=1", (first.reference,)
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_cents=line_cents-100 "
+                    "WHERE reference=? AND line_no=2", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invoice_line_arithmetic_mismatch" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_invalid_invoice_price_without_crashing(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET price='NaN' WHERE reference=? AND line_no=1",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_price" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
     def test_independent_audit_rejects_renumbered_invoice_lines(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

@@ -467,12 +467,15 @@ class PreviewSandboxSaleLedger:
             ).fetchall()
             expected_lines = {}
             line_numbers = {}
+            invoice_refs_seen = {sale["reference"] for sale in invoices}
             line_quantities = {}
             with localcontext(_CONTEXT):
                 for line in all_lines:
                     line_numbers.setdefault(line["reference"], []).append(
                         line["line_no"]
                     )
+                    if line["reference"] not in invoice_refs_seen:
+                        reasons.append("orphan_invoice_line")
                     if (type(line["line_cents"]) is not int
                             or line["line_cents"] < 0):
                         reasons.append("invalid_invoice_line_amount")
@@ -553,10 +556,6 @@ class PreviewSandboxSaleLedger:
             ).fetchone()
             if pending is not None:
                 reasons.append("pending_sale_journal_requires_reconciliation")
-            # An orphan line must remain visible even when its amount was
-            # rejected and therefore excluded from expected_lines.
-            if set(line_numbers) - invoice_refs:
-                reasons.append("orphan_invoice_line")
             for ref, numbers in line_numbers.items():
                 if any(type(number) is not int or number <= 0 for number in numbers):
                     reasons.append("invalid_invoice_line_number:" + ref)

@@ -455,6 +455,24 @@ os._exit(19)
                 0,
             )
 
+    def test_extra_index_is_rejected_on_reopen_and_active_journal(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "CREATE INDEX unexpected_preview_index "
+                "ON preview_rehearsals(fingerprint)"
+            )
+        with self.assertRaisesRegex(PermissionError, "index schema"):
+            DurablePreviewSaleJournal(self.path)
+        with self.assertRaisesRegex(PermissionError, "index schema"):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

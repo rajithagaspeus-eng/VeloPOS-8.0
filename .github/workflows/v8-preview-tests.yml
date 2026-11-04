@@ -3,6 +3,8 @@ name: V8 preview automated tests
 on:
   push:
     branches: [develop-v8]
+  pull_request:
+    branches: [develop-v8]
   workflow_dispatch:
 
 permissions:

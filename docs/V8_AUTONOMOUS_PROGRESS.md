@@ -301,3 +301,42 @@ persisted user/shift-to-branch binding (isolated preview only), with
 cross-branch adversarial tests. Then trusted activation continuity and
 commercial service-bound policy. Gates A/B/C/D/E remain blocked; never
 enable financial posting before acceptance.
+
+
+## Next-session checkpoint — canonical branch diagnostics (November 4, 2026)
+
+**Base verification:** push-triggered Windows Actions run
+[41794072185](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41794072185)
+completed successfully for exact develop-v8 SHA
+`414f365900ccd67f051d601f29d5bd73de2f2e7c`.
+It covers the base commit, **not** the changes below.
+
+**Work in review branch:** `feature/v8-preview-canonical-branch-check`.
+Added `velopos_qt/branch_authorization.py` and an opt-in
+`PreviewCombinedAuthorization.inspect_with_branch_registry()` that inspect
+read-only persisted branch registry, active user membership and open
+cashier shift-to-branch binding inside the canonical preview transaction.
+The expected branch string is untrusted until checked against this registry;
+signed entitlements are separately verified. Missing registry, inactive
+branches, revoked memberships, mismatched shift, and invalid actor
+all fail closed. A disposable-DB adversarial regression test was added at
+`tests/test_v8_phase2_canonical_branch.py`.
+
+**Scope:** isolated test DB only. Registry tables are deliberately
+created by the test fixture, not by production database migrations.
+No Qt checkout, production V7 service, real licensing key, live database
+or financial posting path was changed. All decisions have
+`can_execute=False`, including valid-branch diagnostics.
+
+**Verification:** Windows PR Actions run
+[41800587777](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41800587777)
+completed successfully on code head
+`3c50abfe15fb3370966bd7d239df3f605d107319`: **177 tests passed, 0 failed**.
+That CI exercised the new branch/shift tests, not just the old base code.
+The documentation-only commit after this milestone requires its own
+exact-head PR check before merge.
+
+**Next:** obtain exact-feature-head CI and repair failures; review branch
+registry provenance and initialization lifecycle; design a trusted
+persistent activation and service-bound branch policy. Gates A/B/C/D/E
+remain blocked; never enable commercial checkout on preview.

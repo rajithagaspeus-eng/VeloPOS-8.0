@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from .license_entitlements import _decode
+from .license_entitlements import _decode, _unique_json_object
 from .product_editor import _guard
 
 
@@ -64,7 +64,7 @@ class PreviewActivationStatusInspector:
             if len(signature) != 64:
                 raise ValueError("Bad signature length")
             self.public_key.verify(signature, payload)
-            data = json.loads(payload.decode("utf-8"))
+            data = json.loads(payload.decode("utf-8"), object_pairs_hook=_unique_json_object)
             if not isinstance(data, dict):
                 raise ValueError("Status payload must be an object")
             valid = True

@@ -61,10 +61,21 @@ class FingerprintKeySafetyTests(unittest.TestCase):
             request_fingerprint({"lines": [0] * 10001})
 
     def test_invalid_unicode_is_caught_as_request_validation_error(self):
+        # Use chr(), not an escaped string literal: "\\ud800" is a valid
+        # six-character string and must not be mistaken for a surrogate.
+        high_surrogate = chr(0xD800)
+        low_surrogate = chr(0xDFFF)
+        self.assertEqual(len(high_surrogate), 1)
+        self.assertEqual(ord(low_surrogate), 0xDFFF)
         with self.assertRaisesRegex(ValueError, "encoding"):
-            request_fingerprint({"barcode": "\\ud800"})
+            request_fingerprint({"barcode": high_surrogate})
         with self.assertRaisesRegex(ValueError, "encoding"):
-            request_fingerprint({"\\udfff": "entry"})
+            request_fingerprint({low_surrogate: "entry"})
+        # The literal backslash-u sequence remains a legitimate barcode.
+        self.assertEqual(
+            request_fingerprint({"barcode": r"\\ud800"}),
+            request_fingerprint({"barcode": chr(92) + "ud800"}),
+        )
 
     def test_boundary_sized_normal_request_fingerprint_is_stable(self):
         draft = {"lines": [{"sku": "ABC", "qty": 1}],

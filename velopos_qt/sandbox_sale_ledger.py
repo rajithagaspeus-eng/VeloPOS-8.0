@@ -787,6 +787,11 @@ class PreviewSandboxSaleLedger:
                                     for value in (start, remaining)
                                 )):
                             raise ValueError("invalid stock balance")
+                        if any(
+                            raw != canonical_decimal(value)
+                            for raw, value in zip(raw_balances, (start, remaining))
+                        ):
+                            reasons.append("noncanonical_stock_balance:" + barcode)
                         current = start
                         for move in moves_by_barcode.get(barcode, ()):
                             raw_values = (
@@ -806,6 +811,11 @@ class PreviewSandboxSaleLedger:
                                     )):
                                 reasons.append("invalid_stock_decimal:" + barcode)
                                 continue
+                            if any(
+                                raw != canonical_decimal(value)
+                                for raw, value in zip(raw_values, (before, sold, after))
+                            ):
+                                reasons.append("noncanonical_stock_move:" + barcode)
                             if (before != current or sold <= 0
                                     or after != before - sold or after < 0):
                                 reasons.append("stock_chain_mismatch:" + barcode)

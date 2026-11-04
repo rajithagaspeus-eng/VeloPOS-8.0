@@ -66,7 +66,9 @@ class DurablePreviewSaleJournal:
             internal_objects = conn.execute(
                 "SELECT type,name FROM sqlite_master WHERE name GLOB 'sqlite_*'"
             ).fetchall()
-            if internal_objects:
+            if any(kind != "index" or not name.startswith(
+                    "sqlite_autoindex_preview_rehearsals_")
+                    for kind, name in internal_objects):
                 raise PermissionError("Unexpected SQLite internal objects")
             preexisting = conn.execute(
                 "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"
@@ -269,7 +271,9 @@ class DurablePreviewSaleJournal:
                 internal_objects = conn.execute(
                     "SELECT type,name FROM sqlite_master WHERE name GLOB 'sqlite_*'"
                 ).fetchall()
-                if internal_objects:
+                if any(kind != "index" or not name.startswith(
+                        "sqlite_autoindex_preview_rehearsals_")
+                        for kind, name in internal_objects):
                     raise PermissionError("Unexpected SQLite internal objects")
                 objects = conn.execute(
                     "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"

@@ -115,6 +115,28 @@ class DurablePreviewSaleJournal:
                 columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
                 if tuple(col[1] for col in columns) != names:
                     raise PermissionError("Unexpected preview database schema")
+            self._check_constraints(conn)
+
+    @staticmethod
+    def _check_constraints(conn):
+        for table, key in (
+            ("preview_rehearsals", "request_id"),
+            ("preview_sequence", "singleton"),
+        ):
+            columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
+            if tuple(col[1] for col in columns if col[5] > 0) != (key,):
+                raise PermissionError("Missing preview primary key")
+        indexes = conn.execute(
+            "PRAGMA index_list(preview_rehearsals)"
+        ).fetchall()
+        if not any(
+            index[2] == 1 and
+            tuple(col[2] for col in conn.execute(
+                f"PRAGMA index_info({index[1]})"
+            ).fetchall()) == ("reference",)
+            for index in indexes
+        ):
+            raise PermissionError("Missing unique preview reference constraint")
 
     @contextmanager
     def _connect(self):
@@ -149,6 +171,7 @@ class DurablePreviewSaleJournal:
                     columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
                     if tuple(col[1] for col in columns) != names:
                         raise PermissionError("Unexpected preview database schema")
+                self._check_constraints(conn)
                 integrity = conn.execute("PRAGMA quick_check").fetchall()
                 if integrity != [("ok",)]:
                     raise PermissionError("Preview SQLite integrity check failed")

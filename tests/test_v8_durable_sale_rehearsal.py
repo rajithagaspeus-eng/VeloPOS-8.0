@@ -424,6 +424,37 @@ os._exit(19)
                 0,
             )
 
+    def test_generated_hidden_column_is_rejected(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute(
+                "CREATE TABLE preview_rehearsals ("
+                "request_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, "
+                "reference TEXT NOT NULL UNIQUE, "
+                "stealth TEXT GENERATED ALWAYS AS (request_id) VIRTUAL)"
+            )
+        with self.assertRaisesRegex(PermissionError, "Hidden or generated"):
+            DurablePreviewSaleJournal(self.path)
+
+    def test_foreign_key_schema_tamper_is_rejected_before_write(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute(
+                "CREATE TABLE preview_rehearsals ("
+                "request_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, "
+                "reference TEXT NOT NULL UNIQUE, "
+                "FOREIGN KEY(fingerprint) REFERENCES preview_sequence(next_number))"
+            )
+        with self.assertRaisesRegex(PermissionError, "foreign keys"):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

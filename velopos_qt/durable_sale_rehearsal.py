@@ -313,10 +313,13 @@ class DurablePreviewSaleJournal:
                         "(request_id,fingerprint,reference) VALUES (?,?,?)",
                         (request_id,draft.fingerprint,reference)
                     )
-                    conn.execute(
-                        "UPDATE preview_sequence SET next_number=? WHERE singleton=1",
-                        (number+1,)
+                    changed = conn.execute(
+                        "UPDATE preview_sequence SET next_number=? "
+                        "WHERE singleton=1 AND next_number=?",
+                        (number+1, number)
                     )
+                    if changed.rowcount != 1:
+                        raise PermissionError("Preview sequence compare-and-swap failed")
                     result = DurableRehearsalResult(
                         reference, draft.fingerprint, False
                     )

@@ -228,6 +228,35 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_negative_invoice_line_cents_without_crashing(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET line_cents=-1 WHERE reference=? AND line_no=1",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_amount" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_negative_invoice_subtotal(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sales "
+                    "SET subtotal_cents=-1 WHERE reference=?", (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_subtotal:" + first.reference in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_audit_rejects_invalid_persisted_invoice_barcode(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

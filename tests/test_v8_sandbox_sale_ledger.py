@@ -141,6 +141,40 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_replay_rejects_tampered_stock_arithmetic(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET after_qty='999' WHERE reference=? AND barcode='RICE'",
+                    (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "stock movements" in str(exc), exc
+            else:
+                raise AssertionError("Broken stock arithmetic replayed")
+        """)
+
+    def test_replay_rejects_nonfinite_stock_move(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET before_qty='NaN' WHERE reference=? AND barcode='RICE'",
+                    (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "stock movements" in str(exc), exc
+            else:
+                raise AssertionError("Nonfinite stock movement replayed")
+        """)
+
     def test_replay_rejects_tampered_line_number_even_when_totals_match(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

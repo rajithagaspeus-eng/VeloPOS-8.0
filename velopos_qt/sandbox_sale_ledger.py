@@ -462,7 +462,12 @@ class PreviewSandboxSaleLedger:
                     expected_lines[line["reference"]] = (
                         expected_lines.get(line["reference"], 0) + line["line_cents"]
                     )
-                    key = (line["reference"], line["barcode"])
+                    barcode = line["barcode"]
+                    if (type(barcode) is not str or not 1 <= len(barcode) <= 80
+                            or barcode != barcode.strip()
+                            or not barcode.isprintable()):
+                        reasons.append("invalid_invoice_line_barcode")
+                    key = (line["reference"], barcode)
                     try:
                         qty = Decimal(line["quantity"])
                         if not qty.is_finite() or qty <= 0:
@@ -526,6 +531,8 @@ class PreviewSandboxSaleLedger:
             if set(expected_lines) - invoice_refs:
                 reasons.append("orphan_invoice_line")
             for ref, numbers in line_numbers.items():
+                if len(numbers) > 100:
+                    reasons.append("invoice_line_count_exceeded:" + ref)
                 if numbers != list(range(1, len(numbers) + 1)):
                     reasons.append("invoice_line_sequence_mismatch:" + ref)
             for sale in invoices:

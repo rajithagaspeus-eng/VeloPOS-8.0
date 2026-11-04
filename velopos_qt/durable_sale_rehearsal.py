@@ -181,6 +181,8 @@ class DurablePreviewSaleJournal:
             # databases or invoke trusted schema functions via SQL objects.
             conn.execute("PRAGMA trusted_schema=OFF")
             conn.execute("PRAGMA foreign_keys=ON")
+            # Rehearsal crash tests depend on durable SQLite commit semantics.
+            conn.execute("PRAGMA synchronous=FULL")
             conn.execute("PRAGMA busy_timeout=10000")
             yield conn
         finally:

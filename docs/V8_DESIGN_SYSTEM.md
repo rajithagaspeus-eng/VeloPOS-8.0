@@ -40,3 +40,22 @@
 ## Current implementation boundary
 
 The existing PySide6 preview is a **functional foundation**, not yet the full next-generation redesign. It has basic theming, navigation, three languages, read-only inventory/customer/supplier views and a draft billing cart. Production workflows remain in the original application. Future design improvements must upgrade these progressively without breaking business logic or the persistent dedicated preview data isolation.
+
+## Premium shell polish — November 2026 (preview only)
+
+The Qt preview shell now uses a clearer dark/light visual hierarchy:
+a dedicated branded navigation panel, distinct workspace surface, roomy
+header and form gutters, hover/selected navigation states, a prominent
+read-only dashboard hero, larger dashboard KPI cards with consistent
+labels, a restrained teal palette and improved keyboard-focus contrast.
+Default preview window size is 1220×780 while the original 760×520
+minimum stays supported. The same fourteen navigation routes, locale
+translations, data readers and restrictive transaction policy remain.
+
+This is visual polish of the existing PySide6 shell, **not** a claim of
+production-grade finish. In particular, the minimum-size viewport,
+high-DPI scaling, Sinhala/Tamil text shaping, iconography, complex
+business workflows and hardware must receive the final combined Windows
+visual/manual acceptance. UI style cannot be certified from offscreen
+tests alone. The standalone preview still uses isolated test data and
+does not permit checkout or financial posting.

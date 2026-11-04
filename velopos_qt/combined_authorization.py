@@ -106,7 +106,7 @@ class PreviewCombinedAuthorization:
             expected_branch_id=expected_branch_id,
         )
         branch = self.branches.inspect(
-            connection, action=action, actor=authorization.actor,
+            connection, action=action, identity=identity,
             branch_id=expected_branch_id, shift_id=shift_id,
         )
         return PreviewCanonicalBranchDecision(

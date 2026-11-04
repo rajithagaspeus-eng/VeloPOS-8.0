@@ -647,6 +647,113 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert "credit_repayment_allocation_mismatch" in audit.reasons
         """)
 
+    def test_mixed_repayment_modes_denied_in_both_directions(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            repay("10",request_id="legacy-pay-first-0001")
+            try:
+                credit_service.declare_repayment(
+                    customer_id=customer_id,amount="10",
+                    charge_ref=issued.reference,
+                    request_id="allocated-after-legacy-0001",**ctx()
+                )
+            except PermissionError as exc:
+                assert "unallocated" in str(exc)
+            else:
+                raise AssertionError("Legacy then allocated repayment allowed")
+            assert credit_service.reconcile().balanced
+        """)
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-pay-first-0001",**ctx()
+            )
+            try:
+                repay("10",request_id="legacy-after-allocated-0001")
+            except PermissionError as exc:
+                assert "Unallocated repayment prohibited" in str(exc)
+            else:
+                raise AssertionError("Allocated then legacy repayment allowed")
+            assert credit_service.reconcile().balanced
+        """)
+
+    def test_allocated_repayment_failure_rolls_back_all_three_records(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            for failpoint in ("after_claim","after_post","after_complete"):
+                try:
+                    credit_service.declare_repayment(
+                        customer_id=customer_id,amount="10",
+                        charge_ref=issued.reference,
+                        request_id="allocated-crash-0001",
+                        inject_failure_at=failpoint,**ctx()
+                    )
+                except RuntimeError as exc:
+                    assert "Injected credit failure" in str(exc)
+                else:
+                    raise AssertionError("Repayment failpoint did not trigger")
+                with database.db() as c:
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM main.v8_preview_sandbox_credit_allocations"
+                    ).fetchone()[0] == 0
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM main.v8_preview_sandbox_credit_repayments"
+                    ).fetchone()[0] == 0
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM main.v8_preview_request_journal "
+                        "WHERE scope='credit_payment'"
+                    ).fetchone()[0] == 0
+            done = credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-crash-0001",**ctx()
+            )
+            assert not done.replayed and done.outstanding_cents == 24000
+            assert credit_service.reconcile().balanced
+        """)
+
+    def test_allocation_replay_rejects_tampered_target_and_changed_request(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            options = dict(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,
+                request_id="allocated-replay-0001",**ctx()
+            )
+            payment = credit_service.declare_repayment(**options)
+            assert credit_service.declare_repayment(**options).replayed
+            try:
+                credit_service.declare_repayment(
+                    **dict(options,charge_ref=None)
+                )
+            except (PermissionError,ValueError,RuntimeError):
+                pass
+            else:
+                raise AssertionError("Changed repayment target accepted")
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_allocations "
+                    "SET charge_ref='CRC-000000000000000000000000'"
+                )
+            try:
+                credit_service.declare_repayment(**options)
+            except RuntimeError as exc:
+                assert "allocation replay mismatch" in str(exc)
+            else:
+                raise AssertionError("Tampered allocation replay accepted")
+            assert not credit_service.reconcile().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

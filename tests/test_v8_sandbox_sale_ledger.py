@@ -228,6 +228,39 @@ class SandboxSaleLedgerTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_audit_rejects_invalid_persisted_invoice_barcode(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            assert sandbox.reconcile_sandbox().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET barcode=' RICE ' WHERE reference=? AND line_no=1",
+                    (first.reference,)
+                )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invalid_invoice_line_barcode" in audited.reasons, audited
+            assert audited.can_checkout is False
+        """)
+
+    def test_audit_rejects_more_than_one_hundred_invoice_lines(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                for number in range(4, 102):
+                    c.execute(
+                        "INSERT INTO main.v8_preview_sandbox_sale_lines "
+                        "(reference,line_no,barcode,quantity,price,line_cents) "
+                        "VALUES (?,?,?,?,?,?)",
+                        (first.reference,number,"RICE","1","0",0)
+                    )
+            audited = sandbox.reconcile_sandbox()
+            assert not audited.balanced, audited
+            assert "invoice_line_count_exceeded:" + first.reference in audited.reasons
+            assert audited.can_checkout is False
+        """)
+
     def test_independent_audit_rejects_renumbered_invoice_lines(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

@@ -268,6 +268,29 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             DurablePreviewSaleJournal(self.path)
 
+    def test_database_file_replacement_after_open_fails_closed(self):
+        old = Path(self.path)
+        old.unlink()
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("CREATE TABLE replacement(value INTEGER)")
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
+    def test_database_symlink_replacement_after_open_fails_closed(self):
+        target = Path(self.path + ".target")
+        self.addCleanup(lambda: target.unlink(missing_ok=True))
+        Path(self.path).rename(target)
+        try:
+            Path(self.path).symlink_to(target)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlink creation unavailable on this platform")
+        with self.assertRaises(PermissionError):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

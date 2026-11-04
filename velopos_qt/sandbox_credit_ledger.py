@@ -712,6 +712,7 @@ class PreviewSandboxCreditLedger:
                 "v8_preview_sandbox_credit_charges",
                 "v8_preview_sandbox_credit_repayments",
                 "v8_preview_sandbox_credit_notes",
+                "v8_preview_sandbox_credit_allocations",
                 "v8_preview_sandbox_sales",
                 "v8_preview_sandbox_settlements",
                 "v8_preview_request_journal",
@@ -740,11 +741,31 @@ class PreviewSandboxCreditLedger:
                 "branch_id,sale_line_no,quantity,disposition,restocked,"
                 "amount_cents FROM main.v8_preview_sandbox_credit_notes"
             ).fetchall()
+            allocations = c.execute(
+                "SELECT repayment_ref,charge_ref,customer_id,branch_id,amount_cents "
+                "FROM main.v8_preview_sandbox_credit_allocations"
+            ).fetchall()
             totals = {customer_id:[0,0,0] for customer_id in accounts}
             charge_refs = {row["reference"] for row in charges}
             payment_refs = {row["reference"] for row in payments}
             note_refs = {row["reference"] for row in notes}
             charges_by_ref = {row["reference"]:row for row in charges}
+            payments_by_ref = {row["reference"]:row for row in payments}
+            allocated_by_charge = {}
+            for allocation in allocations:
+                payment = payments_by_ref.get(allocation["repayment_ref"])
+                charge = charges_by_ref.get(allocation["charge_ref"])
+                if (payment is None or charge is None
+                        or allocation["customer_id"] != payment["customer_id"]
+                        or allocation["customer_id"] != charge["customer_id"]
+                        or allocation["branch_id"] != payment["branch_id"]
+                        or allocation["branch_id"] != charge["branch_id"]
+                        or allocation["amount_cents"] != payment["amount_cents"]):
+                    issues.append("credit_repayment_allocation_mismatch")
+                allocated_by_charge[allocation["charge_ref"]] = (
+                    allocated_by_charge.get(allocation["charge_ref"],0)
+                    + allocation["amount_cents"]
+                )
             for row in charges:
                 cid = row["customer_id"]
                 account = accounts.get(cid)
@@ -849,6 +870,17 @@ class PreviewSandboxCreditLedger:
                             issues.append("credit_note_quantity_or_amount_mismatch")
                     except Exception:
                         issues.append("credit_note_quantity_or_amount_invalid")
+            credited_by_charge = {}
+            for note in notes:
+                credited_by_charge[note["charge_ref"]] = (
+                    credited_by_charge.get(note["charge_ref"],0)
+                    + note["amount_cents"]
+                )
+            for charge in charges:
+                if (allocated_by_charge.get(charge["reference"],0)
+                        + credited_by_charge.get(charge["reference"],0)
+                        > charge["amount_cents"]):
+                    issues.append("credit_invoice_overallocated")
             for cid, (charged, repaid, credited) in totals.items():
                 account = accounts.get(cid)
                 if (account is None or charged < 0 or repaid < 0

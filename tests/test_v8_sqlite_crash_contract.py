@@ -49,6 +49,32 @@ os._exit(23)
             self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 2)
             self.assertEqual(db.execute("PRAGMA quick_check").fetchone()[0], "ok")
 
+    def test_wal_abrupt_exit_before_commit_rolls_back_both_tables(self):
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
+        self._crash(commit=False)
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute("PRAGMA journal_mode").fetchone()[0], "wal")
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM rehearsal").fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 1)
+            self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+
+    def test_wal_abrupt_exit_after_commit_replays_exactly_once(self):
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
+        self._crash(commit=True)
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM rehearsal").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 2)
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("INSERT INTO rehearsal VALUES (?, ?)", ("request-0001", 2))
+            db.rollback()
+            self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+        # Reopening after the WAL recovery must not regenerate a reference.
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute("SELECT reference FROM rehearsal").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 2)
+
     def test_unique_request_id_prevents_duplicate_after_restart(self):
         self._crash(commit=True)
         with sqlite3.connect(self.path) as db:

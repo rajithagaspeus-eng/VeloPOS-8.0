@@ -23,6 +23,7 @@ class PreviewCombinedDecision:
     entitled: bool
     can_execute: bool = False
     signed_license_id: str | None = None
+    signed_branch_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -44,7 +45,8 @@ class PreviewCombinedAuthorization:
         )
 
     def inspect(self, connection, *, action, identity=None, shift_id=None,
-                license_key=None, machine_id=None, today=None):
+                license_key=None, machine_id=None, today=None,
+                expected_branch_id=None):
         # Validate the canonical connection / transaction *before* inspecting
         # any supplied license data. No UI-derived identity/role flag is trusted.
         service = self.service.inspect(
@@ -53,6 +55,7 @@ class PreviewCombinedAuthorization:
         license_decision = self.entitlements.inspect(
             action=action, license_key=license_key,
             machine_id=machine_id, today=today,
+            expected_branch_id=expected_branch_id,
         )
         # The service diagnostic intentionally includes a hard commercial
         # license blocker. It cannot be removed by an apparently valid key.
@@ -65,6 +68,7 @@ class PreviewCombinedAuthorization:
             signature_valid=license_decision.signature_valid,
             entitled=license_decision.entitled,
             signed_license_id=license_decision.signed_license_id,
+            signed_branch_id=license_decision.signed_branch_id,
         )
 
     def require(self, connection, **kwargs):

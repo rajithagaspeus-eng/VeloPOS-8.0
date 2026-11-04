@@ -2387,3 +2387,12 @@ cross-links in other sandbox reconciliation modules, followed by
 customer-scoped credit/repayment modeling and true COGS/tax/batch
 reconciliation on disposable data. Gates A/B block commercial posting;
 C/D/E remain outstanding.
+
+
+## Customer credit limits and repayments sandbox milestone — 2026-11-04
+
+- Branch: `develop-v8` ONLY. New `velopos_qt/sandbox_credit_ledger.py` adds test-only customer accounts with immutable Admin-set limits, a single credit charge per *wholly unpaid* sandbox invoice, and exact-once Cash repayment **declarations**. Both charges and repayments use `BEGIN IMMEDIATE`, canonical `main.*` tables, SHA-256 request fingerprints and the existing SQLite idempotency journal. Replays verify stored rows, and injected exceptions roll back the entire transaction.
+- `sandbox_return_ledger.py` now refuses credit-backed returns pending an approved credit-note and receivables policy; no hidden balance write or fictitious refund. `sandbox_accounting.py` closeout optionally includes sandbox credit charges, repayments and outstanding receivables and fails closed on partial schema / mismatched journal or limit.
+- New `tests/test_v8_sandbox_credit.py` contains 10 disposable-database integration tests covering limits, replay, repayments, cross-customer protection, denial of already-tendered invoices, signed session / Admin checks, rollback failpoints, credit-backed returns and tamper evidence. **New test results are not yet verified on Windows GitHub Actions**. Do not count tests as passing until the workflow for the new commit completes successfully.
+- All credit and repayment records are isolated sandbox declarations: **no payment captured**, no real V7 `customers.credit_balance` / `credit_logs` mutation, no real checkout, no commercial credit authority. `require_real_credit` hard-denies. No Cloud, AI, mobile dashboard or commercial release gates were completed by this milestone.
+- Overall percentage remains an **unverified planning estimate**, not a test-derived acceptance score. 0/5 commercial release gates accepted. The next priority is fixing any Windows CI failures, hardening credit ledger reconciliation and then implementing explicit credit-note/refund policy in disposable sandbox only.

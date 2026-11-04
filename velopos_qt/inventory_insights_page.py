@@ -1,4 +1,5 @@
 """Smart Inventory: localized, bounded, read-only stock attention screen."""
+from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
     QAbstractItemView, QFrame, QGridLayout, QHBoxLayout, QHeaderView,
     QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
@@ -22,9 +23,11 @@ class InventoryInsightsPage(QWidget):
         self.low_label = QLabel()
         self.low_input = QLineEdit("5")
         self.low_input.setMaximumWidth(65)
+        self.low_input.setValidator(QIntValidator(0, 100000, self.low_input))
         self.days_label = QLabel()
         self.days_input = QLineEdit("30")
         self.days_input.setMaximumWidth(65)
+        self.days_input.setValidator(QIntValidator(0, 365, self.days_input))
         self.refresh_button = QPushButton()
         self.refresh_button.setObjectName("secondaryAction")
         self.refresh_button.clicked.connect(self.refresh)

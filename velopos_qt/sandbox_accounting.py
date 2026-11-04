@@ -318,6 +318,7 @@ class PreviewSandboxAccounting:
                 "v8_preview_sandbox_credit_charges",
                 "v8_preview_sandbox_credit_repayments",
                 "v8_preview_sandbox_credit_notes",
+                "v8_preview_sandbox_credit_allocations",
             }
             if credit_tables & found and not credit_tables.issubset(found):
                 reasons.append("sandbox_credit_schema_partial")
@@ -381,6 +382,29 @@ class PreviewSandboxAccounting:
                             or journal["status"] != "COMPLETED" or
                             journal["result_ref"] != repayment["reference"]):
                         reasons.append("sandbox_credit_repayment_reconciliation")
+                allocated_by_charge = {}
+                for allocation in connection.execute(
+                    "SELECT repayment_ref,charge_ref,customer_id,branch_id,amount_cents "
+                    "FROM main.v8_preview_sandbox_credit_allocations"
+                ):
+                    repayment = connection.execute(
+                        "SELECT customer_id,branch_id,amount_cents FROM "
+                        "main.v8_preview_sandbox_credit_repayments WHERE reference=?",
+                        (allocation["repayment_ref"],)
+                    ).fetchone()
+                    charge = charge_by_ref.get(allocation["charge_ref"])
+                    if (repayment is None or charge is None or
+                            repayment["customer_id"] != allocation["customer_id"] or
+                            repayment["branch_id"] != allocation["branch_id"] or
+                            repayment["amount_cents"] != allocation["amount_cents"] or
+                            charge["customer_id"] != allocation["customer_id"] or
+                            charge["branch_id"] != allocation["branch_id"]):
+                        reasons.append("sandbox_credit_allocation_mismatch")
+                    allocated_by_charge[allocation["charge_ref"]] = (
+                        allocated_by_charge.get(allocation["charge_ref"],0)
+                        + allocation["amount_cents"]
+                    )
+                note_totals_by_charge = {}
                 note_lines = {}
                 for note in connection.execute(
                     "SELECT reference,request_id,charge_ref,invoice_ref,customer_id,"
@@ -389,6 +413,10 @@ class PreviewSandboxAccounting:
                 ):
                     credit_note_refs.add(note["reference"])
                     credit_notes += note["amount_cents"]
+                    note_totals_by_charge[note["charge_ref"]] = (
+                        note_totals_by_charge.get(note["charge_ref"],0)
+                        + note["amount_cents"]
+                    )
                     balances.setdefault(note["customer_id"],[0,0,0])[2] += note["amount_cents"]
                     charge = charge_by_ref.get(note["charge_ref"])
                     line = line_map.get((note["invoice_ref"],note["sale_line_no"]))
@@ -423,6 +451,15 @@ class PreviewSandboxAccounting:
                                 reasons.append("sandbox_credit_note_quantity_mismatch")
                         except Exception:
                             reasons.append("sandbox_credit_note_invalid_quantity")
+                for charge_ref, charge in charge_by_ref.items():
+                    if (allocated_by_charge.get(charge_ref,0)
+                            + note_totals_by_charge.get(charge_ref,0)
+                            > connection.execute(
+                                "SELECT amount_cents FROM "
+                                "main.v8_preview_sandbox_credit_charges WHERE reference=?",
+                                (charge_ref,)
+                            ).fetchone()[0]):
+                        reasons.append("sandbox_credit_invoice_overallocated")
                 for cid, (charges, repayments, credited) in balances.items():
                     account = accounts.get(cid)
                     if (account is None or charges < 0 or repayments < 0

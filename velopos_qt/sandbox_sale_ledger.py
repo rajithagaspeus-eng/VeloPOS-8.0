@@ -357,9 +357,19 @@ class PreviewSandboxSaleLedger:
                         ).fetchone()
                         if original is None:
                             raise PermissionError("Sandbox product no longer exists")
-                        opening = Decimal(str(original["stock_qty"]))
-                        if not opening.is_finite() or opening < 0:
+                        raw_opening = str(original["stock_qty"])
+                        if len(raw_opening) > 128:
                             raise PermissionError("Invalid sandbox opening quantity")
+                        try:
+                            opening = Decimal(raw_opening)
+                            if (not opening.is_finite() or opening < 0
+                                    or (opening != 0
+                                        and not -18 <= opening.adjusted() <= 18)):
+                                raise ValueError("opening quantity outside bounds")
+                        except (InvalidOperation, ValueError, TypeError) as exc:
+                            raise PermissionError(
+                                "Invalid sandbox opening quantity"
+                            ) from exc
                         opening_text = canonical_decimal(opening)
                         connection.execute(
                             "INSERT INTO main.v8_preview_sandbox_stock "
@@ -368,7 +378,20 @@ class PreviewSandboxSaleLedger:
                         )
                         remaining = opening
                     else:
-                        remaining = Decimal(row["remaining_qty"])
+                        raw_remaining = row["remaining_qty"]
+                        if type(raw_remaining) is not str or len(raw_remaining) > 128:
+                            raise PermissionError("Invalid sandbox remaining quantity")
+                        try:
+                            remaining = Decimal(raw_remaining)
+                            if (not remaining.is_finite() or remaining < 0
+                                    or (remaining != 0
+                                        and not -18 <= remaining.adjusted() <= 18)
+                                    or raw_remaining != canonical_decimal(remaining)):
+                                raise ValueError("invalid remaining stock")
+                        except (InvalidOperation, ValueError, TypeError) as exc:
+                            raise PermissionError(
+                                "Invalid sandbox remaining quantity"
+                            ) from exc
                     if sold > remaining:
                         raise PermissionError("Sandbox available stock insufficient")
                     after = remaining - sold

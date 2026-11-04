@@ -210,6 +210,39 @@ class SandboxReturnTests(unittest.TestCase):
             assert "overreturned_sale_line" in excessive.reasons
         """)
 
+    def test_replay_refuses_tampered_refund_quantity_and_audit_flags_it(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            opts = new_return(sale.reference)
+            return_service.simulate_return(**opts)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_return_lines "
+                    "SET quantity='0.5'"
+                )
+            audit = return_service.reconcile_returns()
+            assert not audit.balanced
+            assert "return_line_amount_mismatch" in audit.reasons
+            try:
+                return_service.simulate_return(**opts)
+            except RuntimeError as exc:
+                assert "requires reconciliation" in str(exc)
+            else:
+                raise AssertionError("Changed stored refund quantity was replayed")
+        """)
+
+    def test_orphan_completed_return_journal_is_detected(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            return_service.simulate_return(**new_return(sale.reference))
+            with database.db() as c:
+                c.execute("DELETE FROM main.v8_preview_sandbox_returns")
+            audit = return_service.reconcile_returns()
+            assert not audit.balanced
+            assert "orphan_return_line" in audit.reasons
+            assert "orphan_completed_return_journal" in audit.reasons
+        """)
+
     def test_missing_original_invoice_and_unsupported_refund_modes_fail_closed(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

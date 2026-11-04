@@ -120,6 +120,48 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 assert sandbox_stock(c) == {"RICE":"5", "SOAP":"3"}
         """)
 
+    def test_replay_rejects_equal_total_line_tampering(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_sale_lines "
+                    "SET barcode='FORGED' WHERE reference=? AND line_no=1",
+                    (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "invoice lines" in str(exc), exc
+            else:
+                raise AssertionError("Tampered equal-total invoice replay accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
+    def test_replay_rejects_tampered_stock_movements(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_stock_moves "
+                    "SET sold_qty='0' WHERE reference=? AND barcode='RICE'",
+                    (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**args)
+            except RuntimeError as exc:
+                assert "stock movements" in str(exc), exc
+            else:
+                raise AssertionError("Tampered sandbox stock replay accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 1
+        """)
+
     def test_injected_failure_never_leaves_partial_sandbox_or_journal(self):
         self.isolated("""
             with database.db() as c:

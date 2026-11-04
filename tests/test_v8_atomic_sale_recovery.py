@@ -231,6 +231,31 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
             assert observed.can_execute is False
         """)
 
+    def test_implicit_day_is_pinned_across_policy_and_journal(self):
+        self.isolated("""
+            from datetime import date
+            from velopos_qt.atomic_sale_boundary import PreviewAtomicSaleBoundary
+            original_day = PreviewAtomicSaleBoundary._day
+            seen_days = []
+
+            def controlled_day(today):
+                seen_days.append(today)
+                if today is None:
+                    return date(2026, 11, 4)
+                return original_day(today)
+
+            PreviewAtomicSaleBoundary._day = staticmethod(controlled_day)
+            try:
+                observed = recovery.inspect(**dict(args, today=None))
+            finally:
+                PreviewAtomicSaleBoundary._day = staticmethod(original_day)
+            assert observed.readiness.policy_consistent, observed
+            assert observed.journal.state == "not_recorded"
+            assert seen_days[0] is None, seen_days
+            assert all(day == "2026-11-04" for day in seen_days[1:]), seen_days
+            assert observed.can_checkout is False
+        """)
+
     def test_caller_transaction_ownership_and_foreign_connection_refusal(self):
         self.isolated("""
             import sqlite3

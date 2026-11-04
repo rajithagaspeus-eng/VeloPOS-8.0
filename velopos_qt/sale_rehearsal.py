@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 from hashlib import sha256
 
-from .checkout_preflight import _quantity
+from .checkout_preflight import _quantity, PreviewCheckoutPreflight
 from .idempotency_ledger import PreviewIdempotencyLedger
 from .service_authorization import PreviewServiceAuthorization
 
@@ -30,6 +30,7 @@ class RollbackOnlySaleRehearsal:
         self.database = database
         self.auth = PreviewServiceAuthorization(database)
         self.journal = PreviewIdempotencyLedger(database)
+        self.preflight = PreviewCheckoutPreflight(database)
 
     def simulate(self, *, identity, shift_id, request_id, lines, today=None,
                  inject_failure_at=None):
@@ -85,6 +86,21 @@ class RollbackOnlySaleRehearsal:
             }
             if remaining or not decision.actor:
                 raise PermissionError("Rehearsal actor/shift denied: " + ", ".join(sorted(remaining)))
+            # Exactly the same write-locked SQLite snapshot validates the
+            # draft against current stock, price, expiry and active batches.
+            # This remains a test-only rehearsal; blockers are *not*
+            # waived for real sales, and no commercial method calls it.
+            preflight = self.preflight.inspect(
+                connection=connection, identity=identity, shift_id=shift_id,
+                request_id=request_id, lines=lines, today=day.isoformat(),
+            )
+            problems = set(preflight.reasons) - {
+                "preview_checkout_disabled",
+                "idempotency_not_implemented",
+                "license_not_verified",
+            }
+            if problems:
+                raise ValueError("Rehearsal preflight denied: " + ", ".join(sorted(problems)))
             claim = self.journal.claim(connection, "sale", request_id, payload)
             if not claim.is_new:
                 raise ValueError("Unexpected persisted rehearsal result")

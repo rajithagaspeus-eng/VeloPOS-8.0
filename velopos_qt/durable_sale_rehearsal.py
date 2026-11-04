@@ -118,6 +118,10 @@ class DurablePreviewSaleJournal:
     def _connect(self):
         conn = sqlite3.connect(self.path, timeout=10, isolation_level=None)
         try:
+            # An untrusted preview file must not be able to attach external
+            # databases or invoke trusted schema functions via SQL objects.
+            conn.execute("PRAGMA trusted_schema=OFF")
+            conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("PRAGMA busy_timeout=10000")
             yield conn
         finally:

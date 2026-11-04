@@ -920,3 +920,41 @@ push CI. No commercial service, tax, payment, license, cloud,
 **Verification:** exact-head Windows push Actions and test count for this checkpoint still need inspection; do not inherit the preceding 226-test PASS result. Gate A/B/C/D/E remain blocked. No production DB, private signing keys, V7 services or main touched.
 
 **Next priority:** verify this checkpoint exact-head Windows CI and `run_v8_checks.py` no-skip result; then service-bound identity/shift/branch authorization, persistent idempotency and atomic transaction recovery in disposable schema before any financial writes.
+
+
+## Fast Commercial Core Batch #16 — tender declaration + return stock-ledger rehearsal (2026-11-04)
+
+**Base:** `develop-v8` exact SHA
+`95dfb4863832b66695c1c1f6aebd7b50567c5b4a`, verified Windows
+[41828717755](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41828717755)
+**226/226 PASS, 0 skips/failures + compileall PASS**.
+
+**Branch:** `feature/v8-integrated-tenders-and-return-ledger`.
+The pure immutable `PreviewTenderPlan` validates split Cash, Card, QR
+and Credit declarations with exact-cent amounts, cash-only change,
+underpayment and excess-noncash denial. Card/QR references and credit
+customer IDs are explicitly UNVERIFIED, and `can_settle=False` always.
+The rollback-only sale simulation can bind those declarations into
+its idempotency fingerprint without collecting or persisting funds.
+
+`RollbackOnlyReturnRehearsal` now stages matching, positive synthetic
+stock movements for each restored barcode under the same BEGIN IMMEDIATE
+as return lines and journal. Return line rounding uses HALF_UP and
+duplicate sale-item quantities are bounded. Same-claim replay and
+new failure injections after ledger and journal completion are checked
+before unconditional rollback even on apparent success.
+
+Six model tests + five isolated integration tests added:
+`tests/test_v8_tender_plan.py` and
+`tests/test_v8_integrated_tender_return.py`.
+Contract and explicit commercial blockers:
+`docs/V8_INTEGRATED_TENDER_RETURN_ACCEPTANCE.md`.
+
+**Verification pending:** exact PR-head Windows compileall + all
+`python run_v8_checks.py` with no skipped or failed tests;
+post-merge CI on exact merged head before acceptance.
+Stable `main`, real V7 customer data and payment provider are untouched.
+All commercial Gates A/B/C/D/E remain BLOCKED/INCOMPLETE.
+
+
+**Concurrent branch repair:** the existing `develop-v8` barcode hardening at `fc59ad3` contained an accidental literal `\n` in Python source that broke Windows compileall. On this successor feature branch it is repaired to an actual line break, and four barcode test inputs now contain real escaped control-character literals rather than double-backslash printable text. The original barcode safety check is preserved. This checkpoint needs exact feature-head Windows CI and post-merge verification.

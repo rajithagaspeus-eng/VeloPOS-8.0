@@ -698,6 +698,14 @@ class PreviewSandboxSaleLedger:
                 if (cash != settled["cash_cents"] or
                         noncash != settled["noncash_cents"]):
                     reasons.append("settlement_tender_total_mismatch:" + ref)
+                if any(
+                    type(settled[field]) is not int
+                    for field in ("due_cents", "cash_cents",
+                                  "noncash_cents", "change_cents")
+                ):
+                    # A malformed amount is never usable as trusted settlement
+                    # evidence, even if SQLite coerces it in comparisons.
+                    reasons.append("settlement_amount_encoding_invalid:" + ref)
                 subtotal = sale["subtotal_cents"]
                 if type(subtotal) is not int or subtotal < 0:
                     # The invoice has already been marked invalid above.

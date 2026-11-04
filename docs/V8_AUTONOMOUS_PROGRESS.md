@@ -2396,3 +2396,83 @@ C/D/E remain outstanding.
 - New `tests/test_v8_sandbox_credit.py` contains 10 disposable-database integration tests covering limits, replay, repayments, cross-customer protection, denial of already-tendered invoices, signed session / Admin checks, rollback failpoints, credit-backed returns and tamper evidence. **New test results are not yet verified on Windows GitHub Actions**. Do not count tests as passing until the workflow for the new commit completes successfully.
 - All credit and repayment records are isolated sandbox declarations: **no payment captured**, no real V7 `customers.credit_balance` / `credit_logs` mutation, no real checkout, no commercial credit authority. `require_real_credit` hard-denies. No Cloud, AI, mobile dashboard or commercial release gates were completed by this milestone.
 - Overall percentage remains an **unverified planning estimate**, not a test-derived acceptance score. 0/5 commercial release gates accepted. The next priority is fixing any Windows CI failures, hardening credit ledger reconciliation and then implementing explicit credit-note/refund policy in disposable sandbox only.
+
+
+## Sandbox customer credit notes and receivable adjustment — 2026-11-04
+
+**Development branch ONLY:** `develop-v8`. This milestone extends the
+isolated V8 test credit ledger with item-scoped, non-restocking credit
+notes linked to a previously journal-completed sandbox credit charge.
+It NEVER makes a cash refund, captures real payments, changes the V7
+`customers.credit_balance`, `credit_logs`, `sales`, `returns`,
+`products`, or `stock_moves`, or permits commercial checkout.
+
+**Implemented:**
+- `9c4ec3e9da1e9b463931323f3f820786cd4bd159` adds the separate
+  `credit_note` idempotency request scope.
+- `0370d833b0fbe39ae3a8f5766a23e1720e389965` introduces
+  `PreviewSandboxCreditLedger.declare_credit_note()`, along with
+  `v8_preview_sandbox_credit_notes` recording original invoice,
+  charge, customer, branch and original sale-line number/quantity,
+  immutable non-restocking DAMAGED/DISCARDED disposition, zero
+  restocking and exact cents. Cumulative credited quantities cannot
+  exceed original sold quantities; cumulative HALF_UP cents cannot
+  exceed the original line cents. Every new credit note must fit the
+  remaining unpaid customer receivable, not create an unverified
+  external refund. The saved claim, note and completed journal
+  entry are committed in one owned `BEGIN IMMEDIATE`, with failpoints
+  and exact-once replay. Evidence still marks
+  `actual_payment_captured=False`, `can_checkout=False`.
+- `e43b7ec2ddf551f22e5dd791e246454ed757ab95` updates the
+  independent credit audit to reconcile note-to-charge-to-invoice
+  linkage, cumulative per-line quantities/cents, completed
+  idempotency journals, outstanding receivables and limits.
+  `e08e5dc04f9f4d2efa1d2b72a64115a70cc607b9` avoids
+  an auditor exception on tampered orphan notes and instead records
+  an unbalanced result.
+- `446e808be9c1e6192ed864d43b98766f16dda644` integrates
+  optional sandbox notes into the existing one-snapshot gross-to-net
+  accounting closeout. Credit notes decrease declared net revenue
+  and credit outstanding, without incorrectly treating them as
+  captured payments or actual disbursed refunds.
+- `39d3d66578162e21a09530bfe87ad51e891ed494` explicitly
+  denies **new** credit notes after any repayment has been
+  declared for that customer until repayments can be allocated to
+  specific invoice balances. Without this rule, a note on a
+  previously repaid invoice could accidentally forgive another
+  invoice's debt. Exact replay of an earlier completed note remains
+  available after later repayments. Ordinary refund/return service
+  remains closed to credit-backed invoices; this is a separate
+  credit-note declaration, not fiscal return posting.
+
+**Regression coverage (written, not yet verified by hosted CI):**
+`b04c81579df104b8bacab523a317c04779477129`
+adds 6 cases to `tests/test_v8_sandbox_credit.py` for
+partial note + repayment + accounting closeout, immutable replay
+and changed-key conflict, cumulative sold-quantity caps,
+excess note after full repayment refusal, rollback failpoints,
+tampering and closed debt accounting.
+`c133631526d9172121f1362e1ba74d1223d5f27c`
+adds 2 more cases: deny new notes on previously repaid accounts
+without invoice allocations; permit strict replay of an existing
+note after a subsequent repayment. Total sandbox credit test
+methods now **18**. Do not claim these tests PASSED based on
+older Windows screenshots or the older green CI run.
+
+**Verification:** GitHub source/commit presence is verified via
+the connector, but its available commit-status endpoint returns
+no checks and the workflow-run endpoint exposes PR-only runs,
+not push-triggered Actions runs. Thus exact-head hosted Windows
+CI result and error logs are **UNVERIFIED**. Do not silently
+equate empty check statuses with success. No new local V8 test
+suite was executed from this session.
+
+**Release:** Legacy rough planning estimate ~35% is NOT a
+measured acceptance percentage. Phase 1 unfinished and only
+sandbox Phase 2 slices are present; commercial gates **0/5
+accepted**, real payment/credit refunds disabled. Next priorities:
+verify exact-head Windows CI, reconcile credit-note edge cases
+and then implement formally invoice-allocated repayments and
+credit-note/fiscal refund workflows in isolated V8 environments,
+followed by cloud sync, licensing, mobile dashboard and AI
+milestones as commercial security gates permit.

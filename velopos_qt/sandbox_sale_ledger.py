@@ -618,13 +618,22 @@ class PreviewSandboxSaleLedger:
                     reasons.append("invalid_settlement_amount:" + ref)
                 if declared not in (0,1) or bool(tenders) != bool(declared):
                     reasons.append("settlement_declaration_mismatch:" + ref)
+                # Do not classify an unknown method as a legitimate
+                # noncash payment. Invalid stored cents must fail closed
+                # without raising TypeError during aggregation.
+                valid_tenders = [
+                    row for row in tenders
+                    if type(row["amount_cents"]) is int
+                    and row["amount_cents"] > 0
+                    and row["method"] in ("Cash", "Card", "QR")
+                ]
                 cash = sum(
-                    row["amount_cents"] for row in tenders
+                    row["amount_cents"] for row in valid_tenders
                     if row["method"] == "Cash"
                 )
                 noncash = sum(
-                    row["amount_cents"] for row in tenders
-                    if row["method"] != "Cash"
+                    row["amount_cents"] for row in valid_tenders
+                    if row["method"] in ("Card", "QR")
                 )
                 if (cash != settled["cash_cents"] or
                         noncash != settled["noncash_cents"]):

@@ -372,3 +372,26 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   permissions/runner/billing diagnostics remain inaccessible via the
   connector; root cause is not confirmed.
 - No main/V7/production changes. Commercial checkout remains blocked.
+
+## Actual local SQLite regression execution and pinned-file no-create (2026-11-05)
+
+- Actually ran the existing local SQLite contract modules using
+  `python -m unittest -v test_sqlite_transaction_contract tests.test_v8_sqlite_crash_contract`:
+  **8 tests executed, 8 PASS, 0 FAIL, 2.662s**. The local modules
+  are SQLite contracts, not the entire VeloPOS application regression suite.
+- Added 8-process distinct-request concurrent journal regression asserting
+  exactly eight gapless references, sequence=9, and idempotent reopen.
+- Once a journal is pinned, `_connect` now uses SQLite URI `mode=rw`
+  to prohibit silently recreating a deleted database. Initial disposable
+  journal creation still uses normal sqlite3 connect. Added two application
+  tests for deletion/no recreation and explicit read-write URI.
+- Local `git ls-remote https://github.com/rajithagaspeus-eng/VeloPOS-8.0.git HEAD`
+  failed: `Could not resolve host: github.com`. No repository checkout,
+  hence no claim that the complete VeloPOS application suite ran.
+- Windows Actions run `41936262256` failed with no runner assigned and
+  zero steps; Linux `41936260144` failed with zero jobs. GitHub connector
+  explicitly rejected actions/permissions and actions/runners endpoints.
+  Root cause remains unknown; workflow YAML and requested windows-latest /
+  ubuntu-latest labels have been inspected. Investigate GitHub Actions
+  billing/runner provisioning and workflow validation in repository UI.
+- main/V7/production data and commercial checkout unchanged.

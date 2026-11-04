@@ -6,6 +6,13 @@ Missing messages intentionally fall back to English.
 LANGUAGES = {"en": "English", "si": "සිංහල", "ta": "தமிழ்"}
 MESSAGES = {
     "en": {
+        "quick_jump_title": "Quick navigation",
+        "quick_jump_action": "Find page · Ctrl+K",
+        "quick_jump_placeholder": "Search pages by name…",
+        "quick_jump_hint": "Type to search · ↑/↓ select · Enter open · Esc close",
+        "quick_jump_no_results": "No matching pages",
+        "quick_jump_open": "Open page",
+        "quick_jump_cancel": "Cancel",
         "forecast_backtest_error": "7-day test error (units)",
         "forecast_backtest_unavailable": "Not enough history",
         "forecast_title": "Demand planning",
@@ -217,6 +224,13 @@ MESSAGES = {
         "about_text": "This is an isolated interface prototype.\n\nExisting billing, stock, reports and licensing remain in the original application.\n\nThis preview never reads or writes live shop data.",
     },
     "si": {
+        "quick_jump_title": "ඉක්මන් පිටු මාරුව",
+        "quick_jump_action": "පිටුව සොයන්න · Ctrl+K",
+        "quick_jump_placeholder": "පිටුවේ නම සොයන්න…",
+        "quick_jump_hint": "නම ටයිප් කරන්න · ↑/↓ තෝරන්න · Enter විවෘත කරන්න · Esc වසන්න",
+        "quick_jump_no_results": "ගැළපෙන පිටු නැත",
+        "quick_jump_open": "පිටුව විවෘත කරන්න",
+        "quick_jump_cancel": "අවලංගු කරන්න",
         "forecast_backtest_error": "දින 7ක අතීත පරීක්ෂණ දෝෂය (ඒකක)",
         "forecast_backtest_unavailable": "පරීක්ෂණයට දත්ත මදි",
         "forecast_title": "ඉල්ලුම සැලසුම් කිරීම",
@@ -428,6 +442,13 @@ MESSAGES = {
         "about_text": "මෙය වෙනම අත්හදා බැලීමේ අතුරුමුහුණතකි.\n\nපවතින බිල්පත්, තොග, වාර්තා සහ බලපත්‍ර පරණ යෙදුමේම පවතී.\n\nමෙය සැබෑ වෙළඳසැල් දත්ත කියවන්නේ හෝ වෙනස් කරන්නේ නැත.",
     },
     "ta": {
+        "quick_jump_title": "விரைவு வழிசெலுத்தல்",
+        "quick_jump_action": "பக்கத்தைத் தேடு · Ctrl+K",
+        "quick_jump_placeholder": "பக்கத்தின் பெயரைத் தேடுங்கள்…",
+        "quick_jump_hint": "பெயரைத் தட்டச்சிடுங்கள் · ↑/↓ தேர்வு · Enter திறக்க · Esc மூட",
+        "quick_jump_no_results": "பொருந்தும் பக்கங்கள் இல்லை",
+        "quick_jump_open": "பக்கத்தைத் திற",
+        "quick_jump_cancel": "ரத்துசெய்",
         "forecast_backtest_error": "7 நாள் சோதனைப் பிழை (அலகுகள்)",
         "forecast_backtest_unavailable": "வரலாற்றுத் தரவு போதாது",
         "forecast_title": "தேவை திட்டமிடல்",

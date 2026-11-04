@@ -702,3 +702,37 @@ Gates A/B/C/D/E remain blocked; the reference service is not deployed.
 **Next priority:** inspect and repair exact-head CI, then implement
 trusted service-bound session/branch/shift authorization and persistent
 idempotency on a disposable transaction schema before any financial writes.
+
+
+## Premium UI — localized quick navigation (November 4, 2026)
+
+**Starting point:** Latest verified `develop-v8`
+`e57a8b17e6beae88fdf4cca84d6465dffd119fba` with Windows
+Actions [41815417759](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41815417759)
+success. Stable `main` and V7 production data are untouched.
+
+**Feature branch:** `feature/v8-premium-quick-navigation`.
+Added `velopos_qt/quick_navigation.py` as a localized,
+keyboard-accessible 14-page command palette. The header button
+and Ctrl+K both open the palette; English/current-locale matching,
+live results, Down/Up/Enter/Escape, no-match disabled action,
+dark/light visuals and bilingual discovery tooltips are included.
+Canonical page selection goes through `SettingsPreview.nav` and
+`open_page()`; no new route bypasses authorization, page refresh,
+session cleanup or hard-denied commercial checkout.
+
+Added six Qt offscreen regressions in
+`tests/test_v8_quick_navigation.py`, with empty/unauthorized
+checks and no production database. Added manual acceptance
+steps at `docs/V8_QUICK_NAVIGATION_ACCEPTANCE.md`.
+
+**CI verification pending:** run Python compileall and all
+`python run_v8_checks.py` Windows tests on exact PR SHA,
+fix any failures and confirm independent post-merge push CI.
+No real POS sales/stock/printing, licensing or payment code changed.
+All commercial release gates A/B/C/D/E remain blocked.
+
+**Next:** use owner screenshots to validate clipped labels,
+focus, 100%/125%/150% scaling and premium visual polish.
+Continue service-side financial safety and commercial release
+gates only in separately tested future batches.

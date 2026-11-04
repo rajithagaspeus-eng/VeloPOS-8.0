@@ -236,3 +236,36 @@ blocked. No V7 production service or financial posting path was touched.
 **Next priority:** obtain push-triggered Windows CI evidence for exact head,
 then add a trusted signed server sequence/watermark continuity contract and
 adversarial tests, followed by transaction-scoped branch authorization.
+
+
+## Signed activation monotonic sequence diagnostic — November 4, 2026
+
+Added an explicitly signed, nonnegative 64-bit integer `sequence` claim to
+`PreviewActivationStatusInspector`. Missing, boolean, negative, floating,
+string or oversized sequence values fail closed with
+`activation_signed_sequence_invalid`. When an optional previously accepted
+sequence is supplied, an older signed observation is flagged as
+`activation_signed_sequence_replay_suspected`. The parsed signed sequence is
+reported for diagnostics. `PreviewCombinedAuthorization` now forwards the
+optional watermark. Disposable-database regression fixtures and adversarial
+sequence cases were updated.
+
+Code commits: `5f59ef0304f6ab48478bb974027d55d6e9ddfd01`,
+`8fbc10894ee529730518848a948ef8902a44e1d2`,
+`84b22681cea6019c0e2470257858f444adfa98f2`,
+`4d5a3a8221e2aeb1790b73e60a348415f628a2cb`.
+**Verification: not run locally; exact-head Windows push CI not established.**
+The available commit workflow lookup is PR-filtered and cannot prove a
+push-triggered CI result. Never claim PASS without exact-head evidence.
+
+**Important:** A caller-provided sequence watermark is not durable or trusted.
+An attacker can reset it, and a compromised signing server can issue arbitrary
+sequences. Server-issued per-license monotonic sequences, protected persistent
+continuity, authenticated revocation, clock attestation and full commercial
+service-bound authorization remain unimplemented. Preview `can_execute`
+remains False; no V7 service or production database touched.
+
+**Next priority:** verify exact-head Windows push CI via an Actions run listing
+with push events; repair failures. Then design transaction-scoped branch
+authorization and trusted persistent activation continuity, with adversarial
+tests. Gates A/B/C/D/E remain blocked.

@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from .product_editor import _guard
 from .auth_model import verify_preview_session
 from .idempotency_ledger import PreviewIdempotencyLedger
+from .sale_plan import plan_preview_sale
 
 
 def _quantity(value):
@@ -52,39 +53,18 @@ class PreviewCheckoutPreflight:
         """
         """Check only. No service calls and no write or payment side effects."""
         _guard(self.database)
-        if lines is None or isinstance(lines, (str, bytes, dict)):
-            raise ValueError("Provide a list of draft lines")
-        try:
-            draft = tuple(lines)
-        except TypeError as exc:
-            raise ValueError("Provide a list of draft lines") from exc
-        if not 1 <= len(draft) <= 100:
-            raise ValueError("Draft must contain 1-100 lines")
+        plan = plan_preview_sale(lines)
+        # Prevent subtle receipt discrepancies on fractional units: each
+        # planned line is rounded to cents before the subtotal is summed.
+        parsed = [(row.barcode, row.qty, row.price) for row in plan.lines]
+        needed = dict(plan.quantities)
+        subtotal = plan.subtotal
         try:
             day = date.today() if today is None else date.fromisoformat(str(today))
         except (ValueError, TypeError) as exc:
             raise ValueError("Invalid inspection date") from exc
         if day.isoformat() != (str(today) if today is not None else day.isoformat()):
             raise ValueError("Invalid inspection date")
-
-        parsed = []
-        needed = {}
-        subtotal = Decimal("0")
-        for item in draft:
-            if not isinstance(item, dict):
-                raise ValueError("Each draft line must be a dictionary")
-            barcode = str(item.get("barcode") or "").strip()
-            if not barcode or len(barcode) > 80:
-                raise ValueError("Invalid barcode")
-            qty = _quantity(item.get("qty"))
-            price = _quantity(item.get("price"))
-            if qty <= 0 or qty > Decimal("1000000"):
-                raise ValueError("Quantity out of range")
-            if price < 0 or price > Decimal("100000000"):
-                raise ValueError("Price out of range")
-            parsed.append((barcode, qty, price))
-            needed[barcode] = needed.get(barcode, Decimal(0)) + qty
-            subtotal += qty * price
 
         reasons = ["preview_checkout_disabled"]
         # No real idempotency reservation or verified license/shift gateway
@@ -160,5 +140,5 @@ class PreviewCheckoutPreflight:
                 connection.close()
         return CheckoutPreflight(
             can_checkout=False, reasons=tuple(dict.fromkeys(reasons)),
-            line_count=len(parsed), subtotal=subtotal.quantize(Decimal("0.01")),
+            line_count=plan.line_count, subtotal=subtotal,
         )

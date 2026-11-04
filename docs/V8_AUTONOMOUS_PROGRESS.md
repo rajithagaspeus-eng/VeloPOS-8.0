@@ -875,3 +875,35 @@ rollback and rehearsal safety. See
 independent exact merged-head push CI. All commercial Gates
 A/B/C/D/E stay blocked. No V7 checkout, production data,
 `main`, signing keys or hosted services were modified.
+
+
+## Fast core batch: deterministic sale arithmetic and synthetic stock ledger (2026-11-04)
+
+**Base:** exact `develop-v8` SHA
+`268d72ea0f27e85c6fc572112ed8cd3512d70c52`; Windows Actions
+[41826561205](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41826561205)
+**219/219 PASS + compileall PASS**.
+
+**Feature branch:** `feature/v8-sale-plan-ledger-idempotency`.
+Added immutable, pure, Decimal-based `PreviewSalePlan`: deterministic
+HALF_UP cent rounding per line (then sum), bounded repeated-barcode
+quantities and canonical payload values for test-only idempotency.
+Refactored `PreviewCheckoutPreflight` and rollback-only
+`RollbackOnlySaleRehearsal` to share plan calculations. Rehearsal
+now stages matching `stock_moves` for each stock reduction under
+the original BEGIN IMMEDIATE lock, and verifies replay of the
+completed request claim within that same doomed transaction.
+New synthetic failpoints after ledger changes and after journal
+completion exercise unconditional rollback, including on success.
+
+Seven new methods in `tests/test_v8_phase2_sale_plan_ledger.py`
+cover decimal receipt reconciliation, canonical request signatures,
+malformed value denial, staged movement/line counts, replay,
+failpoints, expired batch and no persistent sale/stock/journal.
+Acceptance and explicit commercial limits:
+`docs/V8_SALE_PLAN_LEDGER_ACCEPTANCE.md`.
+
+**Verification PENDING:** exact feature-head Windows compileall +
+`python run_v8_checks.py` (no failures/skips), then exact merged-head
+push CI. No commercial service, tax, payment, license, cloud,
+`main` or production V7 data modified. Gates A/B/C/D/E remain blocked.

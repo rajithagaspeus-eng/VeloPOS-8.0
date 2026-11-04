@@ -656,9 +656,14 @@ Added `tests/test_v8_phase2_license_recovery.py` with three
 disposable-DB regression tests and full threat model at
 `docs/V8_LICENSE_RECOVERY_REFERENCE.md`.
 
-**Verification:** this feature SHA is currently NOT YET CI-verified;
-run exact-head Windows `python run_v8_checks.py` and compileall.
-Fix any failures; after merge confirm separate exact-head push CI.
+**Verification:** initial Windows PR CI 41813009958 found a
+regression fixture assumption about rolled-back SQLite DDL (not a
+production logic failure). Fixed test and exact-code-head Windows
+[Actions 41813302325](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41813302325)
+PASS **193/193 tests, 0 failures + Python compileall**, at SHA
+`83cbb3514cc18fa3f857e31cb0315707b0a83483`.
+This documentation-only checkpoint commit still needs its own CI
+verification before PR merge; after merge confirm exact-head push CI.
 
 **NOT production:** no actual hosted service, real tenant/account
 recovery, proof-of-ownership/attestation, encrypted key custody,
@@ -666,3 +671,8 @@ offline rollback protection or commercial transaction permission.
 No V7 money/stock, customer data or stable main branch touched.
 All commercial gates A/B/C/D/E remain blocked. Next: secure
 customer-owner approval/renewal and service-bound financial security.
+
+**Commercial note:** updating the server reference expiry does not
+reissue or extend a separately signed V8 entitlement/license file;
+real license renewal payment/identity verification and new signed
+entitlement distribution are still unimplemented.

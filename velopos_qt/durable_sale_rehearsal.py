@@ -202,7 +202,7 @@ class DurablePreviewSaleJournal:
             ).fetchone()
             if row is None or type(row[0]) is not str:
                 raise PermissionError("Missing canonical preview table DDL")
-            normalize = lambda value: re.sub(r"\\s+", "", value).lower()
+            normalize = lambda value: re.sub(r"\s+", "", value).lower()
             if normalize(row[0]) != normalize(expected):
                 raise PermissionError("Unexpected preview table DDL")
         indexes = conn.execute(

@@ -513,6 +513,18 @@ os._exit(19)
                 2,
             )
 
+    def test_sqlitex_named_table_cannot_hide_behind_like_wildcard(self):
+        # SQL LIKE 'sqlite_%' treats '_' as any single character.
+        # A forged sqliteX table must not be excluded as an internal object.
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("CREATE TABLE sqliteX_hidden_payload(value TEXT)")
+        with self.assertRaisesRegex(PermissionError, "Unexpected preview database objects"):
+            DurablePreviewSaleJournal(self.path)
+        with self.assertRaisesRegex(PermissionError, "Unexpected preview database objects"):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

@@ -173,6 +173,31 @@ class DurablePreviewSaleJournal:
                 re.search(r"CHECK\s*\(\s*next_number\s*>\s*0\s*\)",
                           sequence_sql[0], re.IGNORECASE) is None):
             raise PermissionError("Missing preview sequence CHECK constraints")
+        # Compare the complete canonical DDL. Regex-only CHECK checks can
+        # be fooled by comments or extra malicious constraints.
+        expected_ddl = {
+            "preview_rehearsals": (
+                "CREATE TABLE preview_rehearsals ("
+                "request_id TEXT PRIMARY KEY,"
+                "fingerprint TEXT NOT NULL,"
+                "reference TEXT NOT NULL UNIQUE)"
+            ),
+            "preview_sequence": (
+                "CREATE TABLE preview_sequence ("
+                "singleton INTEGER PRIMARY KEY CHECK(singleton = 1),"
+                "next_number INTEGER NOT NULL CHECK(next_number > 0))"
+            ),
+        }
+        for table, expected in expected_ddl.items():
+            row = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+                (table,),
+            ).fetchone()
+            if row is None or type(row[0]) is not str:
+                raise PermissionError("Missing canonical preview table DDL")
+            normalize = lambda value: re.sub(r"\\s+", "", value).lower()
+            if normalize(row[0]) != normalize(expected):
+                raise PermissionError("Unexpected preview table DDL")
         indexes = conn.execute(
             "PRAGMA index_list(preview_rehearsals)"
         ).fetchall()

@@ -40,6 +40,9 @@ class SandboxCloseout:
     actual_refunds_cents: int = 0
     certified_profit_cents: int | None = None
     can_checkout: bool = False
+    declared_credit_charges_cents: int = 0
+    declared_credit_repayments_cents: int = 0
+    outstanding_credit_cents: int = 0
 
 
 class PreviewSandboxAccounting:
@@ -306,6 +309,86 @@ class PreviewSandboxAccounting:
                         refunds_per_header.get(ref) != row["refund_cents"]
                         or row["refund_cents"] <= 0):
                     reasons.append("return_header_reconciliation_mismatch")
+            credit_charged = 0
+            credit_repaid = 0
+            credit_tables = {
+                "v8_preview_sandbox_credit_accounts",
+                "v8_preview_sandbox_credit_charges",
+                "v8_preview_sandbox_credit_repayments",
+            }
+            if credit_tables & found and not credit_tables.issubset(found):
+                reasons.append("sandbox_credit_schema_partial")
+            elif credit_tables.issubset(found):
+                accounts = {
+                    row["customer_id"]: row for row in connection.execute(
+                        "SELECT customer_id,branch_id,limit_cents FROM "
+                        "main.v8_preview_sandbox_credit_accounts"
+                    )
+                }
+                balances = {cid: [0, 0] for cid in accounts}
+                credit_charge_refs = set()
+                credit_repayment_refs = set()
+                for charge in connection.execute(
+                    "SELECT reference,request_id,invoice_ref,customer_id,"
+                    "branch_id,amount_cents FROM "
+                    "main.v8_preview_sandbox_credit_charges"
+                ):
+                    credit_charge_refs.add(charge["reference"])
+                    credit_charged += charge["amount_cents"]
+                    balances.setdefault(charge["customer_id"], [0, 0])[0] += charge["amount_cents"]
+                    invoice = sale_by_ref.get(charge["invoice_ref"])
+                    settlement = settlement_map.get(charge["invoice_ref"])
+                    account = accounts.get(charge["customer_id"])
+                    journal = connection.execute(
+                        "SELECT status,result_ref FROM main.v8_preview_request_journal "
+                        "WHERE scope='credit_charge' AND request_id=?",
+                        (charge["request_id"],)
+                    ).fetchone()
+                    if (invoice is None or
+                            invoice["branch_id"] != charge["branch_id"] or
+                            invoice["subtotal_cents"] != charge["amount_cents"] or
+                            settlement is None or settlement["declared"] != 0 or
+                            settlement["cash_cents"] or settlement["noncash_cents"] or
+                            settlement["change_cents"] or
+                            account is None or account["branch_id"] != charge["branch_id"] or
+                            journal is None or journal["status"] != "COMPLETED" or
+                            journal["result_ref"] != charge["reference"]):
+                        reasons.append("sandbox_credit_charge_reconciliation")
+                for repayment in connection.execute(
+                    "SELECT reference,request_id,customer_id,branch_id,"
+                    "amount_cents,method FROM "
+                    "main.v8_preview_sandbox_credit_repayments"
+                ):
+                    credit_repayment_refs.add(repayment["reference"])
+                    credit_repaid += repayment["amount_cents"]
+                    balances.setdefault(repayment["customer_id"], [0, 0])[1] += repayment["amount_cents"]
+                    account = accounts.get(repayment["customer_id"])
+                    journal = connection.execute(
+                        "SELECT status,result_ref FROM main.v8_preview_request_journal "
+                        "WHERE scope='credit_payment' AND request_id=?",
+                        (repayment["request_id"],)
+                    ).fetchone()
+                    if (account is None or account["branch_id"] != repayment["branch_id"]
+                            or repayment["method"] != "Cash" or journal is None
+                            or journal["status"] != "COMPLETED" or
+                            journal["result_ref"] != repayment["reference"]):
+                        reasons.append("sandbox_credit_repayment_reconciliation")
+                for cid, (charges, repayments) in balances.items():
+                    account = accounts.get(cid)
+                    if (account is None or charges < 0 or repayments < 0
+                            or repayments > charges or
+                            charges - repayments > account["limit_cents"]):
+                        reasons.append("sandbox_credit_balance_or_limit_mismatch")
+                for scope, refs in (
+                    ("credit_charge", credit_charge_refs),
+                    ("credit_payment", credit_repayment_refs),
+                ):
+                    for row in connection.execute(
+                        "SELECT status,result_ref FROM main.v8_preview_request_journal "
+                        "WHERE scope=?", (scope,)
+                    ):
+                        if row["status"] != "COMPLETED" or row["result_ref"] not in refs:
+                            reasons.append("sandbox_credit_orphan_journal")
             gross = sum(row["subtotal_cents"] for row in sales)
             returned = sum(row["refund_cents"] for row in ret_headers)
             if returned > gross:
@@ -327,6 +410,9 @@ class PreviewSandboxAccounting:
                 declared_change_cents=sum(
                     row["change_cents"] for row in settlements
                 ),
+                declared_credit_charges_cents=credit_charged,
+                declared_credit_repayments_cents=credit_repaid,
+                outstanding_credit_cents=credit_charged-credit_repaid,
             )
         finally:
             connection.rollback()

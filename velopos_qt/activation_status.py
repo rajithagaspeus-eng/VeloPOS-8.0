@@ -21,6 +21,7 @@ class PreviewActivationStatus:
     current: bool
     reasons: tuple[str, ...]
     can_execute: bool = False
+    signed_sequence: int | None = None
 
 
 class PreviewActivationStatusInspector:
@@ -38,7 +39,8 @@ class PreviewActivationStatusInspector:
             raise ValueError("Valid server verification key required") from exc
 
     def inspect(self, *, signed_status, machine_id, license_id, now=None,
-                last_seen_utc=None, max_offline_hours=24):
+                last_seen_utc=None, max_offline_hours=24,
+                last_accepted_sequence=None):
         _guard(self.database)
         if not isinstance(machine_id, str) or not 1 <= len(machine_id) <= 120:
             raise ValueError("Invalid machine identity")
@@ -48,6 +50,9 @@ class PreviewActivationStatusInspector:
             raise ValueError("Invalid license identity")
         if type(max_offline_hours) is not int or not 0 <= max_offline_hours <= 168:
             raise ValueError("Invalid offline limit")
+        if last_accepted_sequence is not None and (type(last_accepted_sequence) is not int
+                or not 0 <= last_accepted_sequence <= 9223372036854775807):
+            raise ValueError("Invalid signed sequence watermark")
         clock = datetime.now(timezone.utc) if now is None else now
         if not isinstance(clock, datetime) or clock.tzinfo is None:
             raise ValueError("UTC-aware clock required")
@@ -55,6 +60,7 @@ class PreviewActivationStatusInspector:
         reasons = ["preview_transactions_disabled"]
         valid = False
         observed = None
+        sequence = None
         try:
             if not isinstance(signed_status, str) or len(signed_status) > 8192:
                 raise ValueError("Malformed status")
@@ -73,6 +79,14 @@ class PreviewActivationStatusInspector:
         except (ValueError, TypeError, UnicodeError, InvalidSignature):
             reasons.append("activation_status_signature_invalid")
         if valid:
+            signed_seq = data.get("sequence")
+            if type(signed_seq) is not int or not 0 <= signed_seq <= 9223372036854775807:
+                reasons.append("activation_signed_sequence_invalid")
+            else:
+                sequence = signed_seq
+                if (last_accepted_sequence is not None
+                        and sequence < last_accepted_sequence):
+                    reasons.append("activation_signed_sequence_replay_suspected")
             # Signed observations must use explicit textual identities. Python
             # treats True == 1; never let JSON booleans stand in for IDs.
             if (type(data.get("machine_id")) is not str
@@ -113,4 +127,5 @@ class PreviewActivationStatusInspector:
             signature_valid=valid,
             current=valid and len(reasons) == 1,
             reasons=tuple(reasons),
+            signed_sequence=sequence,
         )

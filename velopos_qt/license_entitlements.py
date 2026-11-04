@@ -32,6 +32,7 @@ class PreviewEntitlementDecision:
     reasons: tuple[str, ...]
     can_execute: bool = False
     signed_license_id: str | None = None
+    signed_branch_id: str | None = None
 
 
 def _unique_json_object(pairs):
@@ -69,12 +70,18 @@ class PreviewSignedEntitlementInspector:
         except (ValueError, binascii.Error) as exc:
             raise ValueError("Valid Ed25519 public key required") from exc
 
-    def inspect(self, *, action, license_key, machine_id, today=None):
+    def inspect(self, *, action, license_key, machine_id, today=None,
+                expected_branch_id=None):
         _guard(self.database)
         if action not in _ACTIONS:
             raise ValueError("Unknown protected financial action")
         if not isinstance(machine_id, str) or not 1 <= len(machine_id) <= 120:
             raise ValueError("Invalid machine identity")
+        if expected_branch_id is not None and (type(expected_branch_id) is not str
+                or not 1 <= len(expected_branch_id) <= 120
+                or not all(c.isascii() and (c.isalnum() or c in '-_')
+                           for c in expected_branch_id)):
+            raise ValueError('Invalid expected branch identity')
         day = date.today() if today is None else today
         if not isinstance(day, date) or isinstance(day, datetime):
             raise ValueError("Invalid inspection date")
@@ -82,6 +89,7 @@ class PreviewSignedEntitlementInspector:
         verified, matched, entitled = False, False, False
         data = None
         signed_license_id = None
+        signed_branch_id = None
         try:
             if not isinstance(license_key, str) or len(license_key) > _MAX_KEY_CHARS:
                 raise ValueError("Malformed license")
@@ -111,6 +119,18 @@ class PreviewSignedEntitlementInspector:
                 and all(c.isascii() and (c.isalnum() or c in '-_') for c in identifier)
             ):
                 signed_license_id = identifier
+            branch_claim = data.get("branch_id")
+            if (type(data.get("v")) is int and data["v"] == 8
+                    and type(branch_claim) is str
+                    and 1 <= len(branch_claim) <= 120
+                    and all(c.isascii() and (c.isalnum() or c in "-_")
+                            for c in branch_claim)):
+                signed_branch_id = branch_claim
+            if expected_branch_id is not None:
+                if signed_branch_id is None:
+                    reasons.append("signed_branch_scope_missing")
+                elif signed_branch_id != expected_branch_id:
+                    reasons.append("signed_branch_scope_mismatch")
             matched = data.get("m") == machine_id
             if not matched:
                 reasons.append("license_machine_mismatch")
@@ -139,4 +159,5 @@ class PreviewSignedEntitlementInspector:
         return PreviewEntitlementDecision(
             action, verified, matched, entitled, tuple(reasons),
             signed_license_id=signed_license_id,
+            signed_branch_id=signed_branch_id,
         )

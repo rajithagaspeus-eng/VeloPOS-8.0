@@ -68,7 +68,7 @@ class PreviewSalePlan:
 def plan_preview_sale(lines):
     """Build a draft plan using per-line, HALF_UP cent rounding.
 
-    - 1..100 lines, canonical nonblank 1..80-character barcode
+    - 1..100 lines, canonical nonblank printable 1..80-character barcode
     - positive finite qty <=1,000,000, nonnegative finite price <=100m
     - repeated barcodes are accumulated for stock checks; the combined
       requested quantity cannot silently exceed the line-level ceiling
@@ -95,7 +95,7 @@ def plan_preview_sale(lines):
         barcode = item.get("barcode")
         if type(barcode) is not str or not 1 <= len(barcode) <= 80:
             raise ValueError("Invalid barcode")
-        if not barcode.strip() or barcode != barcode.strip():
+        if (not barcode.strip() or barcode != barcode.strip() or\n                not barcode.isprintable()):
             raise ValueError("Invalid barcode")
         qty = _finite_decimal(item.get("qty"))
         price = _finite_decimal(item.get("price"))

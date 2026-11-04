@@ -620,6 +620,11 @@ class AtomicSaleRecoveryTests(unittest.TestCase):
                     ("sale", args["request_id"], "forged-fingerprint",
                      "COMPLETED", "SIM-FORGED"),
                 )
+                # sqlite3's INSERT starts an implicit transaction. Commit
+                # only the forged TEMP fixture before taking the caller's
+                # explicit write lock; TEMP rows survive this commit.
+                c.commit()
+                assert not c.in_transaction
                 c.execute("BEGIN IMMEDIATE")
                 assert recovery.inspect_in_transaction(
                     c, **args

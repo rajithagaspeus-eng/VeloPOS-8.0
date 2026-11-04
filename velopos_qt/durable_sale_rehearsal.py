@@ -63,6 +63,11 @@ class DurablePreviewSaleJournal:
 
     def _initialize(self, conn):
             # Refuse pre-existing triggers/views before any initialization SQL.
+            internal_objects = conn.execute(
+                "SELECT type,name FROM sqlite_master WHERE name GLOB 'sqlite_*'"
+            ).fetchall()
+            if internal_objects:
+                raise PermissionError("Unexpected SQLite internal objects")
             preexisting = conn.execute(
                 "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"
             ).fetchall()
@@ -261,6 +266,11 @@ class DurablePreviewSaleJournal:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
+                internal_objects = conn.execute(
+                    "SELECT type,name FROM sqlite_master WHERE name GLOB 'sqlite_*'"
+                ).fetchall()
+                if internal_objects:
+                    raise PermissionError("Unexpected SQLite internal objects")
                 objects = conn.execute(
                     "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"
                 ).fetchall()

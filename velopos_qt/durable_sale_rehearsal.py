@@ -369,6 +369,10 @@ class DurablePreviewSaleJournal:
                     result = DurableRehearsalResult(
                         reference, draft.fingerprint, False
                     )
+                # Re-check the pinned inode before committing a replay
+                # or sequence advance, not just when opening the connection.
+                if self._identity() != self._file_identity:
+                    raise PermissionError("Preview database replaced before commit")
                 conn.execute("COMMIT")
                 return result
             except BaseException:

@@ -1339,6 +1339,31 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_third_sale_refuses_deleted_middle_stock_movement(self):
+        self.isolated("""
+            first = sandbox.simulate_commit(**args)
+            second = sandbox.simulate_commit(**dict(
+                args, request_id="middle-stock-request-0001"
+            ))
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_sandbox_stock_moves "
+                    "WHERE reference=? AND barcode='SOAP'", (first.reference,)
+                )
+            try:
+                sandbox.simulate_commit(**dict(
+                    args, request_id="third-stock-request-0001"
+                ))
+            except PermissionError as exc:
+                assert "movement coverage" in str(exc), exc
+            else:
+                raise AssertionError("Missing historical movement accepted")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_sales"
+                ).fetchone()[0] == 2
+        """)
+
     def test_new_sale_refuses_balanced_stock_move_disagreeing_with_invoice(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

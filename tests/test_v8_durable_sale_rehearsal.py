@@ -582,6 +582,33 @@ os._exit(19)
                 request_id="durable-request-0001", lines=self.lines
             )
 
+    def test_injected_extra_check_constraint_is_rejected(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_rehearsals")
+            conn.execute(
+                "CREATE TABLE preview_rehearsals ("
+                "request_id TEXT PRIMARY KEY CHECK(length(request_id) > 50), "
+                "fingerprint TEXT NOT NULL, reference TEXT NOT NULL UNIQUE)"
+            )
+        with self.assertRaisesRegex(PermissionError, "table DDL"):
+            DurablePreviewSaleJournal(self.path)
+        with self.assertRaisesRegex(PermissionError, "table DDL"):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
+    def test_spoofed_sequence_check_in_sql_comment_is_rejected(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute("DROP TABLE preview_sequence")
+            conn.execute(
+                "CREATE TABLE preview_sequence ("
+                "singleton INTEGER PRIMARY KEY, next_number INTEGER NOT NULL "
+                "/* CHECK(singleton = 1) CHECK(next_number > 0) */)"
+            )
+            conn.execute("INSERT INTO preview_sequence VALUES (1,1)")
+        with self.assertRaisesRegex(PermissionError, "table DDL"):
+            DurablePreviewSaleJournal(self.path)
+
     def test_capacity_refuses_new_requests_but_allows_replay(self):
         limited = DurablePreviewSaleJournal(self.path, max_requests=1)
         first = limited.inspect(

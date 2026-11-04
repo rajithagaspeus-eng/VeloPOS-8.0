@@ -488,8 +488,11 @@ class PreviewSandboxCreditLedger:
             # credit note afterward could forgive another invoice's debt.
             # Completed note replay above remains valid even after repayment.
             if c.execute(
-                "SELECT 1 FROM main.v8_preview_sandbox_credit_repayments "
-                "WHERE customer_id=? LIMIT 1", (customer_id,)
+                "SELECT 1 FROM main.v8_preview_sandbox_credit_repayments r "
+                "LEFT JOIN main.v8_preview_sandbox_credit_allocations a "
+                "ON a.repayment_ref=r.reference "
+                "WHERE r.customer_id=? AND a.repayment_ref IS NULL LIMIT 1",
+                (customer_id,)
             ).fetchone() is not None:
                 raise PermissionError(
                     "Credit note needs unpaid debt allocation after repayments"
@@ -512,7 +515,18 @@ class PreviewSandboxCreditLedger:
                         .quantize(_CENT,rounding=ROUND_HALF_UP) * 100),
                 )
                 cents = expected_total_cents - used_cents
-            if cents <= 0 or cents > self._balance(c,customer_id):
+            allocated_to_invoice = c.execute(
+                "SELECT COALESCE(SUM(amount_cents),0) FROM "
+                "main.v8_preview_sandbox_credit_allocations WHERE charge_ref=?",
+                (charge_ref,)
+            ).fetchone()[0]
+            prior_note_cents = c.execute(
+                "SELECT COALESCE(SUM(amount_cents),0) FROM "
+                "main.v8_preview_sandbox_credit_notes WHERE charge_ref=?",
+                (charge_ref,)
+            ).fetchone()[0]
+            if (cents <= 0 or cents > self._balance(c,customer_id)
+                    or cents > charge["amount_cents"] - allocated_to_invoice - prior_note_cents):
                 raise PermissionError("Credit note exceeds available unpaid debt")
             claim = self.journal.claim(c,"credit_note",request_id,payload)
             if not claim.is_new:

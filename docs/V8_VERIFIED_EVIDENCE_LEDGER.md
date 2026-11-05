@@ -219,3 +219,12 @@ After every meaningful integration batch:
 - Added `tests/test_v8_isolated_sale_ledger.py` (`d6d8c9bc43243b6385a954cefffe3f66bee46f06`) with six scenarios: journal balancing, no duplicate replay deduction, changed-payload rollback, insufficient-stock rollback, injected mid-transaction rollback and commercial commit denial.
 - **Test execution: NOT EXECUTED on exact repository HEAD.** The source and tests are committed only; no Windows regression, Qt integration or real hardware test has been performed. No Gate A or B acceptance is implied. Release gates remain **0/5**. Existing checkout, payment, refund and stock posting stay OFF. `main`, V7, production data and real signing keys untouched.
 - Next engineering step: review the new isolated integration against service boundary and add independently computed reconciliation and adverse concurrent cases before any production adapter is considered. Owner requested full Windows testing at the end; targeted security tests remain necessary before release.
+
+
+## 2026-11-06 — additional uninterrupted engineering batch: reconciliation and concurrency
+
+- Owner asked to continue without repeated permission prompts until estimated 75%; this is a **goal**, not an achieved or measurable acceptance percentage. Work was continued within the current turn; no background execution is implied.
+- `6070f0fa49cd9759f32e943a570b103f4ba64ee0`: tightened RAM-only demo stock validation and added a read-only `IsolatedSaleLedger.reconcile()` that checks every demo request's sum of item cents against request total, exactly two balanced named journal entries and nonnegative finite stock. This is **not** independent production accounting or historical stock reconciliation.
+- `47f1930aa3680a8a9ef91818f70152414fee90b4`: added four regressions for before/after reconciliation, parallel identical request deduplication, parallel distinct-request no-oversell, and invalid initial stock. No legacy or production database is opened by this simulation.
+- **Execution status: NOT EXECUTED.** These commits add code/tests but are not a verified passing milestone. No full Windows regression or commercial release approval. Gates remain 0/5. Checkout/payment/refund/stock posting OFF.
+- Next: implement explicit demo initial-stock reconciliation and adversarial journal tamper detection, then run targeted disposable tests when execution is available; defer consolidated Windows suite to final acceptance as owner requested.

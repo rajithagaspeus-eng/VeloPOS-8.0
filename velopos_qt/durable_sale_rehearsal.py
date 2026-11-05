@@ -364,6 +364,8 @@ class DurablePreviewSaleJournal:
             # connection. Revalidate immediately before handing it to a
             # caller that may begin a write transaction.
             self._check_sidecars()
+            if self._file_identity is not None and self._identity() != self._file_identity:
+                raise PermissionError("Preview database replaced during configuration")
             yield conn
         finally:
             conn.close()

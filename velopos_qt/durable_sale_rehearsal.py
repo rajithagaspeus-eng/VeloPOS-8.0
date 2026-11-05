@@ -294,6 +294,10 @@ class DurablePreviewSaleJournal:
             if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "delete":
                 raise PermissionError("Unsupported preview SQLite journal mode")
             conn.execute("PRAGMA busy_timeout=10000")
+            # SQLite may create or remove sidecars while configuring its
+            # connection. Revalidate immediately before handing it to a
+            # caller that may begin a write transaction.
+            self._check_sidecars()
             yield conn
         finally:
             conn.close()

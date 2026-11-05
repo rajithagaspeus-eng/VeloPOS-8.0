@@ -484,9 +484,9 @@ class PreviewSandboxCreditLedger:
                 )
             if journal.state != "not_recorded":
                 raise PermissionError("Prior credit note needs reconciliation")
-            # Repayments are not yet invoice-allocated. Declaring a NEW
-            # credit note afterward could forgive another invoice's debt.
-            # Completed note replay above remains valid even after repayment.
+            # Legacy customer-level repayments have no invoice allocation.
+            # Refuse new notes if any repayment lacks a matching allocation;
+            # completed-note replay above remains valid after repayments.
             if c.execute(
                 "SELECT 1 FROM main.v8_preview_sandbox_credit_repayments r "
                 "LEFT JOIN main.v8_preview_sandbox_credit_allocations a "
@@ -494,7 +494,12 @@ class PreviewSandboxCreditLedger:
                 "AND a.customer_id=r.customer_id "
                 "AND a.branch_id=r.branch_id "
                 "AND a.amount_cents=r.amount_cents "
-                "WHERE r.customer_id=? AND a.repayment_ref IS NULL LIMIT 1",
+                "WHERE r.customer_id=? AND (a.repayment_ref IS NULL "
+                "OR NOT EXISTS ("
+                "SELECT 1 FROM main.v8_preview_sandbox_credit_charges ch "
+                "WHERE ch.reference=a.charge_ref "
+                "AND ch.customer_id=r.customer_id "
+                "AND ch.branch_id=r.branch_id)) LIMIT 1",
                 (customer_id,)
             ).fetchone() is not None:
                 raise PermissionError(

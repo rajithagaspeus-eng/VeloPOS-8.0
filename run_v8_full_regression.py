@@ -21,7 +21,7 @@ def main(argv=None):
     root = Path(__file__).resolve().parent
     commands = [
         ("V8 preview", [sys.executable, "run_v8_checks.py", "--verbose"]),
-        ("Legacy application", [sys.executable, "tests/run_all.py"]),
+        ("Legacy application", [sys.executable, "tests/run_all.py", "--fail-on-skips"]),
     ]
     env = os.environ.copy()
     env["QT_QPA_PLATFORM"] = "offscreen"

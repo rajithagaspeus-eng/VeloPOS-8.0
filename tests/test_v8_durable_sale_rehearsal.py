@@ -183,6 +183,25 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_constructor_refuses_dangling_database_symlink(self):
+        missing_target = Path(tempfile.gettempdir()) / (
+            "v8-missing-db-target-" + uuid4().hex + ".sqlite"
+        )
+        path = Path(tempfile.gettempdir()) / (
+            "v8-preview-rehearsal-" + uuid4().hex + ".sqlite"
+        )
+        try:
+            try:
+                path.symlink_to(missing_target)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlink creation unavailable")
+            with self.assertRaises(PermissionError):
+                DurablePreviewSaleJournal(str(path))
+            self.assertFalse(missing_target.exists())
+            self.assertTrue(path.is_symlink())
+        finally:
+            path.unlink(missing_ok=True)
+
     def test_pinned_database_replaced_by_dangling_symlink_is_refused(self):
         original = Path(self.path)
         missing_target = Path(tempfile.gettempdir()) / (

@@ -63,9 +63,29 @@ class DurablePreviewSaleJournal:
                 sequence_rows = conn.execute(
                     "SELECT singleton,next_number FROM preview_sequence"
                 ).fetchall()
-                count = conn.execute(
-                    "SELECT COUNT(*) FROM preview_rehearsals"
-                ).fetchone()[0]
+                committed_rows = conn.execute(
+                    "SELECT request_id,fingerprint,reference FROM preview_rehearsals"
+                ).fetchall()
+                count = len(committed_rows)
+                # A valid count alone is insufficient: a forged replay row
+                # could survive constructor initialization and be returned
+                # to a later caller. Validate all stored data before COMMIT.
+                references = set()
+                for stored_id, fingerprint, reference in committed_rows:
+                    if (type(stored_id) is not str or
+                            _STORED_ID.fullmatch(stored_id) is None or
+                            type(fingerprint) is not str or
+                            _DIGEST.fullmatch(fingerprint) is None or
+                            type(reference) is not str or
+                            _REFERENCE.fullmatch(reference) is None or
+                            reference in references):
+                        raise PermissionError("Corrupt preview replay record during initialization")
+                    references.add(reference)
+                if references != {
+                    f"REHEARSAL-{number:08d}"
+                    for number in range(1, count + 1)
+                }:
+                    raise PermissionError("Corrupt preview reference chain during initialization")
                 if (len(sequence_rows) != 1 or
                         type(sequence_rows[0][0]) is not int or
                         sequence_rows[0][0] != 1 or

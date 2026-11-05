@@ -110,7 +110,13 @@ class V8LegacyServiceBoundaryTests(unittest.TestCase):
             name for name in dir(PreviewTransactionGateway)
             if not name.startswith("_") and callable(getattr(PreviewTransactionGateway, name))
         }
-        self.assertEqual(public_methods, set(GATEWAY_ACTIONS))
+        preview_diagnostics = {
+            "assess_future_boundary",
+            "disposable_durable_rehearsal",
+            "rehearse_sale",
+            "rehearse_sale_replay",
+        }
+        self.assertEqual(public_methods, set(GATEWAY_ACTIONS) | preview_diagnostics)
 
     def test_every_gateway_method_reaches_the_mandatory_deny_gate(self):
         source = (APP_ROOT / "transaction_gateway.py").read_text(encoding="utf-8")

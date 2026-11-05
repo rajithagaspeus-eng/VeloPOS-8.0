@@ -33,6 +33,21 @@ class FullRunnerContractTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("FULL REGRESSION PASSED", result.stdout)
 
+    def test_inherited_production_database_overrides_are_removed(self):
+        self.stub("run_v8_checks.py", "import os; assert not any(os.getenv(k) for k in ('VELOPOS_DB', 'VELOPOS_DATABASE', 'VELOPOS_DATA_DIR', 'VELOPOS_PRODUCTION_HOME'))")
+        self.stub("tests/run_all.py", "pass")
+        import os
+        original = os.environ.get("VELOPOS_DB")
+        os.environ["VELOPOS_DB"] = "never-touch-customer.sqlite"
+        try:
+            result = self.gate()
+        finally:
+            if original is None:
+                os.environ.pop("VELOPOS_DB", None)
+            else:
+                os.environ["VELOPOS_DB"] = original
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_preview_failure_still_runs_legacy(self):
         self.stub("run_v8_checks.py", "raise SystemExit(7)")
         self.stub("tests/run_all.py", "from pathlib import Path; Path('legacy-ran').write_text('yes')")

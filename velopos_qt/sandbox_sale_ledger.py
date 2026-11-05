@@ -442,7 +442,7 @@ class PreviewSandboxSaleLedger:
                         }
                         if invoice_refs_for_barcode != move_refs_for_barcode:
                             raise PermissionError(
-                                "Sandbox stock invoice movement coverage mismatch"
+                                "Sandbox stock movement history invoice coverage mismatch"
                             )
                         try:
                             for move in existing_moves:

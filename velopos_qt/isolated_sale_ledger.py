@@ -67,6 +67,9 @@ class IsolatedSaleLedger:
         draft = rehearse_sale_request(request_id=request_id, lines=lines)
         plan = plan_preview_sale([json.loads(item) for item in draft.canonical_lines])
         with self._lock:
+            # Refuse to append to a corrupted rehearsal history, including
+            # replay attempts. This is a disposable diagnostic, not recovery.
+            self.reconcile()
             db = self._db
             db.execute("BEGIN IMMEDIATE")
             try:

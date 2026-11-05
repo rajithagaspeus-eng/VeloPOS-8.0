@@ -2826,3 +2826,12 @@ milestones as commercial security gates permit.
 - Parent exact-head Windows preview workflow [42115172250](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42115172250) concluded failure; job `127552785527` reported `runner_id=0` and zero steps. This is not a Python test failure or pass.
 - **Verification:** new tests committed, NOT EXECUTED; passing tests verified this batch: **0**. Commercial gates accepted 0/5; checkout/payment/stock posting remain OFF.
 - **Next priority:** obtain assigned Windows runner; execute `python -m unittest -v tests.test_v8_isolated_sale_ledger` and strict full no-skip V8/legacy regression on disposable data at exact HEAD. Inspect push workflow for checkpoint SHA, repair any actual failures, then implement trusted service-bound Gate A and independent Gate B reconciliation. Never touch main, V7 production data, customer records or signing keys.
+
+
+## 2026-11-06 — nonfinite and negative RAM stock corruption regressions
+
+- Reviewed V8 master roadmap, commercial gates, durable progress, isolated ledger source/tests, workflow definitions and exact-parent Windows push CI. Parent HEAD `91d56d634aa98b92a5c9c4684ad00e805485c400`.
+- Code commit `2ecd961d4fffc93f705288c9e322105453eb5a33` adds two disposable RAM-only regression scenarios: stock quantity tampered to `NaN` must block idempotent replay; negative stock quantity must block a new rehearsal. Both assert snapshot remains unchanged after refusal. No commercial posting logic enabled.
+- Exact-parent Windows workflow [42123882852](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42123882852) concluded failure; job `127582940589` reports `runner_id=0`, `steps=[]`. This is not evidence of Python test execution. Companion sandbox workflow [42123880283](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42123880283) also failed; cause not established.
+- **Verification:** newly committed tests NOT EXECUTED; verified passing tests this run **0**. Commercial gates accepted **0/5**. Main, V7, production databases, keys and real transactions untouched.
+- **Exact next priority:** restore hosted runner assignment or obtain isolated Windows execution; run `python -m unittest -v tests.test_v8_isolated_sale_ledger` and complete strict no-skip `python run_v8_full_regression.py` against exact HEAD. Inspect new exact-head Actions jobs, fix genuine failures, then prioritize service-owned Gate A authorization and independent Gate B financial reconciliation.

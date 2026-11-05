@@ -2607,3 +2607,10 @@ milestones as commercial security gates permit.
 - Commit `0d087f459c58e00952bf84897d9aa17705e9cfd6`: disposable SQLite regression exercises eight corrupt original quantity/price values with a prior return, verifies unbalanced reason and no checkout permission, and restores clean state between cases.
 - New test **committed, not verified passing**; exact-head Actions must be inspected. Commercial gates remain 0/5 accepted; no main/V7/production database/signing key access or real checkout.
 - **Next exact priority:** inspect Windows CI for `0d087f4` and this checkpoint head; independently run the targeted sandbox test in a disposable environment if runners remain unassigned. Then audit credit-note original sale decimal handling and cross-ledger journal uniqueness with tamper regressions. Preserve hard Gate A/B denial.
+
+## Duplicate journal result reconciliation — 2026-11-05
+
+- Read master roadmap, commercial gates, current checkpoint, recent develop-v8 commits and exact-head Windows Actions. Prior head 0e2c830 had failed runs 41943226791 and 41943225098; job 126968945902 shows steps=[], runner_id=0, runner_name='', duration ~2 seconds. **No Windows tests executed or confirmed passed**; provisioning/runner issue remains unresolved.
+- Commit 3a5b8402eb9b2bab572b1c455bf0227d9c1ccbc3: sandbox-only accounting closeout now rejects duplicate completed sale/return journal result references, even when each request key is unique. This prevents multiple request records from falsely validating the same invoice or return.
+- Commit bfdf1d83bdfe112997760bb672322e0a1dcea3ed adds two disposable SQLite tamper regressions; commit 102333d29fd67dddbed09074b4602d42824a0b6d corrects their journal schema field to payload_sha256. **Tests committed, execution not yet verified.**
+- Next exact action: inspect Windows Actions for checkpoint HEAD; if runners remain unassigned, independently execute isolated sandbox accounting regressions. Then harden credit-note journal/result uniqueness and allocation completeness with tests. Maintain 0/5 commercial gates; no production writes, V7/main edits or checkout enablement.

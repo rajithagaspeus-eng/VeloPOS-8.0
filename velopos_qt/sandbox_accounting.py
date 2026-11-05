@@ -484,6 +484,13 @@ class PreviewSandboxAccounting:
                             or journal["status"] != "COMPLETED"
                             or journal["result_ref"] != note["reference"]):
                         reasons.append("sandbox_credit_note_reconciliation")
+                    # Aggregation must not conceal invalid individual notes.
+                    try:
+                        note_qty = Decimal(note["quantity"])
+                        if not note_qty.is_finite() or note_qty <= 0:
+                            reasons.append("sandbox_credit_note_invalid_quantity")
+                    except (ValueError, ArithmeticError, TypeError):
+                        reasons.append("sandbox_credit_note_invalid_quantity")
                     if line is not None and charge is not None:
                         note_lines.setdefault((note["invoice_ref"],note["sale_line_no"]),[]).append(note)
                 with localcontext(_CONTEXT):

@@ -2720,3 +2720,13 @@ milestones as commercial security gates permit.
 - Code: `616e57f20930e03808c04c76812ecd09dc915b8b`; disposable SQLite regression: `1eb8841cbb3361fda3c2347f21e353d297930e10`.
 - Prior exact-head push Actions run `42037827573` (checkpoint `3afc06e`) failed before runner assignment: runner_id=0, zero steps. The new code/test has not been executed in this session; exact-head Windows CI and passing test count are NOT verified.
 - Gate A/B/C/D/E remain blocked. No production financial writes were enabled. Next: obtain Windows runner execution for the latest HEAD, run the canonical branch and full regressions, then test duplicate registry and membership ambiguity and continue service-bound authorization.
+
+
+## 2026-11-05 — duplicate canonical branch and membership regression coverage
+
+- Re-read master roadmap, commercial release gates, durable checkpoint, canonical branch authorization implementation, existing disposable SQLite regression, and exact-head push Actions run for prior checkpoint `eda93ac2b87135eac04aab906627cb5fc661a54f`.
+- [Windows run 42047014370](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42047014370) concluded failure for that exact SHA; its only job `127312611028` had `runner_id=0`, empty runner name, and `steps=[]`. No tests executed; infrastructure/runner eligibility remains blocked.
+- Test commit `8cc667ab25d5a7df5a82f4b895da7767b1a6d6b6` extends `tests/test_v8_phase2_canonical_branch.py` with malformed disposable registry and membership tables lacking uniqueness constraints. It checks duplicate active/inactive branch rows and duplicate active membership rows fail closed, then verifies restoration after deleting the duplicate. Existing no-financial-writes checks remain.
+- No production application code was changed. These regressions were committed but **not executed** in this run; verified passing test count: **0**. Exact-head Windows CI for the new test/checkpoint commit must be inspected and rerun when a Windows runner is assigned.
+- Commercial gates A/B/C/D/E remain unaccepted (0/5). Preview transaction authorization continues to deny financial posting. Do not change `main`, V7 data, production records or signing keys.
+- **Next priority:** recover hosted Windows runner eligibility/assignment and run `python -m unittest -v tests.test_v8_phase2_canonical_branch` plus full `python run_v8_checks.py` with zero skips on exact HEAD. Repair genuine failures if observed. Then continue Gate A service-bound signed identity/shift/branch authorization and Gate B atomic accounting reconciliation, without enabling checkout.

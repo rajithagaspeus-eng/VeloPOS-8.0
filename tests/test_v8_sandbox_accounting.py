@@ -410,6 +410,43 @@ class SandboxCloseoutTests(unittest.TestCase):
             assert audited.can_checkout is False
         """)
 
+    def test_corrupt_original_sale_decimals_with_return_fail_closed(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            return_service.simulate_return(**new_return(sale.reference))
+            assert closeout.closeout().balanced
+            with database.db() as c:
+                original = c.execute(
+                    "SELECT quantity,price FROM main.v8_preview_sandbox_sale_lines "
+                    "WHERE reference=? AND line_no=1", (sale.reference,)
+                ).fetchone()
+            for column, corrupt in (
+                ("quantity", "NaN"), ("quantity", "Infinity"),
+                ("quantity", "0"), ("quantity", "not-a-number"),
+                ("price", "NaN"), ("price", "Infinity"),
+                ("price", "-1"), ("price", "invalid")
+            ):
+                with database.db() as c:
+                    c.execute(
+                        f"UPDATE main.v8_preview_sandbox_sale_lines "
+                        f"SET {column}=? WHERE reference=? AND line_no=1",
+                        (corrupt, sale.reference)
+                    )
+                audited = closeout.closeout()
+                assert not audited.balanced, (column, corrupt, audited)
+                assert "invalid_return_original_sale_decimal" in audited.reasons, (
+                    column, corrupt, audited
+                )
+                assert audited.can_checkout is False
+                with database.db() as c:
+                    c.execute(
+                        "UPDATE main.v8_preview_sandbox_sale_lines "
+                        "SET quantity=?,price=? WHERE reference=? AND line_no=1",
+                        (original["quantity"], original["price"], sale.reference)
+                    )
+                assert closeout.closeout().balanced
+        """)
+
     def test_accounting_requires_a_complete_return_schema(self):
         self.isolated("""
             sale = sale_service.simulate_commit(**args)

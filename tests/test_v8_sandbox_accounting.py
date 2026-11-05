@@ -39,8 +39,8 @@ class SandboxCloseoutTests(unittest.TestCase):
             with database.db() as c:
                 c.execute(
                     "INSERT INTO main.v8_preview_request_journal "
-                    "(scope,request_id,fingerprint,status,result_ref) "
-                    "SELECT scope, 'duplicate-sale-journal-001', fingerprint, "
+                    "(scope,request_id,payload_sha256,status,result_ref) "
+                    "SELECT scope, 'duplicate-sale-journal-001', payload_sha256, "
                     "status,result_ref FROM main.v8_preview_request_journal "
                     "WHERE scope='sale' AND result_ref=?", (sale.reference,)
                 )
@@ -58,8 +58,8 @@ class SandboxCloseoutTests(unittest.TestCase):
             with database.db() as c:
                 c.execute(
                     "INSERT INTO main.v8_preview_request_journal "
-                    "(scope,request_id,fingerprint,status,result_ref) "
-                    "SELECT scope, 'duplicate-return-journal-001', fingerprint, "
+                    "(scope,request_id,payload_sha256,status,result_ref) "
+                    "SELECT scope, 'duplicate-return-journal-001', payload_sha256, "
                     "status,result_ref FROM main.v8_preview_request_journal "
                     "WHERE scope='return' AND result_ref=?", (returned.reference,)
                 )

@@ -236,3 +236,11 @@ After every meaningful integration batch:
 - Added adversarial test cases in `tests/test_v8_isolated_sale_ledger.py`, commit `42cb36587607053af92ac9c35f92e71b1e92d3d7`, for manually altered demo stock, altered journal amounts and orphan rows. These test-only mutations affect only the explicitly constructed `:memory:` SQLite database.
 - **Verification: NOT EXECUTED.** These are implementation and regression additions, not an accepted PASS. Full Windows regression remains deferred at owner's request; commercial Gates A-E remain 0/5. No real checkout, payment, refund or stock posting enabled. Do not represent the informal 75% target as reached.
 - Next: run the isolated sale ledger tests in a safe execution environment, resolve failures, then continue integrating authorization and accounting contracts before release.
+
+
+## 2026-11-06 — high-precision RAM inventory arithmetic (development continuation)
+
+- Latest `develop-v8` source inspected before edits. In `velopos_qt/isolated_sale_ledger.py`, the initial demo-stock parsing is now length/magnitude bounded, and demo inventory subtraction and reconciliation run in an explicit 512-digit Decimal context instead of inheriting thread-local precision (`f09291b8dd8863f5c92eca17f4791c3bd6cbfe39`). This addresses potential rounding of very small residual demo quantities.
+- Added two regression scenarios for exact high-precision residual inventory and oversized initial stock representation, with an exact Decimal comparison (`529eb6ae4168bbefe2e0409994708b4d13e507cc`, `78b1f1b4149485139169286ab4f8a9ddb9a5803e`).
+- **Tests NOT EXECUTED.** No claim of PASS or 75% achieved. No production checkout, payment, refund or stock posting enabled; Gates A-E remain unaccepted (0/5). The RAM-only simulation is not a production accounting service.
+- Next: execute focused disposable test suite, address any failure, then proceed to independent authorization and commercial integration boundaries without touching V7, `main`, production DBs or keys.

@@ -903,7 +903,28 @@ class PreviewSandboxCreditLedger:
                             (used * Decimal(original["price"]))
                             .quantize(_CENT,rounding=ROUND_HALF_UP)*100
                         ))
-                        if (used <= 0 or used > Decimal(original["quantity"])
+                        original_qty = _finite_decimal(original["quantity"])
+                        original_price = _finite_decimal(original["price"])
+                        if (original_qty <= 0 or original_price < 0
+                                or type(original["line_cents"]) is not int
+                                or original["line_cents"] <= 0):
+                            issues.append("credit_note_quantity_or_amount_invalid")
+                        # Compensating tampering must not pass an aggregate audit.
+                        for entry in entries:
+                            qty = _finite_decimal(entry["quantity"])
+                            if qty <= 0 or qty > original_qty:
+                                issues.append("credit_note_individual_quantity_invalid")
+                                continue
+                            ceiling = min(
+                                original["line_cents"],
+                                int((qty * original_price).quantize(
+                                    _CENT, rounding=ROUND_HALF_UP) * 100)
+                            )
+                            if (type(entry["amount_cents"]) is not int
+                                    or entry["amount_cents"] <= 0
+                                    or entry["amount_cents"] > ceiling):
+                                issues.append("credit_note_individual_amount_invalid")
+                        if (used <= 0 or used > original_qty
                                 or amount != expected):
                             issues.append("credit_note_quantity_or_amount_mismatch")
                     except Exception:

@@ -722,3 +722,28 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   local git clone cannot resolve github.com and hosted CI fails
   before runner execution. No main/V7/production data touched;
   commercial checkout stays disabled.
+
+## Concurrent aborted-claim regression execution (2026-11-05)
+
+- Committed `test_concurrent_aborted_claims_do_not_consume_references`:
+  30 independent connection attempts across eight threads, with
+  every third transaction rolled back. Asserts exactly 20 committed
+  rows, gapless references 1..20, sequence 21, and SQLite integrity.
+- **Actually executed** nine repository SQLite transaction contract
+  test cases in local Python unittest after copying the committed
+  new test into the existing local test module:
+  `python -m unittest -v tests.test_v8_sqlite_transaction_contract`.
+  **9 PASS, 0 FAIL, 2.792 seconds**, including crash-before/after
+  COMMIT, CAS rollback, concurrent 32-commit and 30-attempt
+  abort/commit interleavings. This is the real SQLite contract test
+  module, NOT the full application suite.
+- Windows Actions `42007078215` failed before steps, no runner;
+  Linux `42007075399` failed with zero jobs. The minimal
+  no-checkout diagnostic had also failed. Billing/runner policy
+  endpoints are not accessible via the current GitHub connector;
+  no definitive root cause or claimed CI fix.
+- Full VeloPOS application regression suite remains **UNEXECUTED**
+  because local private GitHub checkout fails DNS resolution and
+  GitHub Actions runners do not start.
+- All commits restricted to develop-v8; main, V7, production data
+  and real commercial checkout unchanged.

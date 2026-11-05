@@ -700,3 +700,25 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   Private repository checkout is unavailable in the local container
   (github.com DNS failure); GitHub Actions jobs never start.
 - main/V7/production data untouched. Commercial checkout blocked.
+
+## SQLite security PRAGMA readback and pre-run Actions failures (2026-11-05)
+
+- `_connect` now verifies `PRAGMA trusted_schema` is 0 and
+  `PRAGMA foreign_keys` is 1 after setting both, before any
+  transaction is handed to application callers. This complements
+  the previously enforced readback of `synchronous=FULL`.
+- Added an application regression injecting ineffective SQLite
+  security PRAGMAs, requiring fail-closed PermissionError and no
+  consumed reference/sequence. **Application test committed,
+  not executed**.
+- Executed a local real-SQLite stdlib smoke check for security
+  PRAGMA readbacks and DDL transaction rollback: **PASS**.
+  This is not the repository application regression suite.
+- GitHub Actions Windows `42006685057` failed with no assigned
+  runner and zero steps; Linux `42006682920` failed with zero
+  jobs. Root cause still not definitive; billing/policy/runner
+  entitlement endpoints unavailable through current connector.
+- The complete `run_v8_checks.py` suite remains **unexecuted**:
+  local git clone cannot resolve github.com and hosted CI fails
+  before runner execution. No main/V7/production data touched;
+  commercial checkout stays disabled.

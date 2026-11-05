@@ -465,3 +465,16 @@ using disposable data until all Gate A/B acceptance criteria are proven.
 - Private repository clone remains blocked by DNS in the execution
   environment. Full VeloPOS application suite NOT executed, and no
   new test pass counts are claimed. main/V7/production untouched.
+
+### Diagnostic result
+
+- Minimal no-checkout `V8 runner allocation diagnostic` run
+  `41939831430` failed. Job `126957490685` has
+  `runner_name=""`, `steps=[]`, and failed in ~2 seconds
+  (00:14:23Z–00:14:25Z). This rules out VeloPOS imports, pip
+  dependencies, checkout, and application regression tests as the
+  cause of this diagnostic failure. It strongly localizes the problem
+  to GitHub Actions workflow admission / runner provisioning / account
+  limits, **without distinguishing which**. Check repository Actions
+  settings, organization policy and account billing/spending limits
+  in GitHub UI; connector does not expose these endpoints.

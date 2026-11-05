@@ -73,3 +73,13 @@ After every meaningful integration batch:
 - Parent HEAD before this change: `91a95cd5fafaefa11cad9ce748a213b767b145bc`; develop-v8 only. GitHub push Windows run [42086500203](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42086500203) concluded failure with one job without exposed executed step logs; sandbox run [42086498099](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42086498099) reported zero jobs. **These do not establish Python test failures.**
 - Legacy `tests/run_all.py` now bounds each unittest/static/GUI subprocess with a configurable positive `--job-timeout` (600s default); timeout records FAIL (exit 124 internally) and later jobs continue. Strict `--fail-on-skips` is unchanged. Added isolated timeout and invalid-argument contract cases in `tests/test_v8_legacy_skip_gate.py`.
 - **TEST EXECUTION: NOT EXECUTED in an exact GitHub/Windows checkout at this entry.** No commercial release gate accepted; checkout remains disabled. Next: obtain a runner with executed steps; perform targeted and full no-skip Windows regressions against exact final commit SHA, and reconcile any observed failures.
+
+
+## 2026-11-06 — legacy regression timeout reporting repair (code inspection; NOT EXECUTED)
+
+- Pre-change develop-v8 HEAD: `e82143954d5011bb233dc7d040b93260abed3059`. Changes confined to `develop-v8`; no V7, main, production customer database or signing-key operations.
+- Inspected `tests/run_all.py`: the `subprocess.TimeoutExpired` path sets `returncode=124` but leaves `r` unbound. Failure reporting then accessed `r.returncode` when `--fail-on-skips` and partial unittest skip output coexist, risking `UnboundLocalError` instead of a clean timeout report. Corrected failure-reason selection to use `returncode`, prioritizing timeout and zero-discovery explanations.
+- Updated `tests/test_v8_legacy_skip_gate.py` to assert timeout-specific failure reporting and absence of `UnboundLocalError`; corrected the empty-test-module fixture to use a real Python newline rather than a literal escaped backslash sequence.
+- Code commits: `7964eafe1354516f9fbbe6d904974bce1e83792a`, `c7ed710c1cecc8ee9734dce65566c42f8e5aae9f`, `1dc917315c5e528b3afa5d7c9e34a88bf2a7f90e`.
+- **TEST EXECUTION: NOT EXECUTED** in this connected GitHub session. Assertions committed are not a PASS. Run `python -m unittest -v tests.test_v8_legacy_skip_gate tests.test_v8_full_regression_runner` on a disposable Windows environment, followed by the strict full suite at exact HEAD. Preserve failure/skip counts and interpreter identity.
+- Commercial checkout/payment/refund/stock posting remain disabled; **accepted commercial gates: 0/5**. No production readiness claim.

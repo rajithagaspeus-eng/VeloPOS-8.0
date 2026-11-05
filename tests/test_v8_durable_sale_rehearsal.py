@@ -214,6 +214,37 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 1,
             )
 
+    def test_sidecar_created_during_connect_is_refused(self):
+        from unittest.mock import patch
+        target = Path(tempfile.gettempdir()) / (
+            "v8-sidecar-target-" + uuid4().hex
+        )
+        sidecar = Path(self.path + "-journal")
+        target.write_bytes(b"untouched")
+        original_connect = sqlite3.connect
+
+        def connect_then_inject(*args, **kwargs):
+            conn = original_connect(*args, **kwargs)
+            sidecar.symlink_to(target)
+            return conn
+
+        try:
+            with patch("velopos_qt.durable_sale_rehearsal.sqlite3.connect",
+                       side_effect=connect_then_inject):
+                with self.assertRaisesRegex(PermissionError, "sidecar"):
+                    self.journal.inspect(
+                        request_id="durable-request-0001", lines=self.lines
+                    )
+            self.assertEqual(target.read_bytes(), b"untouched")
+        finally:
+            sidecar.unlink(missing_ok=True)
+            target.unlink(missing_ok=True)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+
     def test_hardlinked_rollback_sidecar_refused(self):
         target = Path(tempfile.gettempdir()) / (
             "v8-sidecar-target-" + uuid4().hex

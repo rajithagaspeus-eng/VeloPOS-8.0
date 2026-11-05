@@ -1,0 +1,24 @@
+name: V8 runner allocation diagnostic
+
+on:
+  push:
+    branches: [develop-v8]
+    paths:
+      - '.github/workflows/v8-runner-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Prove runner allocated without checkout or dependencies
+        shell: bash
+        run: |
+          echo "V8 diagnostic runner allocated"
+          echo "SHA=$GITHUB_SHA"
+          echo "RUNNER_OS=$RUNNER_OS"
+          echo "No application or production files accessed"

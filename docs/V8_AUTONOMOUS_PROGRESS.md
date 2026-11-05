@@ -2782,3 +2782,11 @@ milestones as commercial security gates permit.
 - develop-v8 source baseline `e82143954d5011bb233dc7d040b93260abed3059`; repaired unbound completed-process reference on timed-out legacy test subprocesses and strengthened disposable regression assertions, including an actual newline in empty-test fixture.
 - Source commits `7964eafe`, `c7ed710c`, `1dc91731`; ledger commit `b05aa071`. GitHub source inspection only; **tests NOT EXECUTED**, no passing count claimed.
 - Next: run targeted contract tests and full no-skip Windows regression at exact new HEAD with disposable VELOPOS_HOME; fix genuine failures. Commercial checkout OFF; 0/5 gates; main/V7/customer data unchanged.
+
+
+## 2026-11-06 — strict legacy test harness: bounded execution and zero-test detection
+
+- Current milestone parent/source history includes `e82143954d5011bb233dc7d040b93260abed3059`, `14e6ce94a2914cd98080ffcadeddbf9d42b56bc5`, `f63fd7603842369bda2277b78488d7c962b32186`, `1d3ac0c634a633e29478c7ac6018fe805b16d1b6` and `c5af2c9365edc1a3bae8b66f5760af730deafc72`; documentation evidence commit `878df7d970e3c00e595841948fc26388f2ad6655`.
+- Legacy regression runner now has per-child timeouts, nonzero timeout handling, strict unittest skip failure, and fail-closed zero-discovery checks. Tests cover those paths, with fixture newline correction.
+- **Observed execution:** dependency-free manually reconstructed runner contract suite in disposable Linux Python 3.13.5: 6 tests, 0 failures/errors/skips, exit 0; compileall exit 0. **Not an exact GitHub checkout and not Windows:** actual new-head full regression **NOT EXECUTED**. See evidence ledger for limitation.
+- Still blocked: GitHub Windows CI assignment/steps and archival output, then full exact-SHA no-skip regression, service-owned authorized sale and independent stock/tax/credit reconciliation. Commercial checkout disabled, gates accepted 0/5; V7, production data and main untouched.

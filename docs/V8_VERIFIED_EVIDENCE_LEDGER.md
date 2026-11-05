@@ -252,3 +252,11 @@ After every meaningful integration batch:
 - `637dd788e2b0195769be586d668f050f166317de` adds two regressions that mutate RAM-only journal/stock records and assert new requests and replays are rejected without additional mutations.
 - **Status: code committed, tests NOT EXECUTED**; no new verified completion percentage or accepted release gate. Performance implications of full-ledger reconciliation per request need assessment before any non-demo design. All production checkout, refund, payment and stock writes remain disabled; `main`, V7, customer DB and signing keys unchanged.
 - Next: run focused isolated ledger tests in a safe environment, then continue service-boundary design based on failures and independently verified evidence.
+
+
+## 2026-11-06 — RAM-only integrity guard expansion
+
+- Continued from exact `develop-v8` checkpoint `18440ea7ccc43205ff931c8b89a389618fc80478`. `875719535de9f8535e9a1ec061b1b8d3e995d963` adds SQLite `integrity_check`, `foreign_key_check`, deterministic reference-chain and digest-format checks, and item amount validation to the RAM-only rehearsal reconciliation before accepting new/replayed demo requests. It replaces SQLite `SUM` of item cents with Python integer sum to avoid SQLite 64-bit accumulation overflow.
+- `8e1dba2d16783a85ef791b1fee32b679755f5a18` adds three adversarial regressions for malformed stored fingerprints, negative item amounts, and injected foreign-key violations; all mutate disposable `:memory:` SQLite only.
+- **Tests NOT EXECUTED**: GitHub Actions account billing block remains known; no full exact-HEAD local Windows run in this turn. No PASS, no 75% acceptance claim. Commercial Gates A-E remain 0/5; checkout/payment/refund/production stock posting remain OFF. No `main`, V7, real database, customer record, or key edits.
+- Next action: run focused exact-HEAD disposable ledger tests in an available runner and correct any failures before treating this slice as verified.

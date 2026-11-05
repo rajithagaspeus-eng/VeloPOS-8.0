@@ -126,6 +126,35 @@ class PreviewCanonicalBranchTests(unittest.TestCase):
                 assert not ambiguous.can_execute
                 c.execute("DELETE FROM v8_preview_branch_shifts WHERE branch_id='BRANCH-B'")
                 assert inspect().branch_verified
+                # Legacy/corrupt registries without uniqueness constraints must
+                # reject duplicate rows even when the first one is active.
+                c.execute("DROP TABLE v8_preview_branch_registry")
+                c.execute("CREATE TABLE v8_preview_branch_registry ("
+                          "branch_id TEXT, active INTEGER NOT NULL)")
+                c.execute("INSERT INTO v8_preview_branch_registry VALUES('BRANCH-A',1)")
+                c.execute("INSERT INTO v8_preview_branch_registry VALUES('BRANCH-A',0)")
+                duplicate_branch = inspect()
+                assert not duplicate_branch.branch_verified, duplicate_branch
+                assert "branch_not_active" in duplicate_branch.branch_reasons
+                assert not duplicate_branch.can_execute
+                c.execute("DELETE FROM v8_preview_branch_registry WHERE active=0")
+                assert inspect().branch_verified
+                # Membership duplicates are equally ambiguous, including
+                # when both rows are active and superficially agree.
+                c.execute("DROP TABLE v8_preview_branch_memberships")
+                c.execute("CREATE TABLE v8_preview_branch_memberships ("
+                          "username TEXT, branch_id TEXT, active INTEGER NOT NULL)")
+                c.execute("INSERT INTO v8_preview_branch_memberships "
+                          "VALUES('cashier','BRANCH-A',1)")
+                c.execute("INSERT INTO v8_preview_branch_memberships "
+                          "VALUES('cashier','BRANCH-A',1)")
+                duplicate_member = inspect()
+                assert not duplicate_member.branch_verified, duplicate_member
+                assert "actor_branch_membership_required" in duplicate_member.branch_reasons
+                assert not duplicate_member.can_execute
+                c.execute("DELETE FROM v8_preview_branch_memberships WHERE rowid IN ("
+                          "SELECT rowid FROM v8_preview_branch_memberships LIMIT 1)")
+                assert inspect().branch_verified
                 c.execute("UPDATE v8_preview_branch_registry SET active=0 "
                           "WHERE branch_id='BRANCH-A'")
                 disabled = inspect()

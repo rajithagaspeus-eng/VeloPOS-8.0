@@ -109,3 +109,11 @@ After every meaningful integration batch:
 - Cases: strict skip denial, permitted legacy non-strict skip, valid strict pass, timeout failure reporting with subsequent checks, zero-test denial and nonpositive timeout rejection.
 - **Evidence classification: EXECUTED PASS — isolated copied-source contract subset only.** Does NOT establish an exact-head full-repository test PASS, current Windows/PySide6 behavior, all legacy tests, hardware readiness or any commercial gate.
 - Full `run_v8_full_regression.py` and Windows tests: **NOT EXECUTED**. GitHub-hosted runner issue unresolved. No checkout, payment, refund or stock posting enabled; Gates accepted **0/5**.
+
+
+## 2026-11-06 — current-head CI blocker and strict timeout regression coverage
+
+- Branch HEAD at start: `34d06c435bad1ae256ba636c5692f90fc5b8ff88`. GitHub Actions Windows/preview run [42088382476](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42088382476) for that SHA concluded failure; job `preview-tests` reported no exposed steps/logs in connector. Companion sandbox run [42088380417](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42088380417) concluded failure and returned zero jobs. **No executed Python assertion failure or PASS can be inferred.** Hosted runner allocation and workflow diagnostics remain blocked.
+- Direct git clone from the current disposable Linux container could not connect to github.com (DNS resolution failed), so full repository checkout and exact-head combined regression **NOT EXECUTED**. No customer data or production database accessed.
+- Code inspection found the existing timeout regression did not exercise the historical unbound-variable branch when a timed-out unittest emitted partial `skipped=1` output. Added `test_timeout_with_partial_skip_summary_fails_without_runner_crash` in `tests/test_v8_legacy_skip_gate.py`; commit `5bdd580a5472104b7fa4706e1a7f682a656bad28` on `develop-v8`. This is regression coverage, not a claim of execution.
+- **Current session tests: NOT EXECUTED** (0 verified passes); the earlier isolated copied-source 6/6 result applies only to its prior source snapshot. New test must be executed with the strict legacy runner and full Windows regression in a disposable checkout. Checkout/payment/refund/stock posting OFF; **0/5 gates accepted**.

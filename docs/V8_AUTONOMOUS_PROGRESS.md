@@ -2739,3 +2739,11 @@ milestones as commercial security gates permit.
 - Before this batch, push Windows Actions run 42062784357 for `8f8cd2eb9318dfda9e09a6fc22d8d4b27a9cf944` failed with runner_id=0 and zero executed steps. This is not evidence of a failing Python test.
 - **Verification:** new test has not been independently executed; passing test count is unverified. Exact-head Windows Actions result must be inspected after this checkpoint commit.
 - **Next:** obtain an assigned Windows runner and execute `python run_v8_checks.py` at the exact branch SHA. If hosted runners remain unavailable, run isolated branch and full-suite checks in an approved disposable environment. Continue service-bound authorization and accounting integrity; Gates A/B/C/D/E remain blocked. Keep V7 and main untouched.
+
+
+## November 5, 2026 — restore disabled branch authorization assertions
+
+- Re-read master roadmap, release gates, current checkpoint, branch inspector and canonical-branch regression. The test `tests/test_v8_phase2_canonical_branch.py` had a block containing literal `\\n` text inside a Python `#` comment; the intended role-denial and missing-shift assertions were consequently commented out instead of executed.
+- Commit `7f9c11ae91596095a6d813e331a2c741cbc7b505` replaces those escaped newline sequences with actual source newlines. This restores assertions that a Cashier cannot authorize `purchase` and that a sale without a shift is rejected. No production code or financial posting permissions changed.
+- Prior inspected Windows run 42062784357 reported a failed job with no usable executed test steps. No local test execution was available in this run. **Verified passing tests: 0; new code/test assertions not independently executed.** PR-filtered workflow queries cannot establish push CI success.
+- **Exact next priority:** execute `python -m unittest -v tests.test_v8_phase2_canonical_branch` and `python run_v8_checks.py` in a disposable Windows environment, inspect exact-head push CI jobs and logs, repair any assertion mismatch, then continue Gate A service-bound authorization and Gate B accounting reconciliation. Commercial gates A–E remain unaccepted. Preserve V7, main, and production data.

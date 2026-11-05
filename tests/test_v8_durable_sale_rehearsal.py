@@ -183,6 +183,25 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_pinned_database_replaced_by_dangling_symlink_is_refused(self):
+        original = Path(self.path)
+        missing_target = Path(tempfile.gettempdir()) / (
+            "v8-missing-db-target-" + uuid4().hex + ".sqlite"
+        )
+        original.unlink()
+        try:
+            try:
+                original.symlink_to(missing_target)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlink creation unavailable")
+            with self.assertRaisesRegex(PermissionError, "replaced"):
+                self.journal.inspect(
+                    request_id="durable-request-0001", lines=self.lines
+                )
+            self.assertFalse(missing_target.exists())
+        finally:
+            original.unlink(missing_ok=True)
+
     def test_dangling_sidecar_symlink_is_refused(self):
         sidecar = Path(self.path + "-journal")
         missing_target = Path(tempfile.gettempdir()) / (

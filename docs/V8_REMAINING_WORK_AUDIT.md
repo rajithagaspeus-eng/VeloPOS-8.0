@@ -773,3 +773,31 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   billing/usage from the GitHub UI.
 - Only develop-v8 changed. main/V7/production data untouched.
   Commercial checkout remains disabled.
+
+## Busy timeout fail-closed and repeatable SQLite regression (2026-11-05)
+
+- `_connect` now reads back `PRAGMA busy_timeout` after setting
+  10000 ms, and rejects a connection reporting less than 10000.
+  Added an application fault-injection regression asserting a
+  shortened timeout is rejected before request insert, preserving
+  the initial record count and sequence. **Application test is
+  committed but not executed.**
+- **Actually executed** the existing local repository SQLite
+  transaction contract module with `python -m unittest -q
+  tests.test_v8_sqlite_transaction_contract`: **10 PASS,
+  0 FAIL, 4.027 seconds**. This local module was copied from
+  GitHub in prior batches; it is not the full VeloPOS suite.
+- GitHub Actions Windows `42007387264`: failed, zero steps,
+  no assigned runner, zero billable Windows milliseconds;
+  Linux `42007385023`: failed with zero jobs and empty
+  billable timing. Independent minimal no-checkout diagnostic
+  also previously failed pre-run. These results isolate the
+  symptom to pre-execution infrastructure/policy, but do NOT
+  establish the exact billing/runner/policy root cause.
+- Full durable sale rehearsal application suite and complete
+  VeloPOS regression suite remain **UNEXECUTED**: local private
+  checkout cannot resolve github.com; hosted Actions jobs do
+  not start. Requires account-side Actions/billing inspection
+  or an accessible checkout to execute them.
+- Only develop-v8 changed. main, V7, production data and
+  commercial checkout unchanged.

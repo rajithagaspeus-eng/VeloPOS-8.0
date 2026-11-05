@@ -126,7 +126,6 @@ class SQLiteTransactionContractTests(unittest.TestCase):
 
     def test_concurrent_connections_serialize_sequence_claims(self):
         from concurrent.futures import ThreadPoolExecutor
-        import threading
 
         def claim(index):
             db = sqlite3.connect(self.path, isolation_level=None, timeout=10)

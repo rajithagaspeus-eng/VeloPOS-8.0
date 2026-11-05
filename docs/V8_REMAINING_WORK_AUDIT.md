@@ -627,3 +627,29 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   definitive root cause. Account Actions settings/billing/organization
   policy must be inspected via an authorized admin UI.
 - No main/V7/production changes; commercial posting remains blocked.
+
+## Constructor replay-data integrity gate (2026-11-05)
+
+- Added constructor-time validation of every persisted replay
+  request ID, SHA-256 fingerprint, reference syntax, uniqueness and
+  gapless reference chain. Constructor already checked full SQLite
+  integrity and sequence count; this closes the gap where a database
+  with the correct row count but forged replay contents could pass
+  constructor initialization before inspect rejected it.
+- Added application regression tests for a malformed persisted
+  fingerprint and a noncontiguous reference, verifying constructor
+  rejection and unchanged SQLite rows/sequence. These are committed
+  but **not executed**.
+- Full durable sale rehearsal application suite and `run_v8_checks.py`
+  remain **UNEXECUTED** in this batch: the private repository cannot
+  be cloned into the local runner because github.com DNS resolution
+  fails, and GitHub Actions does not start jobs. No application PASS
+  claim is made.
+- Windows Actions run `42002982113` was still queued without a
+  runner at inspection; Linux run `42002979908` failed with zero
+  jobs. Prior Windows failures showed zero steps/no runner and the
+  independent minimal no-checkout workflow also failed before steps.
+  Root cause is NOT definitive; repository/org Actions permissions,
+  runner entitlement and billing/usage must be checked by an account
+  admin. Do not attribute the zero-step failure to VeloPOS tests.
+- No changes to main, V7, production data or commercial checkout.

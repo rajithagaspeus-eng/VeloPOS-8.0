@@ -82,11 +82,11 @@ class LegacySkipAcceptanceTests(unittest.TestCase):
         # The previous timeout branch referenced an unbound CompletedProcess when
         # partial output contained a skip summary. Keep this exact path covered.
         result = self.suite(
-            "import time,unittest\\n"
-            "class Sample(unittest.TestCase):\\n"
-            "    def test_hangs(self):\\n"
-            "        print('skipped=1', flush=True)\\n"
-            "        time.sleep(3)\\n",
+            "import time,unittest\n"
+            "class Sample(unittest.TestCase):\n"
+            "    def test_hangs(self):\n"
+            "        print('skipped=1', flush=True)\n"
+            "        time.sleep(3)\n",
             "--fail-on-skips", "--job-timeout", "1",
         )
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)

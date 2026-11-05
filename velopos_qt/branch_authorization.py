@@ -81,35 +81,37 @@ class PreviewBranchAuthorization:
             )
 
         if valid_branch:
-            branch = connection.execute(
+            branches = connection.execute(
                 "SELECT active FROM main.v8_preview_branch_registry WHERE branch_id=?",
                 (branch_id,),
-            ).fetchone()
-            if branch is None or branch["active"] != 1:
+            ).fetchall()
+            if len(branches) != 1 or branches[0]["active"] != 1:
                 reasons.append("branch_not_active")
 
         if valid_branch and isinstance(actor, str) and actor:
-            membership = connection.execute(
+            memberships = connection.execute(
                 "SELECT active FROM main.v8_preview_branch_memberships "
                 "WHERE username=? AND branch_id=?",
                 (actor, branch_id),
-            ).fetchone()
-            if membership is None or membership["active"] != 1:
+            ).fetchall()
+            if len(memberships) != 1 or memberships[0]["active"] != 1:
                 reasons.append("actor_branch_membership_required")
 
         if action in _SHIFT_ACTIONS:
             if type(shift_id) is not int or shift_id <= 0:
                 reasons.append("branch_shift_binding_required")
             else:
-                shift = connection.execute(
+                shifts = connection.execute(
                     "SELECT s.cashier, s.status, b.branch_id "
                     "FROM main.shifts AS s LEFT JOIN main.v8_preview_branch_shifts AS b "
                     "ON b.shift_id=s.id WHERE s.id=?",
                     (shift_id,),
-                ).fetchone()
-                if shift is None or shift["status"] != "OPEN":
+                ).fetchall()
+                # Reject ambiguous duplicate shift bindings, even if one matches.
+                if len(shifts) != 1 or shifts[0]["status"] != "OPEN":
                     reasons.append("branch_shift_not_open")
                 else:
+                    shift = shifts[0]
                     if not isinstance(actor, str) or shift["cashier"] != actor:
                         reasons.append("branch_shift_actor_mismatch")
                     if not valid_branch or shift["branch_id"] != branch_id:

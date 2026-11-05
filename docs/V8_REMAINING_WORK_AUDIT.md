@@ -876,3 +876,30 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   suite remain **UNEXECUTED**. No claim of CI repair.
 - All modifications restricted to develop-v8; main, V7 and
   production data untouched; commercial checkout disabled.
+
+## Malformed SQLite busy timeout and Actions annotation discovery (2026-11-05)
+
+- Hardened `_connect` to reject missing/noninteger
+  `PRAGMA busy_timeout` readbacks with `PermissionError`,
+  rather than raising an unrelated TypeError. Existing minimum
+  10000ms gate remains unchanged.
+- Added application regression covering `fetchone() is None`
+  and `fetchone() == ("invalid",)`, each requiring no preview
+  rows or consumed sequence numbers. **Committed but NOT
+  executed**; no application checkout available locally.
+- **Actually executed** local repository SQLite contract module:
+  `python -m unittest -v tests.test_v8_sqlite_transaction_contract`:
+  **11 PASS, 0 FAIL, 3.479 seconds**. This is not full V8 suite.
+- Fresh `git ls-remote` confirms local network cannot resolve
+  `github.com`. Windows Actions run `42010862391` failed
+  with unassigned runner and zero steps. Its GitHub check-run
+  reports **one annotation** (`annotations_count=1`) but
+  connector does not permit fetching the annotations endpoint.
+  Linux Actions run `42010860235` failed with zero jobs.
+  **Definitive root cause not confirmed**. The repository owner
+  should open the Windows job/check annotation in GitHub UI;
+  it may reveal the exact runner provisioning or account issue.
+- Durable sale rehearsal application suite and full regression
+  suite **UNEXECUTED**; no CI repair claimed.
+- develop-v8 only. main, V7, production data and commercial
+  checkout unchanged.

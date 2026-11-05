@@ -241,12 +241,17 @@ class DurablePreviewSaleJournal:
 
     def _identity(self):
         candidate = Path(self.path)
-        if candidate.is_symlink() or not candidate.is_file():
+        try:
+            metadata = candidate.lstat()
+        except FileNotFoundError as exc:
+            raise PermissionError("Preview database file replaced") from exc
+        # A single lstat refuses dangling symlinks, directories and hard
+        # links without following an attacker-controlled replacement.
+        if not stat.S_ISREG(metadata.st_mode):
             raise PermissionError("Preview database file replaced")
-        stat = candidate.stat()
-        if stat.st_nlink != 1:
+        if metadata.st_nlink != 1:
             raise PermissionError("Preview database hard link refused")
-        return (stat.st_dev, stat.st_ino)
+        return (metadata.st_dev, metadata.st_ino)
 
     def _check_sidecars(self):
         # SQLite may read/write a pre-existing rollback journal before the

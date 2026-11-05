@@ -340,7 +340,7 @@ def render_doc(cfg, doc, W=None):
 
     def paint(img):                                 # img=None -> measure only
         d = ImageDraw.Draw(img) if img is not None else None
-        y = 3                                       # was 10
+        y = 0                                       # avoid extra top feed before first glyph
 
         def put(x, yy, text, st):
             if img is not None:

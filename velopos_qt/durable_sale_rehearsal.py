@@ -52,6 +52,11 @@ class DurablePreviewSaleJournal:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 self._initialize(conn)
+                # The constructor must not commit a repaired-looking schema
+                # over an already-corrupt SQLite database. Inspect validates
+                # integrity too, but initialization itself is a write path.
+                if conn.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
+                    raise PermissionError("Preview SQLite integrity check failed")
                 # Initialization also writes the sequence and schema.
                 # Revalidate sidecars before its COMMIT, not only on inspect.
                 self._check_sidecars()

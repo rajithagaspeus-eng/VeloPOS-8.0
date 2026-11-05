@@ -600,3 +600,30 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   branch, investigate GitHub account spending and Actions policy,
   and preserve fail-closed commercial boundaries.
 - main/V7/production untouched.
+
+## Executed SQLite transaction contracts and constructor sequence invariant (2026-11-05)
+
+- Added two stdlib-only repository SQLite contract tests:
+  crash after inserting the replay record but before advancing sequence,
+  and a failed sequence compare-and-swap followed by rollback.
+  Copied the same test source into the local repository-test fixture
+  and ran `python -m unittest -v tests.test_v8_sqlite_transaction_contract`:
+  **7 PASS, 0 FAIL (2.251 seconds)**. The tests cover actual SQLite
+  transaction semantics, not the application journal class.
+- Constructor now checks the singleton sequence is exactly one row
+  with integer singleton 1 and next_number = committed record count + 1,
+  within allowed range, before its transaction COMMIT. This rejects
+  ahead-of-record corrupted sequences rather than committing
+  initialization over inconsistent application state.
+- Added a VeloPOS application regression that corrupts next_number,
+  verifies constructor refusal and no silent repair, then verifies
+  inspect refusal. **This application test and the full VeloPOS suite
+  are not executed**; private repo clone fails DNS resolution.
+- Latest Windows Actions run `42002679961`: runner_name empty,
+  steps empty, failure. Linux `42002699446`: jobs empty, failure.
+  Previous minimal no-checkout runner diagnostic `41939831430`
+  likewise failed before steps. This supports a pre-execution GitHub
+  Actions provisioning/admission problem but does NOT establish its
+  definitive root cause. Account Actions settings/billing/organization
+  policy must be inspected via an authorized admin UI.
+- No main/V7/production changes; commercial posting remains blocked.

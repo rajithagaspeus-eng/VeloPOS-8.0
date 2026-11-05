@@ -13,7 +13,7 @@ if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
 Push-Location $repoRoot
 try {
     $branch = (& git branch --show-current 2>$null)
-    if ($LASTEXITCODE -ne 0 -or $branch.Trim() -ne 'develop-v8') {
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($branch) -or $branch.Trim() -ne 'develop-v8') {
         throw "Refusing to test: checkout must be develop-v8 (found '$branch')"
     }
     $sha = (& git rev-parse HEAD).Trim()

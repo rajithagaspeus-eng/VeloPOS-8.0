@@ -8,6 +8,13 @@ on:
       - 'velopos/**'
       - 'tests/test_v8_sandbox_sale_ledger.py'
       - 'tests/test_v8_phase2_atomic_sale_boundary.py'
+      - 'tests/test_v8_phase2_activation_chain.py'
+      - 'tests/test_v8_phase2_composed_activation_chain.py'
+      - 'tests/test_v8_phase2_activation_status.py'
+      - 'tests/test_v8_phase2_server_activation_reference.py'
+      - 'velopos_qt/activation_chain.py'
+      - 'velopos_qt/activation_status.py'
+      - 'velopos_qt/server_activation_reference.py'
       - '.github/workflows/v8-sandbox-regression.yml'
   workflow_dispatch:
 
@@ -45,6 +52,9 @@ jobs:
         run: |
           python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment tests.test_v8_sale_request_service tests.test_v8_sale_rehearsal_journal tests.test_v8_durable_sale_rehearsal
           python -m velopos_qt.release_readiness > v8-release-readiness.json
+      - name: Verify signed activation continuity remains fail closed
+        run: |
+          python -m unittest -v tests.test_v8_phase2_activation_chain tests.test_v8_phase2_composed_activation_chain tests.test_v8_phase2_activation_status tests.test_v8_phase2_server_activation_reference
       - name: Preserve release readiness report
         if: always()
         uses: actions/upload-artifact@v4

@@ -2808,3 +2808,12 @@ milestones as commercial security gates permit.
 - Exact-parent push Windows Actions run [42095564177](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42095564177) concluded failure; job `127484624187` had `runner_id=0` and `steps=[]`. No Python assertions executed in that job. Another parent run 42095561516 also failed. No successful exact-new-head CI evidence was established.
 - **Verification:** new regressions committed, NOT EXECUTED. Verified passing tests this run: **0**. Commercial gates accepted **0/5**. No real checkout, stock posting, payments, production DB access, key access or main-branch modification.
 - **Exact next priority:** recover GitHub-hosted Windows runner assignment; run `python -m unittest -v tests.test_v8_isolated_sale_ledger` and complete strict no-skip Windows V8/legacy regression against exact head; repair any real failures. Then implement service-bound Gate A authorization and independently reconcile Gate B financial/stock records on disposable databases.
+
+
+## 2026-11-06 — unknown barcode and zero-quantity RAM item corruption tests
+
+- Reviewed master roadmap, commercial release gates, durable checkpoint, isolated RAM ledger implementation/tests and develop-v8 GitHub Actions. Parent HEAD was `9034ca3e044e6fd42abc2edbb97e3409cee2c444`.
+- Added two disposable RAM-only regressions in `tests/test_v8_isolated_sale_ledger.py` (code commit `1d9794580440dcdcd875800816bf1132218e1e0d`): an unregistered barcode in a posted item must reject replay; a zero-quantity posted item must reject the next rehearsal. Both assert no additional writes after detecting corruption. No production service logic or financial permissions changed.
+- Exact-parent push workflow [42106349873](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42106349873) concluded failure, job `127522079478` reported `runner_id=0`, `steps=[]`; thus no Python tests ran. No verified passing test count for this code batch.
+- **Verification:** new tests committed but NOT EXECUTED. Gates A–E accepted **0/5**; commercial transaction permissions remain OFF; main, V7, signing keys and production data untouched.
+- **Exact next priority:** inspect push-triggered Windows CI for checkpoint HEAD, recover runner assignment, run `python -m unittest -v tests.test_v8_isolated_sale_ledger` and full strict no-skip `python run_v8_checks.py` on disposable Windows against exact SHA, fix confirmed failures; then prioritize Gate A trusted service-bound authorization and Gate B independent accounting reconciliation.

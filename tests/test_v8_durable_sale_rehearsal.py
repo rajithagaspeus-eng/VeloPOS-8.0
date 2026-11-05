@@ -253,6 +253,48 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 1,
             )
 
+    def test_initialization_integrity_failure_rolls_back_schema(self):
+        from unittest.mock import patch
+        new_path = str(Path(tempfile.gettempdir()) /
+                       ("v8-preview-rehearsal-" + uuid4().hex + ".sqlite"))
+        self.addCleanup(lambda: Path(new_path).unlink(missing_ok=True))
+        original_connect = sqlite3.connect
+
+        class IntegrityFaultConnection:
+            def __init__(self, actual):
+                self.actual = actual
+
+            @property
+            def in_transaction(self):
+                return self.actual.in_transaction
+
+            def execute(self, sql, *args):
+                if sql == "PRAGMA integrity_check":
+                    class CorruptResult:
+                        def fetchall(self):
+                            return [("simulated corruption",)]
+                    return CorruptResult()
+                return self.actual.execute(sql, *args)
+
+            def close(self):
+                return self.actual.close()
+
+        def inject_integrity_failure(*args, **kwargs):
+            return IntegrityFaultConnection(original_connect(*args, **kwargs))
+
+        with patch("velopos_qt.durable_sale_rehearsal.sqlite3.connect",
+                   side_effect=inject_integrity_failure):
+            with self.assertRaisesRegex(PermissionError, "integrity"):
+                DurablePreviewSaleJournal(new_path)
+        with original_connect(new_path) as conn:
+            self.assertEqual(conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall(), [])
+        retry = DurablePreviewSaleJournal(new_path)
+        self.assertEqual(retry.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        ).reference, "REHEARSAL-00000001")
+
     def test_initialization_sidecar_failure_rolls_back_schema(self):
         from unittest.mock import patch
         new_path = str(Path(tempfile.gettempdir()) /

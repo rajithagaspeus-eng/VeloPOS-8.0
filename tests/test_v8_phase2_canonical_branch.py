@@ -167,6 +167,34 @@ class PreviewCanonicalBranchTests(unittest.TestCase):
                 c.execute("DELETE FROM v8_preview_branch_memberships WHERE rowid IN ("
                           "SELECT rowid FROM v8_preview_branch_memberships LIMIT 1)")
                 assert inspect().branch_verified
+                # A valid authenticated actor must also be denied when the
+                # membership schema is corrupt (not merely when actor=None).
+                c.execute("DROP TABLE v8_preview_branch_memberships")
+                c.execute("CREATE TABLE v8_preview_branch_memberships (wrong TEXT)")
+                malformed_membership = inspect()
+                assert not malformed_membership.branch_verified, malformed_membership
+                assert "actor_branch_membership_required" in malformed_membership.branch_reasons
+                assert not malformed_membership.can_execute
+                c.execute("DROP TABLE v8_preview_branch_memberships")
+                c.execute("CREATE TABLE v8_preview_branch_memberships ("
+                          "username TEXT, branch_id TEXT, active INTEGER NOT NULL)")
+                c.execute("INSERT INTO v8_preview_branch_memberships "
+                          "VALUES('cashier','BRANCH-A',1)")
+                assert inspect().branch_verified
+                # The same applies to malformed shift bindings for an open,
+                # persisted shift and otherwise valid signed entitlement.
+                c.execute("DROP TABLE v8_preview_branch_shifts")
+                c.execute("CREATE TABLE v8_preview_branch_shifts (wrong TEXT)")
+                malformed_shift = inspect()
+                assert not malformed_shift.branch_verified, malformed_shift
+                assert "branch_shift_not_open" in malformed_shift.branch_reasons
+                assert not malformed_shift.can_execute
+                c.execute("DROP TABLE v8_preview_branch_shifts")
+                c.execute("CREATE TABLE v8_preview_branch_shifts ("
+                          "shift_id INTEGER, branch_id TEXT NOT NULL)")
+                c.execute("INSERT INTO v8_preview_branch_shifts VALUES(?, 'BRANCH-A')",
+                          (shift,))
+                assert inspect().branch_verified
                 c.execute("UPDATE v8_preview_branch_registry SET active=0 "
                           "WHERE branch_id='BRANCH-A'")
                 disabled = inspect()

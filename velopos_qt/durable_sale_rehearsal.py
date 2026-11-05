@@ -57,6 +57,22 @@ class DurablePreviewSaleJournal:
                 # integrity too, but initialization itself is a write path.
                 if conn.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
                     raise PermissionError("Preview SQLite integrity check failed")
+                # SQLite integrity_check does not enforce application sequence
+                # invariants. Never commit initialization over a corrupt
+                # singleton or a sequence inconsistent with stored rows.
+                sequence_rows = conn.execute(
+                    "SELECT singleton,next_number FROM preview_sequence"
+                ).fetchall()
+                count = conn.execute(
+                    "SELECT COUNT(*) FROM preview_rehearsals"
+                ).fetchone()[0]
+                if (len(sequence_rows) != 1 or
+                        type(sequence_rows[0][0]) is not int or
+                        sequence_rows[0][0] != 1 or
+                        type(sequence_rows[0][1]) is not int or
+                        not 1 <= sequence_rows[0][1] <= 100000000 or
+                        sequence_rows[0][1] != count + 1):
+                    raise PermissionError("Corrupt preview sequence during initialization")
                 # Initialization also writes the sequence and schema.
                 # Revalidate sidecars before its COMMIT, not only on inspect.
                 self._check_sidecars()

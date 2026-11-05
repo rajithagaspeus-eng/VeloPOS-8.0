@@ -128,14 +128,32 @@ class IsolatedSaleLedger:
         """
         with self._lock:
             db = self._db
+            if db.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
+                raise ValueError("RAM rehearsal SQLite integrity mismatch")
+            if db.execute("PRAGMA foreign_key_check").fetchall():
+                raise ValueError("RAM rehearsal foreign key mismatch")
             requests = db.execute(
                 "SELECT reference,subtotal_cents FROM requests ORDER BY reference"
             ).fetchall()
+            metadata = db.execute(
+                "SELECT request_id,fingerprint,reference FROM requests ORDER BY reference"
+            ).fetchall()
+            for number, (request_id, fingerprint, reference) in enumerate(metadata, 1):
+                if (type(request_id) is not str or len(request_id) < 8 or
+                        type(fingerprint) is not str or len(fingerprint) != 64 or
+                        any(ch not in "0123456789abcdef" for ch in fingerprint) or
+                        reference != f"RAM-REHEARSAL-{number:08d}"):
+                    raise ValueError("RAM rehearsal request metadata mismatch")
             for reference, expected in requests:
-                line_total = db.execute(
-                    "SELECT COALESCE(SUM(line_cents),0) FROM items WHERE reference=?",
+                line_amounts = db.execute(
+                    "SELECT line_cents FROM items WHERE reference=?",
                     (reference,),
-                ).fetchone()[0]
+                ).fetchall()
+                if (not line_amounts or any(
+                        type(row[0]) is not int or row[0] < 0
+                        for row in line_amounts)):
+                    raise ValueError("RAM rehearsal item amount mismatch")
+                line_total = sum(row[0] for row in line_amounts)
                 entries = db.execute(
                     "SELECT account,amount_cents FROM journal WHERE reference=?",
                     (reference,),

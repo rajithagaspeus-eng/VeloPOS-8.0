@@ -981,6 +981,48 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert "credit_mixed_repayment_modes" in audit.reasons
         """)
 
+    def test_closeout_rejects_duplicate_credit_journal_result_for_all_scopes(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            repayment = repay("10", request_id="duplicate-credit-payment-base-001")
+            note = credit_service.declare_credit_note(
+                customer_id=customer_id,charge_ref=issued.reference,
+                sale_line_no=1,quantity="1",
+                request_id="duplicate-credit-note-base-001",**ctx()
+            )
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            for scope, result_ref in (
+                ("credit_charge", issued.reference),
+                ("credit_payment", repayment.reference),
+                ("credit_note", note.reference),
+            ):
+                with database.db() as c:
+                    c.execute(
+                        "INSERT INTO main.v8_preview_request_journal "
+                        "(scope,request_id,payload_sha256,status,result_ref) "
+                        "SELECT scope, ?, payload_sha256, status, result_ref "
+                        "FROM main.v8_preview_request_journal "
+                        "WHERE scope=? AND result_ref=?",
+                        ("duplicate-" + scope + "-journal-001", scope, result_ref)
+                    )
+                audited = PreviewSandboxAccounting(database).closeout()
+                assert not audited.balanced, (scope, audited)
+                assert "sandbox_credit_duplicate_journal_result" in audited.reasons, (
+                    scope, audited
+                )
+                assert audited.can_checkout is False
+                with database.db() as c:
+                    c.execute(
+                        "DELETE FROM main.v8_preview_request_journal "
+                        "WHERE scope=? AND request_id=?",
+                        (scope, "duplicate-" + scope + "-journal-001")
+                    )
+                assert PreviewSandboxAccounting(database).closeout().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

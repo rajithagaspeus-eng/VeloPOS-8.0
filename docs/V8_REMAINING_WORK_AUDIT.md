@@ -903,3 +903,27 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   suite **UNEXECUTED**; no CI repair claimed.
 - develop-v8 only. main, V7, production data and commercial
   checkout unchanged.
+
+## Missing security PRAGMA readback fail-closed (2026-11-05)
+
+- `_connect` now treats absent `fetchone()` values for
+  `trusted_schema`, `foreign_keys`, `synchronous` and
+  `journal_mode` as explicit PermissionError. Prevents
+  accidental TypeError/AttributeError and rejects uncertain
+  SQLite security/durability state before transaction handoff.
+- Added durable application fault-injection regression for all
+  four missing readbacks, asserting no preview row insertion
+  and no sequence consumption. **Committed, not executed.**
+- **ACTUALLY EXECUTED** local SQLite transaction contract suite:
+  `python -m unittest -v tests.test_v8_sqlite_transaction_contract`,
+  **11 PASS, 0 FAIL, 3.680 seconds**. Local checkout still
+  contains only the copied SQLite contract test module, not
+  full application source; do not claim full suite execution.
+- Fresh Windows Actions `42011195623` fails with no assigned
+  runner/zero steps; check-run exposes one annotation, but
+  connector rejects the annotations URL. Linux
+  `42011193366` fails with zero jobs. Exact pre-run failure
+  root cause **UNKNOWN**, and no CI fix claimed. Account owner
+  can inspect the annotation in the GitHub Actions job UI.
+- develop-v8 only; main/V7/production data untouched and
+  commercial checkout remains disabled.

@@ -401,6 +401,9 @@ class DurablePreviewSaleJournal:
                     result = DurableRehearsalResult(
                         reference, draft.fingerprint, False
                     )
+                # Refuse a sidecar substituted during the transaction
+                # before any preview write can be committed.
+                self._check_sidecars()
                 # Re-check the pinned inode before committing a replay
                 # or sequence advance, not just when opening the connection.
                 if self._identity() != self._file_identity:

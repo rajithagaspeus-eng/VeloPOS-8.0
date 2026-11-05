@@ -653,3 +653,26 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   runner entitlement and billing/usage must be checked by an account
   admin. Do not attribute the zero-step failure to VeloPOS tests.
 - No changes to main, V7, production data or commercial checkout.
+
+## Initial entry lstat hardening and Actions access limits (2026-11-05)
+
+- Replaced constructor's initial `exists()/is_file()/stat()`
+  checks with a single `lstat()` on the SQLite path, rejecting
+  symlinks (including dangling ones), directories, and hardlinks
+  before SQLite opens the preview file. Added an application
+  regression asserting a dangling symlink is rejected without
+  creating its external target. The test is **committed but unexecuted**.
+- Latest Windows run `42005434469` failed with no runner and
+  zero steps; Linux `42005432389` failed with zero jobs.
+  Attempts to inspect repository Actions permissions/runners and
+  account billing via available GitHub API connector were rejected
+  as unsupported endpoints. Therefore definitive root cause is
+  **not established**. Account owner should check repository
+  Settings > Actions > General and account billing/usage and any
+  spending limit, plus GitHub Actions service notices.
+- **Full VeloPOS durable sale rehearsal application suite and
+  `run_v8_checks.py` not executed this batch.** Repository access
+  through connector permits source edits but does not provide a
+  runnable checkout in the local environment; GitHub-hosted jobs
+  are failing before starting. Do not report application PASS.
+- No changes to main/V7/production data; preview checkout stays disabled.

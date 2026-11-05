@@ -124,6 +124,53 @@ class SQLiteTransactionContractTests(unittest.TestCase):
             )
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
+    def test_concurrent_aborted_claims_do_not_consume_references(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        def attempt(index):
+            db = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+            try:
+                db.execute("PRAGMA busy_timeout=10000")
+                db.execute("BEGIN IMMEDIATE")
+                number = db.execute(
+                    "SELECT next_number FROM preview_sequence WHERE singleton=1"
+                ).fetchone()[0]
+                db.execute(
+                    "INSERT INTO preview_rehearsals VALUES (?,?,?)",
+                    (f"request-{index:08d}", "b" * 64,
+                     f"REHEARSAL-{number:08d}"),
+                )
+                if index % 3 == 0:
+                    db.execute("ROLLBACK")
+                    return None
+                updated = db.execute(
+                    "UPDATE preview_sequence SET next_number=? "
+                    "WHERE singleton=1 AND next_number=?",
+                    (number + 1, number),
+                )
+                self.assertEqual(updated.rowcount, 1)
+                db.execute("COMMIT")
+                return number
+            finally:
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
+                db.close()
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            numbers = list(pool.map(attempt, range(30)))
+        committed = [number for number in numbers if number is not None]
+        self.assertEqual(sorted(committed), list(range(1, 21)))
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0], 20)
+            self.assertEqual(db.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 21)
+            self.assertEqual(db.execute(
+                "PRAGMA integrity_check"
+            ).fetchone()[0], "ok")
+
     def test_concurrent_connections_serialize_sequence_claims(self):
         from concurrent.futures import ThreadPoolExecutor
 

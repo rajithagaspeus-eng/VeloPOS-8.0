@@ -1,4 +1,5 @@
 """Disposable SQLite sale rehearsal crash recovery and idempotency tests."""
+from contextlib import closing
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import os
@@ -24,7 +25,7 @@ class DurablePreviewSaleJournalTests(unittest.TestCase):
         # SQLite retains CREATE TABLE whitespace. The canonical DDL
         # validator must strip actual whitespace (regex r"\\s+"), not
         # look for a literal backslash-s sequence.
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             sql = conn.execute(
                 "SELECT sql FROM sqlite_master WHERE name='preview_rehearsals'"
             ).fetchone()[0]
@@ -126,7 +127,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             ["REHEARSAL-00000001|False"] +
             ["REHEARSAL-00000001|True"] * 3,
         )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 1,
@@ -169,7 +170,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             sorted(outputs),
             [f"REHEARSAL-{i:08d}|False" for i in range(1, 9)],
         )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 8,
@@ -466,7 +467,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 )
         finally:
             sidecar.unlink(missing_ok=True)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
@@ -482,7 +483,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 )
         finally:
             sidecar.rmdir()
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
                 1,
@@ -509,7 +510,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 finally:
                     sidecar.unlink(missing_ok=True)
                     target.unlink(missing_ok=True)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
@@ -523,14 +524,14 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         first = self.journal.inspect(
             request_id="durable-request-0001", lines=self.lines
         )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_rehearsals SET fingerprint='not-a-digest' "
                 "WHERE request_id='durable-request-0001'"
             )
         with self.assertRaisesRegex(PermissionError, "replay record"):
             DurablePreviewSaleJournal(self.path)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(conn.execute(
                 "SELECT fingerprint FROM preview_rehearsals "
                 "WHERE request_id='durable-request-0001'"
@@ -544,14 +545,14 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         self.journal.inspect(
             request_id="durable-request-0001", lines=self.lines
         )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_rehearsals SET reference='REHEARSAL-00000009' "
                 "WHERE request_id='durable-request-0001'"
             )
         with self.assertRaisesRegex(PermissionError, "reference chain"):
             DurablePreviewSaleJournal(self.path)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(conn.execute(
                 "SELECT reference FROM preview_rehearsals"
             ).fetchone()[0], "REHEARSAL-00000009")
@@ -560,13 +561,13 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             ).fetchone()[0], 2)
 
     def test_constructor_refuses_sequence_ahead_of_committed_rows(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_sequence SET next_number=3 WHERE singleton=1"
             )
         with self.assertRaisesRegex(PermissionError, "sequence"):
             DurablePreviewSaleJournal(self.path)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute(
                     "SELECT next_number FROM preview_sequence WHERE singleton=1"
@@ -656,7 +657,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         finally:
             sidecar.unlink(missing_ok=True)
             target.unlink(missing_ok=True)
-        with sqlite3.connect(new_path) as conn:
+        with closing(sqlite3.connect(new_path)) as conn, conn:
             tables = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             ).fetchall()
@@ -687,7 +688,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                     request_id="durable-request-0001",
                     lines=self.lines,
                 )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(conn.execute(
                 "SELECT COUNT(*) FROM preview_rehearsals"
             ).fetchone()[0], 0)
@@ -764,7 +765,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         finally:
             sidecar.unlink(missing_ok=True)
             target.unlink(missing_ok=True)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
@@ -807,7 +808,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         finally:
             sidecar.unlink(missing_ok=True)
             target.unlink(missing_ok=True)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
@@ -875,7 +876,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
 
     def test_corrupt_fingerprint_fails_closed(self):
         self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_rehearsals SET fingerprint=? WHERE request_id=?",
                 ("bad", "durable-request-0001"),
@@ -888,7 +889,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
     def test_unrelated_corrupt_record_blocks_all_replays(self):
         self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
         self.journal.inspect(request_id="durable-request-0002", lines=self.lines)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_rehearsals SET fingerprint='bad' "
                 "WHERE request_id='durable-request-0002'"
@@ -903,7 +904,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             self.journal.inspect(
                 request_id=f"durable-request-{i:04d}", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "DELETE FROM preview_rehearsals WHERE request_id=?",
                 ("durable-request-0001",)
@@ -915,7 +916,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
 
     def test_sequence_rewind_refuses_replay(self):
         self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_sequence SET next_number=1 WHERE singleton=1"
             )
@@ -926,7 +927,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
 
     def test_sequence_jump_refuses_new_request(self):
         self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_sequence SET next_number=100 WHERE singleton=1"
             )
@@ -937,7 +938,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
 
     def test_forged_reference_chain_refuses_replay(self):
         self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_rehearsals SET reference='REHEARSAL-00000099'"
             )
@@ -947,7 +948,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             )
 
     def test_trigger_added_after_open_is_rejected_before_write(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "CREATE TRIGGER preview_late AFTER INSERT ON preview_rehearsals "
                 "BEGIN UPDATE preview_sequence SET next_number=99; END"
@@ -956,14 +957,14 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             self.journal.inspect(
                 request_id="durable-request-0001", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             count = conn.execute(
                 "SELECT COUNT(*) FROM preview_rehearsals"
             ).fetchone()[0]
         self.assertEqual(count, 0)
 
     def test_existing_trigger_is_rejected_before_reopen(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "CREATE TRIGGER preview_tamper AFTER INSERT ON preview_rehearsals "
                 "BEGIN UPDATE preview_sequence SET next_number=99; END"
@@ -977,18 +978,18 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             "CREATE TABLE unexpected_table (value INTEGER)",
         ):
             with self.subTest(statement=statement):
-                with sqlite3.connect(self.path) as conn:
+                with closing(sqlite3.connect(self.path)) as conn, conn:
                     conn.execute(statement)
                 with self.assertRaises(PermissionError):
                     DurablePreviewSaleJournal(self.path)
-                with sqlite3.connect(self.path) as conn:
+                with closing(sqlite3.connect(self.path)) as conn, conn:
                     conn.execute(
                         "DROP VIEW unexpected_view"
                         if "VIEW" in statement else "DROP TABLE unexpected_table"
                     )
 
     def test_altered_table_columns_refused_on_reopen(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("ALTER TABLE preview_rehearsals ADD COLUMN forged TEXT")
         with self.assertRaises(PermissionError):
             DurablePreviewSaleJournal(self.path)
@@ -997,24 +998,24 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         self.journal.inspect(
             request_id="durable-request-0001", lines=self.lines
         )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DELETE FROM preview_sequence")
         with self.assertRaises(PermissionError):
             DurablePreviewSaleJournal(self.path)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_sequence").fetchone()[0],
                 0,
             )
 
     def test_failed_initialization_rolls_back_partial_schema(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_sequence")
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute("CREATE TABLE preview_rehearsals (unexpected INTEGER)")
         with self.assertRaises(PermissionError):
             DurablePreviewSaleJournal(self.path)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute(
                     "SELECT COUNT(*) FROM sqlite_master "
@@ -1042,26 +1043,26 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         self.journal.inspect(
             request_id="durable-request-0001", lines=self.lines
         )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("UPDATE preview_sequence SET next_number=50")
         with self.assertRaises(PermissionError):
             self.journal.inspect(
                 request_id="durable-request-0002", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 1,
             )
 
     def test_empty_existing_journal_with_missing_sequence_is_rejected(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DELETE FROM preview_sequence")
         with self.assertRaises(PermissionError):
             DurablePreviewSaleJournal(self.path)
 
     def test_missing_reference_uniqueness_rejected(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute(
                 "CREATE TABLE preview_rehearsals "
@@ -1071,7 +1072,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             DurablePreviewSaleJournal(self.path)
 
     def test_missing_request_primary_key_rejected(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute(
                 "CREATE TABLE preview_rehearsals "
@@ -1083,7 +1084,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
     def test_database_file_replacement_after_open_fails_closed(self):
         old = Path(self.path)
         old.unlink()
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("CREATE TABLE replacement(value INTEGER)")
         with self.assertRaises(PermissionError):
             self.journal.inspect(
@@ -1104,7 +1105,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             )
 
     def test_missing_not_null_constraint_rejected(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute(
                 "CREATE TABLE preview_rehearsals "
@@ -1127,7 +1128,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
     def test_corrupt_unrelated_request_id_blocks_replay(self):
         self.journal.inspect(request_id="durable-request-0001", lines=self.lines)
         self.journal.inspect(request_id="durable-request-0002", lines=self.lines)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "UPDATE preview_rehearsals SET request_id='invalid id' "
                 "WHERE request_id='durable-request-0002'"
@@ -1162,7 +1163,7 @@ os._exit(17)
         )
         self.assertEqual(result.reference, "REHEARSAL-00000001")
         self.assertFalse(result.replayed)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 1,
@@ -1205,7 +1206,7 @@ os._exit(19)
             self.assertEqual(conn.execute("PRAGMA synchronous").fetchone()[0], 2)
 
     def test_sequence_check_constraints_cannot_be_removed(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_sequence")
             conn.execute(
                 "CREATE TABLE preview_sequence ("
@@ -1216,7 +1217,7 @@ os._exit(19)
             DurablePreviewSaleJournal(self.path)
 
     def test_sequence_check_tampering_after_open_blocks_new_request(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_sequence")
             conn.execute(
                 "CREATE TABLE preview_sequence ("
@@ -1227,14 +1228,14 @@ os._exit(19)
             self.journal.inspect(
                 request_id="durable-request-0001", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
             )
 
     def test_generated_hidden_column_is_rejected(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute(
                 "CREATE TABLE preview_rehearsals ("
@@ -1246,7 +1247,7 @@ os._exit(19)
             DurablePreviewSaleJournal(self.path)
 
     def test_foreign_key_schema_tamper_is_rejected_before_write(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute(
                 "CREATE TABLE preview_rehearsals ("
@@ -1258,14 +1259,14 @@ os._exit(19)
             self.journal.inspect(
                 request_id="durable-request-0001", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
             )
 
     def test_extra_index_is_rejected_on_reopen_and_active_journal(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "CREATE INDEX unexpected_preview_index "
                 "ON preview_rehearsals(fingerprint)"
@@ -1276,7 +1277,7 @@ os._exit(19)
             self.journal.inspect(
                 request_id="durable-request-0001", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
@@ -1291,7 +1292,7 @@ os._exit(19)
         )
         self.assertEqual(replay.reference, first.reference)
         self.assertTrue(replay.replayed)
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(conn.execute("PRAGMA integrity_check").fetchall(),
                              [("ok",)])
             self.assertEqual(
@@ -1302,7 +1303,7 @@ os._exit(19)
     def test_sqlitex_named_table_cannot_hide_behind_like_wildcard(self):
         # SQL LIKE 'sqlite_%' treats '_' as any single character.
         # A forged sqliteX table must not be excluded as an internal object.
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("CREATE TABLE sqliteX_hidden_payload(value TEXT)")
         with self.assertRaisesRegex(PermissionError, "Unexpected preview database objects"):
             DurablePreviewSaleJournal(self.path)
@@ -1312,7 +1313,7 @@ os._exit(19)
             )
 
     def test_forged_column_type_is_rejected_before_reopen(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute(
                 "CREATE TABLE preview_rehearsals ("
@@ -1327,7 +1328,7 @@ os._exit(19)
             )
 
     def test_injected_extra_check_constraint_is_rejected(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_rehearsals")
             conn.execute(
                 "CREATE TABLE preview_rehearsals ("
@@ -1342,7 +1343,7 @@ os._exit(19)
             )
 
     def test_spoofed_sequence_check_in_sql_comment_is_rejected(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("DROP TABLE preview_sequence")
             conn.execute(
                 "CREATE TABLE preview_sequence ("
@@ -1358,7 +1359,7 @@ os._exit(19)
             request_id="durable-request-0001", lines=self.lines
         )
         self.assertEqual(first.reference, "REHEARSAL-00000001")
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(
                 "CREATE INDEX tamper_idx ON preview_rehearsals(fingerprint)"
             )
@@ -1366,7 +1367,7 @@ os._exit(19)
             self.journal.inspect(
                 request_id="durable-request-0002", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
                 2,
@@ -1387,7 +1388,7 @@ os._exit(19)
         self.assertEqual(second.reference, "REHEARSAL-00000002")
 
     def test_sqlite_stat1_metadata_is_refused_without_writes(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute("ANALYZE")
             self.assertTrue(conn.execute(
                 "SELECT 1 FROM sqlite_master WHERE name='sqlite_stat1'"
@@ -1398,7 +1399,7 @@ os._exit(19)
             self.journal.inspect(
                 request_id="durable-request-0001", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
@@ -1422,7 +1423,7 @@ os._exit(19)
                 self.journal.inspect(
                     request_id="durable-request-0001", lines=self.lines
                 )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,
@@ -1438,7 +1439,7 @@ os._exit(19)
         self.assertFalse(retry.replayed)
 
     def test_wal_mode_refused_before_any_preview_rehearsal(self):
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("PRAGMA journal_mode=WAL").fetchone()[0].lower(),
                 "wal",
@@ -1449,7 +1450,7 @@ os._exit(19)
             self.journal.inspect(
                 request_id="durable-request-0001", lines=self.lines
             )
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
                 0,

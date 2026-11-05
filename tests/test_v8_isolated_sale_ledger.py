@@ -161,6 +161,36 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
                 request_id="ram-sale-0001", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_metadata_reference_chain_tampering_blocks_replay(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE requests SET fingerprint=? WHERE request_id=?",
+            ("not-a-digest", "ram-sale-0001"))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "metadata mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_invalid_item_amount_blocks_new_sale(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute("UPDATE items SET line_cents=-1")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "item amount mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_foreign_key_violation_blocks_rehearsal(self):
+        self.ledger._db.execute("PRAGMA foreign_keys=OFF")
+        try:
+            self.ledger._db.execute(
+                "INSERT INTO items VALUES ('MISSING','SOAP','1',100)")
+        finally:
+            self.ledger._db.execute("PRAGMA foreign_keys=ON")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "foreign key mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

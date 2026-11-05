@@ -26,6 +26,10 @@ def main(argv=None):
     env = os.environ.copy()
     env["QT_QPA_PLATFORM"] = "offscreen"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    # Never allow inherited real customer paths into test subprocesses.
+    for name in ("VELOPOS_DB", "VELOPOS_DATABASE", "VELOPOS_DATA_DIR",
+                 "VELOPOS_PRODUCTION_HOME"):
+        env.pop(name, None)
     with tempfile.TemporaryDirectory(prefix="velopos-full-regression-") as home:
         env["VELOPOS_HOME"] = home
         failures = []

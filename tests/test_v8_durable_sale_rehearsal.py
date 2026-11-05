@@ -253,6 +253,51 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 1,
             )
 
+    def test_sidecar_substitution_before_commit_rolls_back_both_tables(self):
+        from unittest.mock import patch
+        sidecar = Path(self.path + "-shm")
+        target = Path(tempfile.gettempdir()) / (
+            "v8-sidecar-target-" + uuid4().hex
+        )
+        target.write_bytes(b"unchanged")
+        original_check = self.journal._check_sidecars
+        checks = [0]
+
+        def inject_at_precommit():
+            checks[0] += 1
+            if checks[0] == 3:
+                try:
+                    sidecar.symlink_to(target)
+                except (OSError, NotImplementedError):
+                    self.skipTest("Symlink creation unavailable")
+            return original_check()
+
+        try:
+            with patch.object(self.journal, "_check_sidecars",
+                              side_effect=inject_at_precommit):
+                with self.assertRaisesRegex(PermissionError, "sidecar"):
+                    self.journal.inspect(
+                        request_id="durable-request-0001", lines=self.lines
+                    )
+            self.assertEqual(checks[0], 3)
+            self.assertEqual(target.read_bytes(), b"unchanged")
+        finally:
+            sidecar.unlink(missing_ok=True)
+            target.unlink(missing_ok=True)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
+                1,
+            )
+        retry = self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        self.assertEqual(retry.reference, "REHEARSAL-00000001")
+
     def test_sidecar_created_during_connect_is_refused(self):
         from unittest.mock import patch
         target = Path(tempfile.gettempdir()) / (

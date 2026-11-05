@@ -852,3 +852,27 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   cause remains unknown. No CI repair is claimed.
 - Only develop-v8 changed. main/V7/production data untouched.
   Commercial checkout remains disabled.
+
+## Inode-swap fault injection and execution status (2026-11-05)
+
+- Added application fault-injection regression
+  `test_injected_inode_swap_after_configuration_blocks_write`:
+  mock the third identity readback (post-PRAGMA configuration)
+  to return a different inode; expect PermissionError and no
+  inserted preview row or consumed sequence number.
+  **Committed, NOT EXECUTED** because application source is
+  not available in the local runner.
+- **Actually executed** the 11 local copied repository SQLite
+  contract cases via `python -m unittest -v
+  tests.test_v8_sqlite_transaction_contract`: **11 PASS,
+  0 FAIL, 3.529 seconds**. This does not establish application
+  suite or full regression success.
+- Windows GitHub Actions run `42009304598`: failure before
+  runner assignment/steps. Linux run `42009302382`: failure,
+  zero jobs. GitHub connector denies Actions permissions,
+  billing and runner administration endpoints, so the exact
+  account-side reason remains **UNCONFIRMED**.
+- Durable sale rehearsal application suite and full regression
+  suite remain **UNEXECUTED**. No claim of CI repair.
+- All modifications restricted to develop-v8; main, V7 and
+  production data untouched; commercial checkout disabled.

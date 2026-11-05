@@ -83,3 +83,11 @@ After every meaningful integration batch:
 - Code commits: `7964eafe1354516f9fbbe6d904974bce1e83792a`, `c7ed710c1cecc8ee9734dce65566c42f8e5aae9f`, `1dc917315c5e528b3afa5d7c9e34a88bf2a7f90e`.
 - **TEST EXECUTION: NOT EXECUTED** in this connected GitHub session. Assertions committed are not a PASS. Run `python -m unittest -v tests.test_v8_legacy_skip_gate tests.test_v8_full_regression_runner` on a disposable Windows environment, followed by the strict full suite at exact HEAD. Preserve failure/skip counts and interpreter identity.
 - Commercial checkout/payment/refund/stock posting remain disabled; **accepted commercial gates: 0/5**. No production readiness claim.
+
+
+## 2026-11-06 — isolated runner-contract execution evidence (not Windows release evidence)
+
+- Inspected branch after follow-on code commits: `c5af2c9365edc1a3bae8b66f5760af730deafc72` (historical point-in-time, branch may advance).
+- Executed a **manually reconstructed, dependency-free copy** of the legacy runner and contract fixtures in a disposable Linux container (Python 3.13.5; `/opt/pyvenv/bin/python`) with command `python -m unittest -v tests.test_v8_legacy_skip_gate`: **6 tests executed, 0 failures, 0 errors, 0 skips, exit 0**, approximately 16.96 seconds. Local `python -m compileall -q` on reconstructed fixtures also exited 0. Tests covered skip rejection, permissive legacy behavior, successful normal case, timed-out child process and continuation, invalid timeout, and empty test-module rejection.
+- **Evidence boundary:** reconstructed fixture execution is **not an executed test of an exact checked-out GitHub SHA** and is **not Windows full regression**. The exact-repository targeted suite and entire strict regression are **NOT EXECUTED / NOT VERIFIED** here. Do not promote Gate E or declare product tests PASS from this observation.
+- Latest GitHub CI runs still require job-step and artifact verification; account/runner diagnosis is unresolved. Checkout remains OFF and Gates A–E accepted remain **0/5**. Next task: an actual exact-head Windows full no-skip regression, followed by Gate A/B transactional reconciliation.

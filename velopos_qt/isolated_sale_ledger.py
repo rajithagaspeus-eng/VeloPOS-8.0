@@ -1,6 +1,6 @@
 """In-memory-only atomic sale/stock/ledger rehearsal; NEVER commercial posting."""
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import json
 import sqlite3
 from threading import RLock
@@ -42,11 +42,12 @@ class IsolatedSaleLedger:
                 FOREIGN KEY(reference) REFERENCES requests(reference));
         """)
         for barcode, qty in initial_stock.items():
-            if type(barcode) is not str or not barcode or len(barcode) > 80 or not barcode.isprintable():
+            if (type(barcode) is not str or not 1 <= len(barcode) <= 80 or
+                    barcode != barcode.strip() or not barcode.isprintable()):
                 raise ValueError("Invalid test barcode")
             try:
                 amount = Decimal(str(qty))
-            except Exception as exc:
+            except (InvalidOperation, TypeError, ValueError) as exc:
                 raise ValueError("Invalid test quantity") from exc
             if type(qty) is bool or not amount.is_finite() or amount < 0 or amount > 1000000:
                 raise ValueError("Invalid test quantity")
@@ -105,6 +106,37 @@ class IsolatedSaleLedger:
                 "items": tuple(self._db.execute("SELECT * FROM items ORDER BY reference,barcode")),
                 "journal": tuple(self._db.execute("SELECT * FROM journal ORDER BY reference,account")),
             }
+
+    def reconcile(self):
+        """Independently verify demo stock and balanced posting totals.
+
+        Read-only check, not certified accounting or production authorization.
+        """
+        with self._lock:
+            db = self._db
+            requests = db.execute(
+                "SELECT reference,subtotal_cents FROM requests ORDER BY reference"
+            ).fetchall()
+            for reference, expected in requests:
+                line_total = db.execute(
+                    "SELECT COALESCE(SUM(line_cents),0) FROM items WHERE reference=?",
+                    (reference,),
+                ).fetchone()[0]
+                entries = db.execute(
+                    "SELECT account,amount_cents FROM journal WHERE reference=?",
+                    (reference,),
+                ).fetchall()
+                if (line_total != expected or len(entries) != 2 or
+                        dict(entries) != {"demo_receivable": expected,
+                                          "demo_sales": -expected}):
+                    raise ValueError("RAM rehearsal accounting mismatch")
+            for barcode, raw in db.execute("SELECT barcode,qty FROM stock"):
+                amount = Decimal(raw)
+                if not amount.is_finite() or amount < 0:
+                    raise ValueError("Invalid RAM rehearsal stock")
+            return {"reconciled_requests": len(requests),
+                    "total_cents": sum(value for _, value in requests),
+                    "balanced": True}
 
     def commit(self, **_claims):
         raise PermissionError("RAM rehearsal cannot post commercial transactions")

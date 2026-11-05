@@ -52,6 +52,9 @@ class DurablePreviewSaleJournal:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 self._initialize(conn)
+                # Initialization also writes the sequence and schema.
+                # Revalidate sidecars before its COMMIT, not only on inspect.
+                self._check_sidecars()
                 # Validate the file before committing, while the write lock
                 # is still held; never attempt ROLLBACK after COMMIT.
                 identity = self._identity()

@@ -2790,3 +2790,12 @@ milestones as commercial security gates permit.
 - Legacy regression runner now has per-child timeouts, nonzero timeout handling, strict unittest skip failure, and fail-closed zero-discovery checks. Tests cover those paths, with fixture newline correction.
 - **Observed execution:** dependency-free manually reconstructed runner contract suite in disposable Linux Python 3.13.5: 6 tests, 0 failures/errors/skips, exit 0; compileall exit 0. **Not an exact GitHub checkout and not Windows:** actual new-head full regression **NOT EXECUTED**. See evidence ledger for limitation.
 - Still blocked: GitHub Windows CI assignment/steps and archival output, then full exact-SHA no-skip regression, service-owned authorized sale and independent stock/tax/credit reconciliation. Commercial checkout disabled, gates accepted 0/5; V7, production data and main untouched.
+
+
+## 2026-11-06 — RAM journal-leg corruption regression batch
+
+- Reviewed master roadmap, commercial gates, current progress, source history and push-triggered Windows CI. Parent HEAD was `1715513672da39ac315980c2fe752904316b537e`.
+- Added two disposable RAM-only tests in `tests/test_v8_isolated_sale_ledger.py` (code commit `c2aec514efc284c483ec20abd9f3b6bb7ae6f8ec`): deleting a sales journal leg must block replay without mutation; duplicating a sales journal leg must block a new rehearsal without mutation. Both exercise the existing fail-closed reconciliation check, without changing production posting logic.
+- Parent exact-head push Windows Actions run [42094096488](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42094096488) concluded failure: job `127479495903`, `windows-latest`, `runner_id=0`, `steps=[]`. No Python tests executed in that job; this is an infrastructure/execution blocker, not evidence of a failed assertion.
+- **Verification:** tests committed but NOT EXECUTED in this session. Verified passing tests: **0**; current code and checkpoint HEAD require exact-SHA Windows verification. No gate accepted (0/5), no financial writes enabled; V7/main/production data unchanged.
+- **Exact next priority:** run `python -m unittest -v tests.test_v8_isolated_sale_ledger` and full no-skip `python run_v8_checks.py` / strict regression on disposable Windows, inspect push Actions jobs for exact head and repair real failures. Then strengthen service-bound Gate A and reconcile Gate B against original accounting records.

@@ -111,6 +111,21 @@ class PreviewCanonicalBranchTests(unittest.TestCase):
                 wrong_shift = inspect()
                 assert "shift_branch_mismatch" in wrong_shift.branch_reasons
                 c.execute("UPDATE v8_preview_branch_shifts SET branch_id='BRANCH-A'")
+                # Corrupted legacy-style registry without a unique shift key:
+                # a matching first row must not mask a conflicting second row.
+                c.execute("DROP TABLE v8_preview_branch_shifts")
+                c.execute("CREATE TABLE v8_preview_branch_shifts ("
+                          "shift_id INTEGER, branch_id TEXT NOT NULL)")
+                c.execute("INSERT INTO v8_preview_branch_shifts VALUES(?, 'BRANCH-A')",
+                          (shift,))
+                c.execute("INSERT INTO v8_preview_branch_shifts VALUES(?, 'BRANCH-B')",
+                          (shift,))
+                ambiguous = inspect()
+                assert not ambiguous.branch_verified, ambiguous
+                assert "branch_shift_not_open" in ambiguous.branch_reasons
+                assert not ambiguous.can_execute
+                c.execute("DELETE FROM v8_preview_branch_shifts WHERE branch_id='BRANCH-B'")
+                assert inspect().branch_verified
                 c.execute("UPDATE v8_preview_branch_registry SET active=0 "
                           "WHERE branch_id='BRANCH-A'")
                 disabled = inspect()

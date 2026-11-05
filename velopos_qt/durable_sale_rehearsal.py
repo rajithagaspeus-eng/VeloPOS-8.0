@@ -130,6 +130,8 @@ class DurablePreviewSaleJournal:
                 ("table", "preview_rehearsals"),
                 ("table", "preview_sequence"),
             }
+            if any(kind == "index" for kind, _ in preexisting):
+                raise PermissionError("Unexpected preview index schema")
             if not set(preexisting).issubset(allowed):
                 raise PermissionError("Unexpected preview database objects")
             expected_existing = {
@@ -392,6 +394,8 @@ class DurablePreviewSaleJournal:
                 objects = conn.execute(
                     "SELECT type,name FROM sqlite_master WHERE name NOT GLOB 'sqlite_*'"
                 ).fetchall()
+                if any(kind == "index" for kind, _ in objects):
+                    raise PermissionError("Unexpected preview index schema")
                 if set(objects) != {
                     ("table", "preview_rehearsals"),
                     ("table", "preview_sequence"),

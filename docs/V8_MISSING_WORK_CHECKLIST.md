@@ -51,3 +51,12 @@ This is a living dependency-driven worklist, not a claim that unchecked items ar
 ## Status update protocol
 
 On every significant delivery: add date, exact branch SHA, completed acceptance IDs, tests actually run (not merely written), environment/log link, remaining blockers and the next named milestone to V8_VERIFIED_EVIDENCE_LEDGER.md and V8_AUTONOMOUS_PROGRESS.md. If no tests ran, explicitly say **NOT EXECUTED**. Owner time should be requested for a **combined milestone acceptance**, not every micro-commit.
+
+
+## Update — strict no-skip release evidence (2026-11-06)
+
+- [x] Commit a strict legacy no-skip policy and make combined full regression require it (see `tests/run_all.py --fail-on-skips` and `run_v8_full_regression.py`).
+- [x] Add disposable contract tests for strict skip rejection, valid non-skipped tests, historical nonstrict behavior, and combined-runner strict flag forwarding.
+- [ ] **EXECUTE** targeted regression tests and the full combined suite at an exact current `develop-v8` SHA on isolated Windows. All code above is **COMMITTED ONLY**, not verified as PASS. Resolve real failures/skips rather than weakening the no-skip contract.
+- [ ] Diagnose GitHub-hosted run `42081895568` (unassigned runner, no steps) and `42081892649`, and restore trustworthy CI execution and archived test output.
+- [ ] Continue Gates A/B service-owned transaction integrity and accounting reconciliation; **production checkout remains disabled**.

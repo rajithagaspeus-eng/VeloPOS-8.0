@@ -183,6 +183,55 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_connection_refuses_ineffective_security_pragmas(self):
+        from unittest.mock import patch
+        original_connect = sqlite3.connect
+
+        for pragma, reported, expected in (
+            ("PRAGMA trusted_schema", 1, "trusted schema"),
+            ("PRAGMA foreign_keys", 0, "foreign keys"),
+        ):
+            with self.subTest(pragma=pragma):
+                class SecurityFaultConnection:
+                    def __init__(self, actual):
+                        self.actual = actual
+
+                    def execute(self, sql, *args):
+                        if sql == pragma:
+                            class WrongSetting:
+                                def fetchone(self):
+                                    return (reported,)
+                            return WrongSetting()
+                        return self.actual.execute(sql, *args)
+
+                    def close(self):
+                        return self.actual.close()
+
+                    def __getattr__(self, name):
+                        return getattr(self.actual, name)
+
+                def faulty_connect(*args, **kwargs):
+                    return SecurityFaultConnection(
+                        original_connect(*args, **kwargs)
+                    )
+
+                with patch(
+                    "velopos_qt.durable_sale_rehearsal.sqlite3.connect",
+                    side_effect=faulty_connect,
+                ):
+                    with self.assertRaisesRegex(PermissionError, expected):
+                        self.journal.inspect(
+                            request_id="durable-request-0001",
+                            lines=self.lines,
+                        )
+                with original_connect(self.path) as conn:
+                    self.assertEqual(conn.execute(
+                        "SELECT COUNT(*) FROM preview_rehearsals"
+                    ).fetchone()[0], 0)
+                    self.assertEqual(conn.execute(
+                        "SELECT next_number FROM preview_sequence"
+                    ).fetchone()[0], 1)
+
     def test_connection_refuses_ineffective_full_synchronous_setting(self):
         from unittest.mock import patch
         original_connect = sqlite3.connect

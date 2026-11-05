@@ -8,6 +8,7 @@ A branch string supplied by a UI/client is not proof of branch membership.
 All registry, membership and shift lookups bind main.*, not TEMP shadows.
 """
 from dataclasses import dataclass
+import sqlite3
 
 from .idempotency_ledger import PreviewIdempotencyLedger
 from .service_authorization import PreviewServiceAuthorization, _ACTION_ROLES, _SHIFT_ACTIONS
@@ -81,19 +82,25 @@ class PreviewBranchAuthorization:
             )
 
         if valid_branch:
-            branches = connection.execute(
+            try:
+                branches = connection.execute(
                 "SELECT active FROM main.v8_preview_branch_registry WHERE branch_id=?",
                 (branch_id,),
-            ).fetchall()
+                ).fetchall()
+            except sqlite3.DatabaseError:
+                branches = []
             if len(branches) != 1 or branches[0]["active"] != 1:
                 reasons.append("branch_not_active")
 
         if valid_branch and isinstance(actor, str) and actor:
-            memberships = connection.execute(
+            try:
+                memberships = connection.execute(
                 "SELECT active FROM main.v8_preview_branch_memberships "
                 "WHERE username=? AND branch_id=?",
                 (actor, branch_id),
-            ).fetchall()
+                ).fetchall()
+            except sqlite3.DatabaseError:
+                memberships = []
             if len(memberships) != 1 or memberships[0]["active"] != 1:
                 reasons.append("actor_branch_membership_required")
 
@@ -101,12 +108,15 @@ class PreviewBranchAuthorization:
             if type(shift_id) is not int or shift_id <= 0:
                 reasons.append("branch_shift_binding_required")
             else:
-                shifts = connection.execute(
+                try:
+                    shifts = connection.execute(
                     "SELECT s.cashier, s.status, b.branch_id "
                     "FROM main.shifts AS s LEFT JOIN main.v8_preview_branch_shifts AS b "
                     "ON b.shift_id=s.id WHERE s.id=?",
                     (shift_id,),
-                ).fetchall()
+                    ).fetchall()
+                except sqlite3.DatabaseError:
+                    shifts = []
                 # Reject ambiguous duplicate shift bindings, even if one matches.
                 if len(shifts) != 1 or shifts[0]["status"] != "OPEN":
                     reasons.append("branch_shift_not_open")

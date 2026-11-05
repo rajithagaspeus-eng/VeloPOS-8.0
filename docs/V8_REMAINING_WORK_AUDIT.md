@@ -747,3 +747,29 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   GitHub Actions runners do not start.
 - All commits restricted to develop-v8; main, V7, production data
   and real commercial checkout unchanged.
+
+## Post-sequence-update crash atomicity regression (2026-11-05)
+
+- Added repository SQLite transaction contract
+  `test_crash_after_sequence_advance_before_commit_rolls_back_both`.
+  Child process inserts a preview record, advances sequence, then
+  exits via `os._exit(39)` before COMMIT. Parent asserts both
+  changes rolled back and SQLite integrity remains OK.
+- **Actually executed** local
+  `python -m unittest -v tests.test_v8_sqlite_transaction_contract`
+  with the new committed test copied into the local repository-test
+  module: **10 PASS, 0 FAIL, 3.910 seconds**. These are genuine
+  SQLite contract cases; not the durable sale rehearsal application
+  suite or complete project regression suite.
+- GitHub Actions Windows `42007144246`: failure, empty runner,
+  zero steps; Linux `42007142101`: failure, zero jobs. These
+  failures occur before any checkout or Python test step. The
+  independent no-checkout diagnostic has the same pre-run failure.
+  Exact runner/account/policy/billing root cause is not established.
+- Full application regression suite **UNEXECUTED**. Private repo
+  cannot be cloned in this local container due to DNS resolution
+  failure; GitHub-hosted CI never reaches a runner. Account owner
+  needs to inspect Actions run annotations, Actions policy and
+  billing/usage from the GitHub UI.
+- Only develop-v8 changed. main/V7/production data untouched.
+  Commercial checkout remains disabled.

@@ -62,6 +62,35 @@ class PreviewSaleRequestServiceTests(unittest.TestCase):
                         request_id="request-sale-0001", lines=self.lines, **claims
                     )
 
+    def test_duplicate_barcode_over_limit_fails_closed(self):
+        # Two individually valid lines must not bypass aggregate stock bounds.
+        with self.assertRaises(ValueError):
+            self.service.inspect(
+                request_id="request-duplicate-limit-0001",
+                lines=[
+                    {"barcode": "RICE", "qty": "600000", "price": "1.00"},
+                    {"barcode": "RICE", "qty": "400001", "price": "1.00"},
+                ],
+            )
+
+    def test_overprecise_prices_have_distinct_fingerprints(self):
+        # Fingerprints must retain significant digits beyond Decimal's
+        # default 28-digit context, even when cent totals match.
+        first = self.service.inspect(
+            request_id="request-precision-0001",
+            lines=[{"barcode": "RICE", "qty": "1",
+                    "price": "0.1234567890123456789012345678901"}],
+        )
+        second = self.service.inspect(
+            request_id="request-precision-0001",
+            lines=[{"barcode": "RICE", "qty": "1",
+                    "price": "0.1234567890123456789012345678902"}],
+        )
+        self.assertNotEqual(first.fingerprint, second.fingerprint)
+        self.assertEqual(first.subtotal_cents, second.subtotal_cents)
+        self.assertFalse(first.can_checkout)
+        self.assertFalse(second.can_post)
+
     def test_line_rounding_is_per_item_not_aggregate(self):
         result = self.service.inspect(
             request_id="request-rounding-0001",

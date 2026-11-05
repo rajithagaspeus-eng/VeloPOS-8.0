@@ -183,6 +183,45 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_dangling_sidecar_symlink_is_refused(self):
+        sidecar = Path(self.path + "-journal")
+        missing_target = Path(tempfile.gettempdir()) / (
+            "v8-missing-sidecar-target-" + uuid4().hex
+        )
+        try:
+            try:
+                sidecar.symlink_to(missing_target)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlink creation unavailable")
+            self.assertFalse(missing_target.exists())
+            with self.assertRaisesRegex(PermissionError, "sidecar"):
+                self.journal.inspect(
+                    request_id="durable-request-0001", lines=self.lines
+                )
+        finally:
+            sidecar.unlink(missing_ok=True)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+
+    def test_directory_rollback_sidecar_is_refused(self):
+        sidecar = Path(self.path + "-journal")
+        sidecar.mkdir()
+        try:
+            with self.assertRaisesRegex(PermissionError, "sidecar"):
+                self.journal.inspect(
+                    request_id="durable-request-0001", lines=self.lines
+                )
+        finally:
+            sidecar.rmdir()
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT next_number FROM preview_sequence").fetchone()[0],
+                1,
+            )
+
     def test_symlinked_sqlite_sidecars_refused_without_touching_target(self):
         for suffix in ("-journal", "-wal", "-shm"):
             with self.subTest(suffix=suffix):

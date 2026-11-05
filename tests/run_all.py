@@ -41,7 +41,11 @@ for name, cmd in jobs:
         detail += f", {skips} skipped"
     if returncode == 124:
         detail += ", timed out"
-    job_failed = returncode != 0 or (args.fail_on_skips and skips > 0)
+    # A test module with zero discovered tests must not silently pass release QA.
+    no_tests = name.startswith("test_") and (m is None or int(m.group(1)) == 0)
+    if no_tests:
+        detail += ", no tests executed"
+    job_failed = returncode != 0 or no_tests or (args.fail_on_skips and skips > 0)
     rows.append((name, "FAIL" if job_failed else "PASS", detail, time.time() - t))
     if job_failed:
         failed += 1

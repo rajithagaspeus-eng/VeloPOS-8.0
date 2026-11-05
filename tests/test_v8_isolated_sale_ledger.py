@@ -247,6 +247,23 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_negative_item_quantity_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE items SET qty='-1' WHERE barcode='SOAP'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal item quantity"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_removed_stock_catalog_row_blocks_new_rehearsal(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute("DELETE FROM stock WHERE barcode='SOAP'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "stock catalog mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

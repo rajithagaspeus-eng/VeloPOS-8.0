@@ -272,6 +272,46 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 1,
             )
 
+    def test_constructor_refuses_corrupt_fingerprint_without_healing(self):
+        first = self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE preview_rehearsals SET fingerprint='not-a-digest' "
+                "WHERE request_id='durable-request-0001'"
+            )
+        with self.assertRaisesRegex(PermissionError, "replay record"):
+            DurablePreviewSaleJournal(self.path)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(conn.execute(
+                "SELECT fingerprint FROM preview_rehearsals "
+                "WHERE request_id='durable-request-0001'"
+            ).fetchone()[0], "not-a-digest")
+            self.assertEqual(conn.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 2)
+        self.assertEqual(first.reference, "REHEARSAL-00000001")
+
+    def test_constructor_refuses_noncontiguous_reference_chain(self):
+        self.journal.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        )
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE preview_rehearsals SET reference='REHEARSAL-00000009' "
+                "WHERE request_id='durable-request-0001'"
+            )
+        with self.assertRaisesRegex(PermissionError, "reference chain"):
+            DurablePreviewSaleJournal(self.path)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(conn.execute(
+                "SELECT reference FROM preview_rehearsals"
+            ).fetchone()[0], "REHEARSAL-00000009")
+            self.assertEqual(conn.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 2)
+
     def test_constructor_refuses_sequence_ahead_of_committed_rows(self):
         with sqlite3.connect(self.path) as conn:
             conn.execute(

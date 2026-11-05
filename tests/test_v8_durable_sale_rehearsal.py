@@ -183,6 +183,54 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_connection_refuses_missing_security_pragma_readbacks(self):
+        from unittest.mock import patch
+        original_connect = sqlite3.connect
+        for pragma in (
+            "PRAGMA trusted_schema", "PRAGMA foreign_keys",
+            "PRAGMA synchronous", "PRAGMA journal_mode",
+        ):
+            with self.subTest(pragma=pragma):
+                class MissingReadbackConnection:
+                    def __init__(self, actual):
+                        self.actual = actual
+
+                    def execute(self, sql, *args):
+                        if sql == pragma:
+                            class MissingReadback:
+                                def fetchone(self):
+                                    return None
+                            return MissingReadback()
+                        return self.actual.execute(sql, *args)
+
+                    def close(self):
+                        return self.actual.close()
+
+                    def __getattr__(self, name):
+                        return getattr(self.actual, name)
+
+                def faulty_connect(*args, **kwargs):
+                    return MissingReadbackConnection(
+                        original_connect(*args, **kwargs)
+                    )
+
+                with patch(
+                    "velopos_qt.durable_sale_rehearsal.sqlite3.connect",
+                    side_effect=faulty_connect,
+                ):
+                    with self.assertRaises(PermissionError):
+                        self.journal.inspect(
+                            request_id="durable-request-0001",
+                            lines=self.lines,
+                        )
+                with original_connect(self.path) as conn:
+                    self.assertEqual(conn.execute(
+                        "SELECT COUNT(*) FROM preview_rehearsals"
+                    ).fetchone()[0], 0)
+                    self.assertEqual(conn.execute(
+                        "SELECT next_number FROM preview_sequence"
+                    ).fetchone()[0], 1)
+
     def test_connection_refuses_missing_or_malformed_busy_timeout(self):
         from unittest.mock import patch
         original_connect = sqlite3.connect

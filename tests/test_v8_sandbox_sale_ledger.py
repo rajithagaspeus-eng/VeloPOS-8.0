@@ -1601,6 +1601,41 @@ class SandboxSaleLedgerTests(unittest.TestCase):
                 ).fetchone()[0] == 1
         """)
 
+    def test_duplicate_stock_movement_is_blocked_by_primary_key(self):
+        self.isolated("""
+            import sqlite3
+            first = sandbox.simulate_commit(**args)
+            with database.db() as c:
+                original = c.execute(
+                    "SELECT reference,barcode,before_qty,sold_qty,after_qty "
+                    "FROM main.v8_preview_sandbox_stock_moves "
+                    "WHERE reference=? AND barcode='RICE'",
+                    (first.reference,)
+                ).fetchone()
+                assert original is not None
+                try:
+                    c.execute(
+                        "INSERT INTO main.v8_preview_sandbox_stock_moves "
+                        "(reference,barcode,before_qty,sold_qty,after_qty) "
+                        "VALUES (?,?,?,?,?)", tuple(original)
+                    )
+                except sqlite3.IntegrityError:
+                    pass
+                else:
+                    raise AssertionError("Duplicate stock movement inserted")
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_stock_moves "
+                    "WHERE reference=? AND barcode='RICE'",
+                    (first.reference,)
+                ).fetchone()[0] == 1
+            second = sandbox.simulate_commit(**dict(
+                args,request_id="duplicate-stock-followup-0001",
+                lines=[{"barcode":"RICE","qty":1,"price":45}]
+            ))
+            assert second.reference != first.reference
+            assert sandbox.reconcile_sandbox().balanced
+        """)
+
     def test_third_sale_refuses_deleted_middle_stock_movement(self):
         self.isolated("""
             first = sandbox.simulate_commit(**args)

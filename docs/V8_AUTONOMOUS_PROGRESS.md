@@ -2775,3 +2775,10 @@ milestones as commercial security gates permit.
 - Exact-parent push Actions 42086500203 lacked exposed test steps; companion sandbox Actions 42086498099 had no jobs. Cause **unconfirmed**, and these are not app test results.
 - **Windows/full-suite execution NOT EXECUTED** for the new changes in this environment; do not claim Gate E PASS. Gates accepted 0/5; production checkout OFF; V7/main/data untouched.
 - Next: restore runner assignment, execute a full strict regression at new SHA, then advance trusted service-owned sale integration and independent accounting on disposable databases.
+
+
+## 2026-11-06 — bounded regression runner error-reporting fix
+
+- develop-v8 source baseline `e82143954d5011bb233dc7d040b93260abed3059`; repaired unbound completed-process reference on timed-out legacy test subprocesses and strengthened disposable regression assertions, including an actual newline in empty-test fixture.
+- Source commits `7964eafe`, `c7ed710c`, `1dc91731`; ledger commit `b05aa071`. GitHub source inspection only; **tests NOT EXECUTED**, no passing count claimed.
+- Next: run targeted contract tests and full no-skip Windows regression at exact new HEAD with disposable VELOPOS_HOME; fix genuine failures. Commercial checkout OFF; 0/5 gates; main/V7/customer data unchanged.

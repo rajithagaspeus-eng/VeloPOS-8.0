@@ -793,6 +793,48 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
                         ).fetchone()[0] == 0
                 """)
 
+    def test_credit_note_refuses_repayment_allocated_to_other_customer_charge(self):
+        self.isolated("""
+            first = sale_service.simulate_commit(**args)
+            second = sale_service.simulate_commit(**dict(
+                args,request_id="foreign-owner-sale-0001",
+                lines=[{"barcode":"SOAP","qty":1,"price":25}]
+            ))
+            open_account("400")
+            open_account("300",customer=other_customer)
+            own_charge = charge(first.reference)
+            foreign_charge = charge(
+                second.reference,request_id="foreign-owner-charge-0001",
+                customer=other_customer
+            )
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=own_charge.reference,
+                request_id="foreign-owner-payment-0001",**ctx()
+            )
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_allocations "
+                    "SET charge_ref=? WHERE charge_ref=?",
+                    (foreign_charge.reference,own_charge.reference)
+                )
+            try:
+                credit_service.declare_credit_note(
+                    customer_id=customer_id,charge_ref=own_charge.reference,
+                    sale_line_no=1,quantity="1",
+                    request_id="note-after-foreign-charge-0001",**ctx()
+                )
+            except PermissionError as exc:
+                assert "after repayments" in str(exc), exc
+            else:
+                raise AssertionError("Foreign-customer charge allocation allowed note")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_credit_notes"
+                ).fetchone()[0] == 0
+            assert not credit_service.reconcile().balanced
+        """)
+
     def test_mixed_repayment_modes_denied_in_both_directions(self):
         self.isolated("""
             invoice = sale_service.simulate_commit(**args)

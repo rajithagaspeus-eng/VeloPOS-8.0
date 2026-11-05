@@ -676,3 +676,27 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   runnable checkout in the local environment; GitHub-hosted jobs
   are failing before starting. Do not report application PASS.
 - No changes to main/V7/production data; preview checkout stays disabled.
+
+## Concurrency contract and FULL synchronous enforcement (2026-11-05)
+
+- Added 32-thread / 8-worker independent SQLite connection
+  contract verifying serialized `BEGIN IMMEDIATE` claims, gapless
+  references 1..32, CAS sequence 33 and `integrity_check=ok`.
+  An equivalent locally constructed executable test using the
+  exact transaction operations **passed: 1 test, 0.250s**.
+  This is **not** a run of the actual checked-out repository test.
+- Application `_connect` now reads back `PRAGMA synchronous`
+  and requires value 2 (FULL) after setting it; a successful
+  setter call alone does not prove durability. Added a regression
+  injecting a connection that reports NORMAL (1), expecting
+  PermissionError and unchanged records/sequence. **Application
+  regression not executed.**
+- Latest Windows Actions `42006131775`: failed, zero steps,
+  runner_name empty. Linux `42006157550`: failed, zero jobs.
+  Independent no-checkout diagnostic previously failed likewise.
+  GitHub API access to account billing/runner policy endpoints
+  remains unavailable. No definitive runner failure root cause.
+- Full VeloPOS application regression suite remains unexecuted.
+  Private repository checkout is unavailable in the local container
+  (github.com DNS failure); GitHub Actions jobs never start.
+- main/V7/production data untouched. Commercial checkout blocked.

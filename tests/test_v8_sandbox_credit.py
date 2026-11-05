@@ -485,6 +485,44 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert PreviewSandboxAccounting(database).closeout().balanced
         """)
 
+    def test_offsetting_credit_note_amount_tampering_fails_individual_ceiling(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            for n in (1,2):
+                credit_service.declare_credit_note(
+                    customer_id=customer_id,charge_ref=issued.reference,
+                    sale_line_no=1,quantity="1",request_id="credit-note-000"+str(n),
+                    disposition="DISCARDED",**ctx()
+                )
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                refs = [row[0] for row in c.execute(
+                    "SELECT reference FROM main.v8_preview_sandbox_credit_notes "
+                    "ORDER BY reference"
+                )]
+                assert len(refs) == 2
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET amount_cents=5000 WHERE reference=?", (refs[0],)
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET amount_cents=4000 WHERE reference=?", (refs[1],)
+                )
+            audit = PreviewSandboxAccounting(database).closeout()
+            assert not audit.balanced, audit
+            assert "sandbox_credit_note_amount_mismatch" in audit.reasons, audit
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET amount_cents=4500 WHERE reference IN (?,?)", tuple(refs)
+                )
+            assert PreviewSandboxAccounting(database).closeout().balanced
+        """)
+
     def test_credit_note_cannot_exceed_debt_after_repayments(self):
         self.isolated("""
             invoice = sale_service.simulate_commit(**args)

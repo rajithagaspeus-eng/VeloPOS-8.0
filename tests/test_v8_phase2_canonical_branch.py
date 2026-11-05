@@ -201,5 +201,34 @@ class PreviewCanonicalBranchTests(unittest.TestCase):
         )
 
 
+    def test_malformed_canonical_registry_schema_fails_closed(self):
+        self.isolated(
+            """
+            from velopos import database
+            from velopos_qt.branch_authorization import PreviewBranchAuthorization
+            database.init_db()
+            inspector = PreviewBranchAuthorization(database)
+            c = database.connect()
+            try:
+                c.execute("BEGIN IMMEDIATE")
+                # Tables exist, but required columns are missing. These
+                # corrupted preview schemas must deny rather than crash.
+                c.execute("CREATE TABLE v8_preview_branch_registry (wrong TEXT)")
+                c.execute("CREATE TABLE v8_preview_branch_memberships (wrong TEXT)")
+                c.execute("CREATE TABLE v8_preview_branch_shifts (wrong TEXT)")
+                decision = inspector.inspect(
+                    c, action="sale", identity=None,
+                    branch_id="BRANCH-A", shift_id=1,
+                )
+                assert not decision.branch_verified and not decision.can_execute
+                assert "branch_not_active" in decision.reasons
+                for table in ("sales", "returns", "stock_moves", "supplier_payments"):
+                    assert c.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
+                c.rollback()
+            finally:
+                c.close()
+            """
+        )
+
 if __name__ == "__main__":
     unittest.main()

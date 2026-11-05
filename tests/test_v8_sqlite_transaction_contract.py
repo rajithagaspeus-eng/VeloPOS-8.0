@@ -124,6 +124,49 @@ class SQLiteTransactionContractTests(unittest.TestCase):
             )
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
+    def test_concurrent_connections_serialize_sequence_claims(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+
+        def claim(index):
+            db = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+            try:
+                db.execute("PRAGMA busy_timeout=10000")
+                db.execute("BEGIN IMMEDIATE")
+                number = db.execute(
+                    "SELECT next_number FROM preview_sequence WHERE singleton=1"
+                ).fetchone()[0]
+                db.execute(
+                    "INSERT INTO preview_rehearsals VALUES (?,?,?)",
+                    (f"request-{index:08d}", "a" * 64,
+                     f"REHEARSAL-{number:08d}"),
+                )
+                changed = db.execute(
+                    "UPDATE preview_sequence SET next_number=? "
+                    "WHERE singleton=1 AND next_number=?",
+                    (number + 1, number),
+                )
+                if changed.rowcount != 1:
+                    raise AssertionError("sequence CAS lost")
+                db.execute("COMMIT")
+                return number
+            finally:
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
+                db.close()
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            numbers = list(pool.map(claim, range(32)))
+        self.assertEqual(set(numbers), set(range(1, 33)))
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0], 32)
+            self.assertEqual(db.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 33)
+            self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+
     def test_sqlite_internal_stat_table_detectable(self):
         with sqlite3.connect(self.path) as db:
             db.execute("ANALYZE")

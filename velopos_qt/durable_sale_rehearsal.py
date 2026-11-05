@@ -267,6 +267,9 @@ class DurablePreviewSaleJournal:
                 uri=True, timeout=10, isolation_level=None,
             )
         try:
+            # Recheck sidecars after sqlite3.connect: a sidecar may have
+            # appeared while SQLite opened the pinned database.
+            self._check_sidecars()
             if self._file_identity is not None and self._identity() != self._file_identity:
                 raise PermissionError("Preview database changed during open")
             if self._file_identity is not None:

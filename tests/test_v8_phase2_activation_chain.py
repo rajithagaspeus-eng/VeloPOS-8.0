@@ -117,6 +117,25 @@ class SignedActivationChainTests(unittest.TestCase):
             assert "previous_activation_not_active" in inspect(
                 old=sign(dict(previous, status="revoked"))[0]
             ).reasons
+            # A valid signature and increasing sequence do not excuse a
+            # gap where the earlier entitlement expired before renewal.
+            expired_predecessor = dict(previous,
+                expires_utc="2026-11-04T00:30:00Z")
+            expired_token, expired_digest = sign(expired_predecessor)
+            successor = dict(current, previous_payload_sha256=expired_digest)
+            gap = inspect(new=successor, old=expired_token)
+            assert gap.signatures_valid
+            assert "signed_activation_continuity_gap" in gap.reasons, gap
+            assert not gap.chain_consistent and not gap.can_execute
+            # Equality at the signed boundary is continuous, not a gap.
+            boundary_predecessor = dict(previous,
+                expires_utc="2026-11-04T01:00:00Z")
+            boundary_token, boundary_digest = sign(boundary_predecessor)
+            boundary = inspect(
+                new=dict(current, previous_payload_sha256=boundary_digest),
+                old=boundary_token)
+            assert boundary.chain_consistent and not boundary.can_execute
+
 
             tampered = sign(current)[0][:-3] + "abc"
             try:

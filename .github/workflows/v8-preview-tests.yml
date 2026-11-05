@@ -60,14 +60,14 @@ jobs:
       - name: Verify fail-closed release and transaction proof contracts
         shell: pwsh
         run: python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment tests.test_v8_sale_request_service tests.test_v8_sale_rehearsal_journal tests.test_v8_durable_sale_rehearsal
-      - name: Combined V8 test suite (no skips)
+      - name: Full V8 and legacy application regression (no skips)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-          python run_v8_checks.py --verbose 2>&1 | Tee-Object -FilePath v8-preview-test-results.txt
+          python run_v8_full_regression.py 2>&1 | Tee-Object -FilePath v8-preview-test-results.txt
           $testExit = $LASTEXITCODE
           if ($testExit -ne 0) {
-            Write-Error "V8 preview regression suite failed with exit code $testExit"
+            Write-Error "Full application regression suite failed with exit code $testExit"
             exit $testExit
           }
       - name: Preserve V8 test output for failure diagnosis

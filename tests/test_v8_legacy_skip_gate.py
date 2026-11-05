@@ -71,6 +71,8 @@ class LegacySkipAcceptanceTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("timed out", result.stdout)
+        self.assertIn("FAILED (subprocess timed out)", result.stdout)
+        self.assertNotIn("UnboundLocalError", result.stdout)
         self.assertIn("TIMEOUT: job exceeded 1s", result.stdout)
         self.assertIn("check_static", result.stdout)
         self.assertIn("gui_smoke", result.stdout)

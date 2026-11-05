@@ -1,5 +1,6 @@
 """RAM-only atomic sale rehearsal checks; never access a production DB."""
 import unittest
+from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor
 from velopos_qt.isolated_sale_ledger import IsolatedSaleLedger
 
@@ -131,7 +132,8 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             lines=[{"barcode": "RICE", "qty": "1",
                     "price": "1.00"}])
         self.assertEqual(result.subtotal_cents, 100)
-        self.assertEqual(dict(ledger.snapshot()["stock"])["RICE"], "1E-35")
+        self.assertEqual(Decimal(dict(ledger.snapshot()["stock"])["RICE"]),
+                         Decimal("0.00000000000000000000000000000000001"))
         self.assertTrue(ledger.reconcile()["balanced"])
 
     def test_unbounded_initial_stock_representation_is_rejected(self):

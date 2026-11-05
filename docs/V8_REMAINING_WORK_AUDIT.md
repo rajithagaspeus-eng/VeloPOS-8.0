@@ -827,3 +827,28 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   unavailable to local runner; hosted Actions cannot start jobs.
 - Only develop-v8 changed; main/V7/production data untouched.
   No commercial checkout enabled.
+
+## Connection-configuration inode pin and regression status (2026-11-05)
+
+- Hardened `_connect` by rechecking the pinned database
+  `(st_dev, st_ino)` after all SQLite PRAGMAs and sidecar checks,
+  immediately before yielding the connection. This narrows the
+  file-replacement race between post-open validation and
+  transaction handoff. Existing pre-COMMIT identity validation
+  remains in force.
+- Added application regression
+  `test_pinned_inode_checked_after_connection_configuration`
+  verifying four identity checks during a normal inspect.
+  **Committed but not executed** in a runnable application checkout.
+- **Actually executed** 11 SQLite transaction contract tests
+  in the local copied repository test module with
+  `python -m unittest -v tests.test_v8_sqlite_transaction_contract`:
+  **11 PASS, 0 FAIL, 3.707s**. Full application regression suite
+  remains **UNEXECUTED**.
+- Windows Actions run `42008211647` failed before steps
+  (no runner assignment); Linux `42008209798` failed with
+  zero jobs. Account Actions billing/policy controls cannot
+  be read using available connector permissions, so definitive
+  cause remains unknown. No CI repair is claimed.
+- Only develop-v8 changed. main/V7/production data untouched.
+  Commercial checkout remains disabled.

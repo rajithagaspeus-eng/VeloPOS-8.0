@@ -272,6 +272,29 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 1,
             )
 
+    def test_constructor_refuses_sequence_ahead_of_committed_rows(self):
+        with sqlite3.connect(self.path) as conn:
+            conn.execute(
+                "UPDATE preview_sequence SET next_number=3 WHERE singleton=1"
+            )
+        with self.assertRaisesRegex(PermissionError, "sequence"):
+            DurablePreviewSaleJournal(self.path)
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(
+                conn.execute(
+                    "SELECT next_number FROM preview_sequence WHERE singleton=1"
+                ).fetchone()[0], 3
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM preview_rehearsals").fetchone()[0],
+                0,
+            )
+        # Refusal must not heal the corrupted journal or consume a reference.
+        with self.assertRaisesRegex(PermissionError, "sequence"):
+            self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+
     def test_initialization_integrity_failure_rolls_back_schema(self):
         from unittest.mock import patch
         new_path = str(Path(tempfile.gettempdir()) /

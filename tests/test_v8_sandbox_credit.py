@@ -1157,6 +1157,33 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert PreviewSandboxAccounting(database).closeout().balanced
         """)
 
+    def test_independent_audit_rejects_duplicate_completed_credit_journal_result(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            assert credit_service.reconcile().balanced
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_request_journal "
+                    "(scope,request_id,payload_sha256,status,result_ref) "
+                    "SELECT scope,?,payload_sha256,status,result_ref "
+                    "FROM main.v8_preview_request_journal "
+                    "WHERE scope='credit_charge' AND result_ref=?",
+                    ("credit-charge-duplicate-audit-0001",issued.reference)
+                )
+            audit = credit_service.reconcile()
+            assert not audit.balanced, audit
+            assert "duplicate_credit_journal_result" in audit.reasons, audit
+            with database.db() as c:
+                c.execute(
+                    "DELETE FROM main.v8_preview_request_journal "
+                    "WHERE scope='credit_charge' AND request_id=?",
+                    ("credit-charge-duplicate-audit-0001",)
+                )
+            assert credit_service.reconcile().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

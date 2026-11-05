@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 import sqlite3
+import stat
 import tempfile
 
 from .sale_request_service import rehearse_sale_request
@@ -245,12 +246,14 @@ class DurablePreviewSaleJournal:
         # symlinks or hard links to files outside this disposable preview.
         for suffix in ("-journal", "-wal", "-shm"):
             sidecar = Path(self.path + suffix)
-            if sidecar.is_symlink():
-                raise PermissionError("Preview SQLite sidecar symlink refused")
-            if sidecar.exists():
-                stat = sidecar.stat()
-                if not sidecar.is_file() or stat.st_nlink != 1:
-                    raise PermissionError("Preview SQLite sidecar refused")
+            try:
+                metadata = sidecar.lstat()
+            except FileNotFoundError:
+                continue
+            # lstat is mandatory: exists() follows symlinks and reports
+            # dangling links as absent. Refuse links and nonregular files.
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise PermissionError("Preview SQLite sidecar refused")
 
     @contextmanager
     def _connect(self):

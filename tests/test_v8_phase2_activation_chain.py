@@ -187,6 +187,38 @@ class SignedActivationChainTests(unittest.TestCase):
             """
         )
 
+    def test_deeply_nested_signed_json_fails_closed_without_crashing(self):
+        self.isolated(
+            """
+            import base64
+            from datetime import datetime, timezone
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+            from velopos import database
+            from velopos_qt.activation_chain import PreviewSignedActivationChainInspector
+
+            enc = lambda raw: base64.urlsafe_b64encode(raw).decode().rstrip("=")
+            signer = Ed25519PrivateKey.generate()
+            pub = enc(signer.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+            database.init_db()
+            inspector = PreviewSignedActivationChainInspector(
+                database, server_public_key_b64=pub)
+            # Valid Ed25519 signature, but JSON nesting exceeds the decoder limit.
+            raw = b"[" * 1200 + b"0" + b"]" * 1200
+            token = enc(raw) + "." + enc(signer.sign(raw))
+            result = inspector.inspect(
+                previous_status=token, current_status=token,
+                machine_id="MACHINE-A", license_id="LICENSE-A",
+                expected_branch_id="BRANCH-A",
+                now=datetime(2026, 11, 5, tzinfo=timezone.utc))
+            assert not result.signatures_valid
+            assert not result.chain_consistent
+            assert not result.can_execute
+            assert "previous_status_signature_invalid" in result.reasons
+            assert "current_status_signature_invalid" in result.reasons
+            """
+        )
+
     def test_production_data_path_is_rejected(self):
         self.isolated(
             """

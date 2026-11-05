@@ -183,6 +183,50 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_connection_refuses_short_busy_timeout(self):
+        from unittest.mock import patch
+        original_connect = sqlite3.connect
+
+        class ShortTimeoutConnection:
+            def __init__(self, actual):
+                self.actual = actual
+
+            def execute(self, sql, *args):
+                if sql == "PRAGMA busy_timeout":
+                    class ShortTimeout:
+                        def fetchone(self):
+                            return (0,)
+                    return ShortTimeout()
+                return self.actual.execute(sql, *args)
+
+            def close(self):
+                return self.actual.close()
+
+            def __getattr__(self, name):
+                return getattr(self.actual, name)
+
+        def faulty_connect(*args, **kwargs):
+            return ShortTimeoutConnection(
+                original_connect(*args, **kwargs)
+            )
+
+        with patch(
+            "velopos_qt.durable_sale_rehearsal.sqlite3.connect",
+            side_effect=faulty_connect,
+        ):
+            with self.assertRaisesRegex(PermissionError, "busy timeout"):
+                self.journal.inspect(
+                    request_id="durable-request-0001",
+                    lines=self.lines,
+                )
+        with original_connect(self.path) as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0], 0)
+            self.assertEqual(conn.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 1)
+
     def test_connection_refuses_ineffective_security_pragmas(self):
         from unittest.mock import patch
         original_connect = sqlite3.connect

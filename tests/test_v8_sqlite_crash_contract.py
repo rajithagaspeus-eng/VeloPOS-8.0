@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -13,7 +14,7 @@ class SQLiteCrashContractTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="v8-preview-crash-")
         self.addCleanup(self.temp.cleanup)
         self.path = str(Path(self.temp.name) / "journal.sqlite")
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("CREATE TABLE rehearsal (request_id TEXT PRIMARY KEY, reference INTEGER UNIQUE)")
             db.execute("CREATE TABLE sequence (next_number INTEGER NOT NULL)")
             db.execute("INSERT INTO sequence VALUES (1)")
@@ -37,33 +38,33 @@ os._exit(23)
 
     def test_abrupt_exit_before_commit_rolls_back_both_tables(self):
         self._crash(commit=False)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM rehearsal").fetchone()[0], 0)
             self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 1)
             self.assertEqual(db.execute("PRAGMA quick_check").fetchone()[0], "ok")
 
     def test_abrupt_exit_after_commit_persists_both_tables(self):
         self._crash(commit=True)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("SELECT reference FROM rehearsal").fetchone()[0], 1)
             self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 2)
             self.assertEqual(db.execute("PRAGMA quick_check").fetchone()[0], "ok")
 
     def test_wal_abrupt_exit_before_commit_rolls_back_both_tables(self):
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
         self._crash(commit=False)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("PRAGMA journal_mode").fetchone()[0], "wal")
             self.assertEqual(db.execute("SELECT COUNT(*) FROM rehearsal").fetchone()[0], 0)
             self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 1)
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
     def test_wal_abrupt_exit_after_commit_replays_exactly_once(self):
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
         self._crash(commit=True)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM rehearsal").fetchone()[0], 1)
             self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 2)
             with self.assertRaises(sqlite3.IntegrityError):
@@ -71,13 +72,13 @@ os._exit(23)
             db.rollback()
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
         # Reopening after the WAL recovery must not regenerate a reference.
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("SELECT reference FROM rehearsal").fetchone()[0], 1)
             self.assertEqual(db.execute("SELECT next_number FROM sequence").fetchone()[0], 2)
 
     def test_unique_request_id_prevents_duplicate_after_restart(self):
         self._crash(commit=True)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             with self.assertRaises(sqlite3.IntegrityError):
                 db.execute("INSERT INTO rehearsal VALUES (?, ?)", ('request-0001', 2))
             self.assertEqual(db.execute("SELECT COUNT(*) FROM rehearsal").fetchone()[0], 1)

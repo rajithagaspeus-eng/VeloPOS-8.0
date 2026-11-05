@@ -108,7 +108,7 @@ class PreviewSignedEntitlementInspector:
             data = parsed
             verified = True
         except (ValueError, TypeError, UnicodeError, binascii.Error,
-                InvalidSignature, json.JSONDecodeError):
+                InvalidSignature, json.JSONDecodeError, RecursionError):
             reasons.append("invalid_license_signature")
         if verified:
             # V8 activation binding requires a versioned, signed identifier.

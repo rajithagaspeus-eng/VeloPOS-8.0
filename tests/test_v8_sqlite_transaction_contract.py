@@ -150,6 +150,79 @@ os._exit(39)
                 "PRAGMA integrity_check"
             ).fetchone()[0], "ok")
 
+    def test_waiting_writer_recovers_after_aborted_transaction(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+
+        locked = threading.Event()
+        release = threading.Event()
+
+        def aborted_writer():
+            db = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+            try:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "INSERT INTO preview_rehearsals VALUES (?,?,?)",
+                    ("aborted-writer", "d" * 64, "REHEARSAL-00000001"),
+                )
+                db.execute(
+                    "UPDATE preview_sequence SET next_number=2 WHERE singleton=1"
+                )
+                locked.set()
+                if not release.wait(5):
+                    raise AssertionError("waiting writer never released")
+                db.execute("ROLLBACK")
+            finally:
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
+                db.close()
+
+        def surviving_writer():
+            if not locked.wait(5):
+                raise AssertionError("first writer did not lock")
+            db = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+            try:
+                db.execute("PRAGMA busy_timeout=10000")
+                db.execute("BEGIN IMMEDIATE")
+                number = db.execute(
+                    "SELECT next_number FROM preview_sequence WHERE singleton=1"
+                ).fetchone()[0]
+                db.execute(
+                    "INSERT INTO preview_rehearsals VALUES (?,?,?)",
+                    ("surviving-writer", "e" * 64,
+                     f"REHEARSAL-{number:08d}"),
+                )
+                changed = db.execute(
+                    "UPDATE preview_sequence SET next_number=? "
+                    "WHERE singleton=1 AND next_number=?",
+                    (number + 1, number),
+                )
+                self.assertEqual(changed.rowcount, 1)
+                db.execute("COMMIT")
+                return number
+            finally:
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
+                db.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(aborted_writer)
+            second = pool.submit(surviving_writer)
+            self.assertTrue(locked.wait(5))
+            release.set()
+            first.result(timeout=10)
+            self.assertEqual(second.result(timeout=10), 1)
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute(
+                "SELECT request_id FROM preview_rehearsals"
+            ).fetchall(), [("surviving-writer",)])
+            self.assertEqual(db.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 2)
+            self.assertEqual(db.execute(
+                "PRAGMA integrity_check"
+            ).fetchone()[0], "ok")
+
     def test_concurrent_aborted_claims_do_not_consume_references(self):
         from concurrent.futures import ThreadPoolExecutor
 

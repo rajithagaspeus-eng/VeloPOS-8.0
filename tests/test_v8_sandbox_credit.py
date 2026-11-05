@@ -1099,6 +1099,64 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
                 assert PreviewSandboxAccounting(database).closeout().balanced
         """)
 
+    def test_independent_credit_audit_rejects_compensating_note_tamper(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            for n in (1,2):
+                credit_service.declare_credit_note(
+                    customer_id=customer_id,charge_ref=issued.reference,
+                    sale_line_no=1,quantity="1",
+                    request_id="independent-note-tamper-%04d" % n,**ctx()
+                )
+            assert credit_service.reconcile().balanced
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                refs = [row[0] for row in c.execute(
+                    "SELECT reference FROM main.v8_preview_sandbox_credit_notes "
+                    "ORDER BY reference"
+                )]
+                assert len(refs) == 2
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET amount_cents=5000 WHERE reference=?", (refs[0],)
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET amount_cents=4000 WHERE reference=?", (refs[1],)
+                )
+            audit = credit_service.reconcile()
+            assert not audit.balanced
+            assert "credit_note_individual_amount_invalid" in audit.reasons
+            assert not PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET amount_cents=4500"
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET quantity='0' WHERE reference=?", (refs[0],)
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET quantity='2' WHERE reference=?", (refs[1],)
+                )
+            audit = credit_service.reconcile()
+            assert not audit.balanced
+            assert "credit_note_individual_quantity_invalid" in audit.reasons
+            assert not PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET quantity='1'"
+                )
+            assert credit_service.reconcile().balanced
+            assert PreviewSandboxAccounting(database).closeout().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

@@ -78,6 +78,23 @@ class LegacySkipAcceptanceTests(unittest.TestCase):
         self.assertIn("gui_smoke", result.stdout)
         self.assertIn("JOB(S) FAILED", result.stdout)
 
+    def test_timeout_with_partial_skip_summary_fails_without_runner_crash(self):
+        # The previous timeout branch referenced an unbound CompletedProcess when
+        # partial output contained a skip summary. Keep this exact path covered.
+        result = self.suite(
+            "import time,unittest\\n"
+            "class Sample(unittest.TestCase):\\n"
+            "    def test_hangs(self):\\n"
+            "        print('skipped=1', flush=True)\\n"
+            "        time.sleep(3)\\n",
+            "--fail-on-skips", "--job-timeout", "1",
+        )
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("FAILED (subprocess timed out)", result.stdout)
+        self.assertIn("REPORTED UNITTEST SKIPS: 1", result.stdout)
+        self.assertNotIn("UnboundLocalError", result.stdout + result.stderr)
+        self.assertIn("gui_smoke", result.stdout)
+
     def test_empty_unittest_module_fails_closed(self):
         result = self.suite("pass\n", "--fail-on-skips")
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)

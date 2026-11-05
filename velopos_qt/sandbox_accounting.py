@@ -492,6 +492,18 @@ class PreviewSandboxAccounting:
                     except (ValueError, ArithmeticError, TypeError):
                         reasons.append("sandbox_credit_note_invalid_quantity")
                     if line is not None and charge is not None:
+                        # Check each note's monetary ceiling independently:
+                        # offsetting tampered amounts can leave the aggregate intact.
+                        try:
+                            with localcontext(_CONTEXT):
+                                per_note_ceiling = int((Decimal(note["quantity"]) *
+                                    Decimal(line["price"])).quantize(
+                                    _CENT, rounding=ROUND_HALF_UP) * 100)
+                            if (per_note_ceiling <= 0 or
+                                    note["amount_cents"] > per_note_ceiling):
+                                reasons.append("sandbox_credit_note_amount_mismatch")
+                        except (ValueError, ArithmeticError, TypeError, OverflowError):
+                            reasons.append("sandbox_credit_note_amount_mismatch")
                         note_lines.setdefault((note["invoice_ref"],note["sale_line_no"]),[]).append(note)
                 with localcontext(_CONTEXT):
                     for key, credited_lines in note_lines.items():

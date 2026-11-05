@@ -54,3 +54,15 @@ After every meaningful integration batch:
 | E Windows UX/release quality | NOT READY | Exact-head tests, all UI/hardware/migration/owner acceptance |
 
 **Gates accepted: 0/5.** The previously discussed 60% is an **informal development estimate**, not an objective release-readiness measure.
+
+
+## 2026-11-06 — no-skip full regression gate hardening (implementation, NOT EXECUTED)
+
+- Baseline code and Skill head before this batch: `19c003b52c8985dbb340af903750d5a736fcc70b`.
+- Observed on that SHA: GitHub-hosted Windows push [42081895568](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42081895568) failed with one `runner_id=0`, `steps=[]` job; this does **not** establish Python failures. Sandbox push [42081892649](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42081892649) also concluded failure, without a verified executed test log here.
+- Code inspection established a concrete false-green risk: `tests/run_all.py` returned zero even when Python unittest output contained `OK (skipped=N)`. The combined `run_v8_full_regression.py` treated that return code as successful.
+- Implementation: added opt-in `tests/run_all.py --fail-on-skips`, counted/report unittest skips and made them nonzero in strict mode; the combined full gate **always** passes this strict option. Historical standalone `tests/run_all.py` without this option preserves its prior exit-code behavior while still reports skip count. Added disposable strict/permissive contract cases in `tests/test_v8_legacy_skip_gate.py` and invocation assertion in `tests/test_v8_full_regression_runner.py`.
+- Code commits: `b07da2403de695f49a10bffa8bd60ae7c58681db`, `e861b5bfcb8e04a2641af3297f23efc06a5ceeab`, `9ec5b86f60cb448b7f57c8fac21bf163f3016505`, `ca0e38a830b6b52cfe3f954c0215b5cfe9718743`.
+- **TEST EXECUTION: NOT EXECUTED.** GitHub file inspection confirmed changes but no Windows/Python test output proves correctness at these commits. Changes may deliberately turn historically false-green suites red until real skips are eliminated. Do not mark Gate E accepted.
+- Next verification in an isolated Windows local checkout: `python -m unittest -v tests.test_v8_legacy_skip_gate tests.test_v8_full_regression_runner`, then the full combined runner with explicit disposable home; record interpreter, exact code SHA, failures/errors/skips and logs. Protect nested untracked `VeloPOS-8.0/` repo; use no real customer data.
+- **Commercial checkout remains disabled; gates accepted 0/5.**

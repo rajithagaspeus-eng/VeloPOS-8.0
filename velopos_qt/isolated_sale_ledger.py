@@ -1,12 +1,14 @@
 """In-memory-only atomic sale/stock/ledger rehearsal; NEVER commercial posting."""
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Context, Decimal, InvalidOperation, localcontext
 import json
 import sqlite3
 from threading import RLock
 
 from .sale_request_service import rehearse_sale_request
 from .sale_plan import plan_preview_sale
+
+_RECONCILE_CONTEXT = Context(prec=512)
 
 
 @dataclass(frozen=True)
@@ -47,10 +49,15 @@ class IsolatedSaleLedger:
                     barcode != barcode.strip() or not barcode.isprintable()):
                 raise ValueError("Invalid test barcode")
             try:
-                amount = Decimal(str(qty))
+                raw_qty = str(qty)
+                if len(raw_qty) > 128:
+                    raise ValueError("Test quantity representation too long")
+                amount = Decimal(raw_qty)
             except (InvalidOperation, TypeError, ValueError) as exc:
                 raise ValueError("Invalid test quantity") from exc
-            if type(qty) is bool or not amount.is_finite() or amount < 0 or amount > 1000000:
+            if (type(qty) is bool or not amount.is_finite() or
+                    amount < 0 or amount > 1000000 or
+                    (amount != 0 and not -18 <= amount.adjusted() <= 18)):
                 raise ValueError("Invalid test quantity")
             self._db.execute("INSERT INTO stock VALUES (?,?)", (barcode, str(amount)))
             self._initial_stock[barcode] = amount
@@ -85,8 +92,10 @@ class IsolatedSaleLedger:
                                (reference, line.barcode, str(line.qty), int(line.line_total * 100)))
                 for barcode, qty in plan.quantities:
                     row = db.execute("SELECT qty FROM stock WHERE barcode=?", (barcode,)).fetchone()
+                    with localcontext(_RECONCILE_CONTEXT):
+                        remaining = Decimal(row[0]) - qty
                     db.execute("UPDATE stock SET qty=? WHERE barcode=?",
-                               (str(Decimal(row[0]) - qty), barcode))
+                               (str(remaining), barcode))
                 db.execute("INSERT INTO journal VALUES (?,?,?)",
                            (reference, "demo_receivable", draft.subtotal_cents))
                 if inject_failure:
@@ -146,15 +155,17 @@ class IsolatedSaleLedger:
                     raise ValueError("Invalid RAM rehearsal item quantity") from exc
                 if not qty.is_finite() or qty <= 0:
                     raise ValueError("Invalid RAM rehearsal item quantity")
-                consumed[barcode] += qty
-            for barcode, raw in stock.items():
-                try:
-                    amount = Decimal(raw)
-                except InvalidOperation as exc:
-                    raise ValueError("Invalid RAM rehearsal stock") from exc
-                if (not amount.is_finite() or amount < 0 or
-                        amount != self._initial_stock[barcode] - consumed[barcode]):
-                    raise ValueError("RAM rehearsal stock movement mismatch")
+                with localcontext(_RECONCILE_CONTEXT):
+                    consumed[barcode] += qty
+            with localcontext(_RECONCILE_CONTEXT):
+                for barcode, raw in stock.items():
+                    try:
+                        amount = Decimal(raw)
+                    except InvalidOperation as exc:
+                        raise ValueError("Invalid RAM rehearsal stock") from exc
+                    if (not amount.is_finite() or amount < 0 or
+                            amount != self._initial_stock[barcode] - consumed[barcode]):
+                        raise ValueError("RAM rehearsal stock movement mismatch")
             for table in ("items", "journal"):
                 orphan = db.execute(
                     f"SELECT 1 FROM {table} AS detail LEFT JOIN requests AS r "

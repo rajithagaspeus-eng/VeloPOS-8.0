@@ -1184,6 +1184,52 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert credit_service.reconcile().balanced
         """)
 
+    def test_independent_audit_rejects_duplicate_repayment_and_note_results(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            repayment = repay("10", request_id="duplicate-repayment-source-0001")
+            note = credit_service.declare_credit_note(
+                customer_id=customer_id, charge_ref=issued.reference,
+                sale_line_no=1, quantity="1",
+                request_id="duplicate-note-source-0001", **ctx()
+            )
+            assert credit_service.reconcile().balanced
+            for scope, result_ref in (
+                ("credit_payment", repayment.reference),
+                ("credit_note", note.reference),
+            ):
+                duplicate_id = "duplicate-independent-" + scope + "-0001"
+                with database.db() as c:
+                    c.execute(
+                        "INSERT INTO main.v8_preview_request_journal "
+                        "(scope,request_id,payload_sha256,status,result_ref) "
+                        "SELECT scope,?,payload_sha256,status,result_ref "
+                        "FROM main.v8_preview_request_journal "
+                        "WHERE scope=? AND result_ref=? AND status='COMPLETED'",
+                        (duplicate_id, scope, result_ref)
+                    )
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM main.v8_preview_request_journal "
+                        "WHERE scope=? AND result_ref=? AND status='COMPLETED'",
+                        (scope, result_ref)
+                    ).fetchone()[0] == 2
+                audit = credit_service.reconcile()
+                assert not audit.balanced, (scope, audit)
+                assert "duplicate_credit_journal_result" in audit.reasons, (
+                    scope, audit
+                )
+                assert audit.can_checkout is False
+                with database.db() as c:
+                    c.execute(
+                        "DELETE FROM main.v8_preview_request_journal "
+                        "WHERE scope=? AND request_id=?",
+                        (scope, duplicate_id)
+                    )
+                assert credit_service.reconcile().balanced
+        """)
+
     def test_real_credit_is_never_enabled(self):
         self.isolated("""
             try:

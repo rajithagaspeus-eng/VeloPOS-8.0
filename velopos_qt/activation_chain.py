@@ -135,6 +135,15 @@ class PreviewSignedActivationChainInspector:
             if observed is not None and expires is not None and expires < observed:
                 reasons.append(label + "_expiry_precedes_observation")
 
+        # A signed pair cannot attest uninterrupted authorization if the
+        # predecessor expired before the successor was observed.
+        # Even a consistent pair never grants financial permissions.
+        prior_expiry = values["previous_expires_utc"]
+        next_observation = values["current_observed_utc"]
+        if (prior_expiry is not None and next_observation is not None
+                and prior_expiry < next_observation):
+            reasons.append("signed_activation_continuity_gap")
+
         old_seq, new_seq = values["previous_sequence"], values["current_sequence"]
         if old_seq is not None and new_seq is not None and new_seq <= old_seq:
             reasons.append("signed_sequence_not_increasing")

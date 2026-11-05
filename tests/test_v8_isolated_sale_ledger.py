@@ -264,6 +264,24 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_nonfinite_stock_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE stock SET qty='NaN' WHERE barcode='RICE'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal stock"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_negative_stock_blocks_new_rehearsal_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE stock SET qty='-1' WHERE barcode='SOAP'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal stock"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

@@ -2622,3 +2622,12 @@ milestones as commercial security gates permit.
 - Commit e6188f461faa5faeca996721eee1665f71d59a65: sandbox accounting closeout now detects repeated result_ref across completed credit_charge, credit_payment and credit_note request journals, even if request_id is different. This only changes the isolated read-only audit, not financial posting or authorization.
 - Commit 84306895cfcbc429d97e5e85e2d4fbaef1e81aab: disposable SQLite regression covering all three credit journal scopes, with restoration and balanced re-audit between tamper cases. **Test execution not verified**; do not report a passing test count.
 - **Next exact priority:** inspect Windows Actions for this checkpoint HEAD and recover runner execution. Run tests/test_v8_sandbox_credit.py independently in a disposable environment if Windows remains unassigned, repair any confirmed failures, then harden credit-note quantity/amount allocation and independent journal completeness. Maintain 0/5 accepted gates and no checkout, main, V7, production data, secrets or signing-key changes.
+
+
+## Individual credit-note quantity audit — 2026-11-05
+
+- Re-read V8 master roadmap, commercial gates, prior progress, recent develop-v8 commits and latest Windows CI before editing. Previous checkpoint 58d4b57 had failed Windows runs 41956515926 and 41956514348; no passing suite is established.
+- Commit ecd64f703927d5c938269cde686e8c3aaf573531 hardens isolated read-only sandbox closeout: every credit note quantity must be finite and strictly positive independently of aggregate credited quantity. A forged zero quantity note plus a larger valid quantity must not be accepted merely because aggregate totals still reconcile.
+- Commit 317b4534fa203fbf0d0c13b64ce20e11b90f0c4c adds a disposable SQLite regression creating two legitimate notes, tampering quantities to zero and two with unchanged aggregate, asserting fail-closed and then restoring a balanced closeout.
+- **Verification:** code and test committed; test execution not independently verified. Check Windows Actions for exact checkpoint head; do not infer pass from commits. Gates A/B/C/D/E remain unaccepted.
+- **Next priority:** recover Windows runner provisioning and execute targeted sandbox credit/accounting tests; repair confirmed regressions. Then extend per-credit-note amount verification and independent credit ledger allocation completeness. Keep real checkout and stock posting disabled; do not touch main, V7, customer data or signing keys.

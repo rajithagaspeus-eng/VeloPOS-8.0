@@ -79,7 +79,7 @@ class LegacySkipAcceptanceTests(unittest.TestCase):
         self.assertIn("JOB(S) FAILED", result.stdout)
 
     def test_empty_unittest_module_fails_closed(self):
-        result = self.suite("pass\\n", "--fail-on-skips")
+        result = self.suite("pass\n", "--fail-on-skips")
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("no tests executed", result.stdout)
         self.assertIn("JOB(S) FAILED", result.stdout)

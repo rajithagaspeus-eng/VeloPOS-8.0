@@ -756,6 +756,43 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert not credit_service.reconcile().balanced
         """)
 
+    def test_credit_note_refuses_wrong_owner_repayment_allocation(self):
+        for column, replacement in (
+            ("customer_id", "forged-other-customer"),
+            ("branch_id", "BRANCH-OTHER"),
+        ):
+            with self.subTest(column=column):
+                self.isolated(f"""
+                    invoice = sale_service.simulate_commit(**args)
+                    open_account()
+                    issued = charge(invoice.reference)
+                    credit_service.declare_repayment(
+                        customer_id=customer_id,amount="10",
+                        charge_ref=issued.reference,
+                        request_id="allocated-payment-0001",**ctx()
+                    )
+                    with database.db() as c:
+                        c.execute(
+                            "UPDATE main.v8_preview_sandbox_credit_allocations "
+                            "SET {column}=? WHERE charge_ref=?",
+                            ({replacement!r},issued.reference)
+                        )
+                    try:
+                        credit_service.declare_credit_note(
+                            customer_id=customer_id,charge_ref=issued.reference,
+                            sale_line_no=1,quantity="1",
+                            request_id="note-after-owner-tamper-0001",**ctx()
+                        )
+                    except PermissionError as exc:
+                        assert "after repayments" in str(exc), exc
+                    else:
+                        raise AssertionError("Wrong-owner allocation allowed credit note")
+                    with database.db() as c:
+                        assert c.execute(
+                            "SELECT COUNT(*) FROM main.v8_preview_sandbox_credit_notes"
+                        ).fetchone()[0] == 0
+                """)
+
     def test_mixed_repayment_modes_denied_in_both_directions(self):
         self.isolated("""
             invoice = sale_service.simulate_commit(**args)

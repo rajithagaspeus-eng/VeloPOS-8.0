@@ -526,3 +526,26 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   UNEXECUTED; private GitHub checkout is unavailable in local
   execution environment. No new test-pass count is claimed.
 - No main/V7/production changes. Commercial checkout remains disabled.
+
+## Four-stage sidecar validation and execution blocker (2026-11-05)
+
+- Added a fourth `_check_sidecars()` immediately after SQLite
+  connection PRAGMAs, before yielding a connection to initialization
+  or inspection. Existing pre-connect, post-connect and pre-COMMIT
+  checks remain. This narrows but cannot eliminate pathname TOCTOU.
+- Updated both pre-COMMIT sidecar fault-injection tests to inject on
+  the fourth check, and added an explicit success-path regression
+  asserting all four checks run for `inspect()`.
+- Current Windows run `42000924210` still fails with zero steps
+  and no assigned runner; Linux `42000922247` reports zero jobs.
+  Independent no-checkout runner diagnostic `41939831430` also
+  failed without any steps. Precise GitHub account/workflow admission
+  cause remains unconfirmed; inspect GitHub Actions UI billing,
+  repository Actions settings and organization policies.
+- Local `git ls-remote` for the private repository still fails
+  with `Could not resolve host: github.com`. Only a Python SQLite
+  runtime smoke check was executed this batch; **no VeloPOS
+  application tests were executed**, so no application PASS count
+  can be claimed. Do not conflate previous SQLite-only contract
+  tests with this branch's full regression suite.
+- main/V7/production and commercial checkout remain unchanged.

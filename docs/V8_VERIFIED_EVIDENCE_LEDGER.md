@@ -244,3 +244,11 @@ After every meaningful integration batch:
 - Added two regression scenarios for exact high-precision residual inventory and oversized initial stock representation, with an exact Decimal comparison (`529eb6ae4168bbefe2e0409994708b4d13e507cc`, `78b1f1b4149485139169286ab4f8a9ddb9a5803e`).
 - **Tests NOT EXECUTED.** No claim of PASS or 75% achieved. No production checkout, payment, refund or stock posting enabled; Gates A-E remain unaccepted (0/5). The RAM-only simulation is not a production accounting service.
 - Next: execute focused disposable test suite, address any failure, then proceed to independent authorization and commercial integration boundaries without touching V7, `main`, production DBs or keys.
+
+
+## 2026-11-06 — fail-closed RAM ledger boundary (development-only)
+
+- On `develop-v8`, `e32032a9e6596bf635b9104119e174adbdb2aa01` changes `IsolatedSaleLedger.inspect()` to check the entire existing RAM-only rehearsal ledger with `reconcile()` under its reentrant lock **before** any new transaction or replay. Detected stock or accounting tampering therefore denies additional simulated writes. This is a diagnostic integrity check, not a commercial authorization boundary.
+- `637dd788e2b0195769be586d668f050f166317de` adds two regressions that mutate RAM-only journal/stock records and assert new requests and replays are rejected without additional mutations.
+- **Status: code committed, tests NOT EXECUTED**; no new verified completion percentage or accepted release gate. Performance implications of full-ledger reconciliation per request need assessment before any non-demo design. All production checkout, refund, payment and stock writes remain disabled; `main`, V7, customer DB and signing keys unchanged.
+- Next: run focused isolated ledger tests in a safe environment, then continue service-boundary design based on failures and independently verified evidence.

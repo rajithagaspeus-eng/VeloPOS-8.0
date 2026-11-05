@@ -1,6 +1,7 @@
 """SQLite-only V8 preview crash, rollback and journal mode contract."""
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -11,16 +12,16 @@ class SQLiteTransactionContractTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = str(Path(self.temp.name) / "preview.sqlite")
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("CREATE TABLE preview_rehearsals (request_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, reference TEXT NOT NULL UNIQUE)")
             db.execute("CREATE TABLE preview_sequence (singleton INTEGER PRIMARY KEY CHECK(singleton = 1), next_number INTEGER NOT NULL CHECK(next_number > 0))")
             db.execute("INSERT INTO preview_sequence VALUES (1,1)")
 
     def test_journal_mode_switch_detection(self):
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("PRAGMA journal_mode").fetchone()[0], "delete")
             self.assertEqual(db.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertNotEqual(db.execute("PRAGMA journal_mode").fetchone()[0], "delete")
 
     def test_precommit_rollback_preserves_sequence(self):
@@ -33,7 +34,7 @@ class SQLiteTransactionContractTests(unittest.TestCase):
             db.execute("ROLLBACK")
         finally:
             db.close()
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("SELECT count(*) FROM preview_rehearsals").fetchone()[0], 0)
             self.assertEqual(db.execute("SELECT next_number FROM preview_sequence").fetchone()[0], 1)
 
@@ -48,7 +49,7 @@ class SQLiteTransactionContractTests(unittest.TestCase):
         child = subprocess.run([sys.executable, "-c", script, self.path],
                                capture_output=True, text=True, timeout=15)
         self.assertEqual(child.returncode, 29, child.stderr)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute("SELECT count(*) FROM preview_rehearsals").fetchone()[0], 0)
             self.assertEqual(db.execute("SELECT next_number FROM preview_sequence").fetchone()[0], 1)
 
@@ -64,7 +65,7 @@ class SQLiteTransactionContractTests(unittest.TestCase):
         child = subprocess.run([sys.executable, "-c", script, self.path],
                                capture_output=True, text=True, timeout=15)
         self.assertEqual(child.returncode, 31, child.stderr)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(
                 db.execute("SELECT count(*) FROM preview_rehearsals").fetchone()[0],
                 1,
@@ -76,7 +77,7 @@ class SQLiteTransactionContractTests(unittest.TestCase):
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
     def test_failed_sequence_compare_and_swap_rolls_back_insert(self):
-        with sqlite3.connect(self.path, isolation_level=None) as db:
+        with closing(sqlite3.connect(self.path, isolation_level=None)) as db, db:
             db.execute("BEGIN IMMEDIATE")
             try:
                 db.execute(
@@ -92,7 +93,7 @@ class SQLiteTransactionContractTests(unittest.TestCase):
             finally:
                 if db.in_transaction:
                     db.execute("ROLLBACK")
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(
                 db.execute("SELECT count(*) FROM preview_rehearsals").fetchone()[0], 0
             )
@@ -115,7 +116,7 @@ class SQLiteTransactionContractTests(unittest.TestCase):
             capture_output=True, text=True, timeout=15,
         )
         self.assertEqual(child.returncode, 37, child.stderr)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(
                 db.execute("SELECT count(*) FROM preview_rehearsals").fetchone()[0], 0
             )
@@ -139,7 +140,7 @@ os._exit(39)
             capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 39, result.stderr)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute(
                 "SELECT COUNT(*) FROM preview_rehearsals"
             ).fetchone()[0], 0)
@@ -212,7 +213,7 @@ os._exit(39)
             release.set()
             first.result(timeout=10)
             self.assertEqual(second.result(timeout=10), 1)
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute(
                 "SELECT request_id FROM preview_rehearsals"
             ).fetchall(), [("surviving-writer",)])
@@ -259,7 +260,7 @@ os._exit(39)
             numbers = list(pool.map(attempt, range(30)))
         committed = [number for number in numbers if number is not None]
         self.assertEqual(sorted(committed), list(range(1, 21)))
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute(
                 "SELECT COUNT(*) FROM preview_rehearsals"
             ).fetchone()[0], 20)
@@ -303,7 +304,7 @@ os._exit(39)
         with ThreadPoolExecutor(max_workers=8) as pool:
             numbers = list(pool.map(claim, range(32)))
         self.assertEqual(set(numbers), set(range(1, 33)))
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             self.assertEqual(db.execute(
                 "SELECT COUNT(*) FROM preview_rehearsals"
             ).fetchone()[0], 32)
@@ -313,7 +314,7 @@ os._exit(39)
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
     def test_sqlite_internal_stat_table_detectable(self):
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("ANALYZE")
             objects = db.execute("SELECT type,name FROM sqlite_master WHERE name GLOB 'sqlite_*'").fetchall()
             self.assertTrue(any(name == "sqlite_stat1" for _, name in objects))

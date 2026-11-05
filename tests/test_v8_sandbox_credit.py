@@ -447,6 +447,44 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert credit_service.reconcile().balanced
         """)
 
+    def test_credit_note_individual_invalid_quantity_cannot_hide_in_aggregate(self):
+        self.isolated("""
+            from velopos_qt.sandbox_accounting import PreviewSandboxAccounting
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            for n in (1, 2):
+                credit_service.declare_credit_note(
+                    customer_id=customer_id, charge_ref=issued.reference,
+                    sale_line_no=1, quantity="1",
+                    request_id="credit-note-individual-"+str(n), **ctx()
+                )
+            assert PreviewSandboxAccounting(database).closeout().balanced
+            with database.db() as c:
+                refs = [row[0] for row in c.execute(
+                    "SELECT reference FROM main.v8_preview_sandbox_credit_notes "
+                    "ORDER BY reference"
+                )]
+                assert len(refs) == 2
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET quantity='0' WHERE reference=?", (refs[0],)
+                )
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET quantity='2' WHERE reference=?", (refs[1],)
+                )
+            audit = PreviewSandboxAccounting(database).closeout()
+            assert not audit.balanced, audit
+            assert "sandbox_credit_note_invalid_quantity" in audit.reasons, audit
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_notes "
+                    "SET quantity='1' WHERE reference IN (?,?)", tuple(refs)
+                )
+            assert PreviewSandboxAccounting(database).closeout().balanced
+        """)
+
     def test_credit_note_cannot_exceed_debt_after_repayments(self):
         self.isolated("""
             invoice = sale_service.simulate_commit(**args)

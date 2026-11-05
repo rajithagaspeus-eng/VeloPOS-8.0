@@ -26,6 +26,7 @@ class IsolatedSaleLedger:
         if type(initial_stock) is not dict or not initial_stock:
             raise ValueError("Explicit nonempty test stock required")
         self._lock = RLock()
+        self._initial_stock = {}
         self._db = sqlite3.connect(":memory:", isolation_level=None,
                                    check_same_thread=False)
         self._db.execute("PRAGMA foreign_keys=ON")
@@ -52,6 +53,7 @@ class IsolatedSaleLedger:
             if type(qty) is bool or not amount.is_finite() or amount < 0 or amount > 1000000:
                 raise ValueError("Invalid test quantity")
             self._db.execute("INSERT INTO stock VALUES (?,?)", (barcode, str(amount)))
+            self._initial_stock[barcode] = amount
 
     def inspect(self, *, request_id, lines, inject_failure=False):
         """Atomic RAM rehearsal with replay and rollback; no sale authorization."""
@@ -130,10 +132,37 @@ class IsolatedSaleLedger:
                         dict(entries) != {"demo_receivable": expected,
                                           "demo_sales": -expected}):
                     raise ValueError("RAM rehearsal accounting mismatch")
-            for barcode, raw in db.execute("SELECT barcode,qty FROM stock"):
-                amount = Decimal(raw)
-                if not amount.is_finite() or amount < 0:
-                    raise ValueError("Invalid RAM rehearsal stock")
+            stock = dict(db.execute("SELECT barcode,qty FROM stock"))
+            if set(stock) != set(self._initial_stock):
+                raise ValueError("RAM rehearsal stock catalog mismatch")
+            consumed = {barcode: Decimal("0") for barcode in self._initial_stock}
+            for reference, barcode, raw_qty in db.execute(
+                    "SELECT reference,barcode,qty FROM items"):
+                if barcode not in consumed:
+                    raise ValueError("Unknown RAM rehearsal item")
+                try:
+                    qty = Decimal(raw_qty)
+                except InvalidOperation as exc:
+                    raise ValueError("Invalid RAM rehearsal item quantity") from exc
+                if not qty.is_finite() or qty <= 0:
+                    raise ValueError("Invalid RAM rehearsal item quantity")
+                consumed[barcode] += qty
+            for barcode, raw in stock.items():
+                try:
+                    amount = Decimal(raw)
+                except InvalidOperation as exc:
+                    raise ValueError("Invalid RAM rehearsal stock") from exc
+                if (not amount.is_finite() or amount < 0 or
+                        amount != self._initial_stock[barcode] - consumed[barcode]):
+                    raise ValueError("RAM rehearsal stock movement mismatch")
+            for table in ("items", "journal"):
+                orphan = db.execute(
+                    f"SELECT 1 FROM {table} AS detail LEFT JOIN requests AS r "
+                    "ON detail.reference=r.reference "
+                    "WHERE r.reference IS NULL LIMIT 1"
+                ).fetchone()
+                if orphan:
+                    raise ValueError("Orphan RAM rehearsal entry")
             return {"reconciled_requests": len(requests),
                     "total_cents": sum(value for _, value in requests),
                     "balanced": True}

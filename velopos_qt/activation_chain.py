@@ -97,7 +97,7 @@ class PreviewSignedActivationChainInspector:
             try:
                 verified[label] = self._verify(token)
             except (ValueError, TypeError, UnicodeError, binascii.Error,
-                    InvalidSignature):
+                    InvalidSignature, RecursionError):
                 reasons.append(label + "_status_signature_invalid")
 
         if len(verified) != 2:

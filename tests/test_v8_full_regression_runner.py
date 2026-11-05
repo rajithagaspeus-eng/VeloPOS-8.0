@@ -56,6 +56,16 @@ class FullRunnerContractTests(unittest.TestCase):
         self.assertTrue((self.root / "legacy-ran").exists())
         self.assertIn("V8 preview: FAIL", result.stdout)
 
+    def test_full_gate_enforces_legacy_skip_policy(self):
+        self.stub("run_v8_checks.py", "pass")
+        self.stub(
+            "tests/run_all.py",
+            "import sys; assert '--fail-on-skips' in sys.argv, "
+            "'combined runner must not accept skipped legacy tests'",
+        )
+        result = self.gate()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_legacy_failure_fails_closed(self):
         self.stub("run_v8_checks.py", "pass")
         self.stub("tests/run_all.py", "raise SystemExit(9)")

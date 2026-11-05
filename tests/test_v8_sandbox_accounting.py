@@ -32,6 +32,43 @@ class SandboxCloseoutTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_duplicate_completed_sale_journal_result_fails_closed(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            assert closeout.closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_request_journal "
+                    "(scope,request_id,fingerprint,status,result_ref) "
+                    "SELECT scope, 'duplicate-sale-journal-001', fingerprint, "
+                    "status,result_ref FROM main.v8_preview_request_journal "
+                    "WHERE scope='sale' AND result_ref=?", (sale.reference,)
+                )
+            audit = closeout.closeout()
+            assert not audit.balanced, audit
+            assert "duplicate_sale_journal_result" in audit.reasons, audit
+            assert audit.can_checkout is False
+        """)
+
+    def test_duplicate_completed_return_journal_result_fails_closed(self):
+        self.isolated("""
+            sale = sale_service.simulate_commit(**args)
+            returned = return_service.simulate_return(**new_return(sale.reference))
+            assert closeout.closeout().balanced
+            with database.db() as c:
+                c.execute(
+                    "INSERT INTO main.v8_preview_request_journal "
+                    "(scope,request_id,fingerprint,status,result_ref) "
+                    "SELECT scope, 'duplicate-return-journal-001', fingerprint, "
+                    "status,result_ref FROM main.v8_preview_request_journal "
+                    "WHERE scope='return' AND result_ref=?", (returned.reference,)
+                )
+            audit = closeout.closeout()
+            assert not audit.balanced, audit
+            assert "duplicate_return_journal_result" in audit.reasons, audit
+            assert audit.can_checkout is False
+        """)
+
     def test_no_sale_yet_produces_fail_closed_missing_schema(self):
         self.isolated("""
             result = closeout.closeout()

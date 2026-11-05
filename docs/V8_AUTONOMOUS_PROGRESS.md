@@ -2654,3 +2654,10 @@ milestones as commercial security gates permit.
 - Commit `9d519d7faa49b1ffd7e9d8e3287821fd3241a772` adds a disposable SQLite regression for offsetting 5000/4000-cent notes and 0/2 quantity tampering with clean-state restoration. **Tests committed, not executed or confirmed passing.**
 - **Next priority:** independently run `tests/test_v8_sandbox_credit.py`, repair any confirmed regression, recover assigned Windows CI runners, then review individual note price/rounding edge cases and service-bound authorization. Inspect exact-head CI for this checkpoint; no gate accepted based on committed code alone.
 - Commercial gates A–E remain unaccepted. No main/V7/production data, private keys or real financial posting paths were touched.
+
+## Independent credit journal result uniqueness — 2026-11-05
+
+- Re-read V8 master roadmap, commercial release gates, durable checkpoint and independent credit auditor. Previous checkpoint 73da50a had no PR-filtered workflow runs returned; that lookup cannot verify push-triggered Windows CI.
+- Code commit `35c200ed407ec7f773132eed06cc522226646587` rejects duplicate completed journal result references separately within credit_charge, credit_payment and credit_note scopes. A second completed request ID can no longer attest the same result without an audit failure. Isolated sandbox read-only audit only.
+- Regression commit `89b56d6484ac450a5e5b8aa8b3dcf0f26c48d684` adds a disposable SQLite credit-charge journal duplication/restoration test. **Test not executed in this connector session; no passing test count claimed.**
+- **Next priority:** obtain assigned Windows CI execution for exact head and independently run `tests/test_v8_sandbox_credit.py`; repair any confirmed failures. Expand duplicate-result tamper regressions to credit_payment and credit_note and audit per-note price/rounding edges. Then return to trusted service-bound authorization and Gate A/B integration. All five gates remain unaccepted; no real posting, V7/main edits, customer data or private signing keys touched.

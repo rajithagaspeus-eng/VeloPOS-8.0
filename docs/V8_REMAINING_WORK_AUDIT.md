@@ -478,3 +478,30 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   limits, **without distinguishing which**. Check repository Actions
   settings, organization policy and account billing/spending limits
   in GitHub UI; connector does not expose these endpoints.
+
+## Pre-COMMIT sidecar race defense and current test evidence (2026-11-05)
+
+- Revalidate all SQLite preview sidecars immediately before COMMIT,
+  in addition to pre-connect and post-connect checks. The guard
+  refuses a symlinked, hard-linked or nonregular sidecar discovered
+  while the preview write transaction is open.
+- Added application regression that injects a malicious `-shm`
+  symlink at the third sidecar check (pre-COMMIT), verifies rollback
+  of both the row and sequence, confirms external target unchanged,
+  and retries the request with reference 00000001. Test committed
+  but **not executed** in the application suite.
+- Re-executed the locally available standalone SQLite contract
+  modules: **8 tests, 8 PASS, 0 FAIL, 2.927 seconds**. These are
+  equivalent local copies of the SQLite-only contract tests, NOT a
+  checkout of the current VeloPOS repository or the actual application
+  regression suite. `git ls-remote` still fails DNS resolution for
+  github.com in the execution container.
+- The no-checkout GitHub runner diagnostic `41939831430` already
+  failed with zero steps and no runner; this establishes a
+  pre-application GitHub Actions failure but does not identify the
+  precise account/runner/workflow admission cause. Account settings
+  and runner provisioning must be inspected with GitHub admin access.
+- Filesystem TOCTOU cannot be fully prevented by pathname checks
+  alone; a private owned temporary directory / OS-level handle
+  security would be a stronger long-term design.
+- No main/V7/production modifications; checkout remains disabled.

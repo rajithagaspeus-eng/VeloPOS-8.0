@@ -570,6 +570,25 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             request_id="durable-request-0001", lines=self.lines
         ).reference, "REHEARSAL-00000001")
 
+    def test_pinned_inode_checked_after_connection_configuration(self):
+        from unittest.mock import patch
+        original_identity = self.journal._identity
+        calls = [0]
+
+        def count_identity():
+            calls[0] += 1
+            return original_identity()
+
+        with patch.object(self.journal, "_identity",
+                          side_effect=count_identity):
+            result = self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+        self.assertEqual(result.reference, "REHEARSAL-00000001")
+        # Before open, after sqlite3.connect, after configuring PRAGMAs,
+        # and before the transaction COMMIT.
+        self.assertEqual(calls[0], 4)
+
     def test_sidecars_checked_before_and_after_connection_configuration(self):
         from unittest.mock import patch
         original_check = self.journal._check_sidecars

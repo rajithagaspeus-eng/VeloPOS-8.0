@@ -521,10 +521,17 @@ class PreviewSandboxAccounting:
                     ("credit_payment", credit_repayment_refs),
                     ("credit_note", credit_note_refs),
                 ):
+                    journal_refs = set()
                     for row in connection.execute(
                         "SELECT status,result_ref FROM main.v8_preview_request_journal "
                         "WHERE scope=?", (scope,)
                     ):
+                        # A second completed request must never certify the
+                        # same financial result, even when its request_id differs.
+                        # Check every credit scope independently.
+                        if row["result_ref"] in journal_refs:
+                            reasons.append("sandbox_credit_duplicate_journal_result")
+                        journal_refs.add(row["result_ref"])
                         if row["status"] != "COMPLETED" or row["result_ref"] not in refs:
                             reasons.append("sandbox_credit_orphan_journal")
             gross = sum(row["subtotal_cents"] for row in sales)

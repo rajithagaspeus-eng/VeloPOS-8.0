@@ -358,7 +358,9 @@ class DurablePreviewSaleJournal:
             if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "delete":
                 raise PermissionError("Unsupported preview SQLite journal mode")
             conn.execute("PRAGMA busy_timeout=10000")
-            if conn.execute("PRAGMA busy_timeout").fetchone()[0] < 10000:
+            timeout_row = conn.execute("PRAGMA busy_timeout").fetchone()
+            if (timeout_row is None or not isinstance(timeout_row[0], int)
+                    or timeout_row[0] < 10000):
                 raise PermissionError("Preview SQLite busy timeout too short")
             # SQLite may create or remove sidecars while configuring its
             # connection. Revalidate immediately before handing it to a

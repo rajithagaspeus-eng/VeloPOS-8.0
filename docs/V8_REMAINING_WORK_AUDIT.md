@@ -573,3 +573,30 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   spending limit, runner provisioning, or workflow admission reason
   is not available via connector; do not claim a confirmed cause.
 - No main/V7/production data touched; checkout remains disabled.
+
+## Exact repository SQLite regression execution and pinned-inode lstat (2026-11-05)
+
+- Fetched `tests/test_v8_sqlite_transaction_contract.py` from
+  `develop-v8`, copied its complete exact source into a disposable
+  local test directory, and executed
+  `python -m unittest -v tests.test_v8_sqlite_transaction_contract`:
+  **5 PASS, 0 FAIL, 1.527 seconds**. These are genuine repository
+  SQLite contract test cases executed locally, but not a checked-out
+  repository or the full VeloPOS application suite.
+- Hardened pinned database `_identity()` with a single `lstat()`,
+  refusing symlinks (including dangling ones), nonregular files,
+  missing paths and hardlinks before returning device/inode identity.
+  Added application regression for a pinned database replaced by a
+  dangling symlink, asserting fail-closed and no target creation.
+  This new application test is **committed, not executed**.
+- Latest Windows Actions run `42002193662` has zero steps and no
+  assigned runner; Linux `42002191214` has zero jobs. The minimal
+  independent no-checkout diagnostic `41939831430` also failed
+  with no runner, so its failure cannot originate in VeloPOS tests
+  or dependency installation. Exact account/runner/workflow admission
+  root cause still requires GitHub account/admin UI evidence.
+- Remaining priority: run full `tests.test_v8_durable_sale_rehearsal`
+  and combined `run_v8_checks.py` against an actual checked-out
+  branch, investigate GitHub account spending and Actions policy,
+  and preserve fail-closed commercial boundaries.
+- main/V7/production untouched.

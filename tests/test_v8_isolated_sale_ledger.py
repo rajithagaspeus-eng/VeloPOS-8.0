@@ -96,6 +96,33 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     IsolatedSaleLedger(stock)
 
+    def test_reconciliation_detects_stock_tampering(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE stock SET qty='9' WHERE barcode='RICE'")
+        with self.assertRaisesRegex(ValueError, "stock movement mismatch"):
+            self.ledger.reconcile()
+
+    def test_reconciliation_detects_journal_tampering(self):
+        result = self.ledger.inspect(
+            request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE journal SET amount_cents=1 "
+            "WHERE reference=? AND account='demo_sales'",
+            (result.reference,))
+        with self.assertRaisesRegex(ValueError, "accounting mismatch"):
+            self.ledger.reconcile()
+
+    def test_reconciliation_detects_orphan_rows(self):
+        self.ledger._db.execute("PRAGMA foreign_keys=OFF")
+        try:
+            self.ledger._db.execute(
+                "INSERT INTO journal VALUES ('ORPHAN','demo_sales',0)")
+            with self.assertRaisesRegex(ValueError, "Orphan"):
+                self.ledger.reconcile()
+        finally:
+            self.ledger._db.execute("PRAGMA foreign_keys=ON")
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

@@ -85,6 +85,37 @@ class PreviewSignedEntitlementTests(unittest.TestCase):
             """
         )
 
+    def test_deeply_nested_validly_signed_entitlement_fails_closed(self):
+        self.isolated(
+            """
+            import base64
+            from datetime import date
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+            from velopos import database
+            from velopos_qt.license_entitlements import PreviewSignedEntitlementInspector
+
+            database.init_db()
+            signer = Ed25519PrivateKey.generate()  # disposable test key only
+            encode = lambda raw: base64.urlsafe_b64encode(raw).decode().rstrip("=")
+            public = encode(signer.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+            inspector = PreviewSignedEntitlementInspector(database, public_key_b64=public)
+            # Valid Ed25519 signature and canonical base64url envelope; the
+            # JSON decoder must reject excessive nesting without propagating.
+            raw = b"[" * 1200 + b"0" + b"]" * 1200
+            license_key = encode(raw) + "." + encode(signer.sign(raw))
+            decision = inspector.inspect(
+                action="sale", license_key=license_key,
+                machine_id="POS-TEST-1234", today=date(2026, 11, 5))
+            assert not decision.signature_valid, decision
+            assert not decision.entitled and not decision.can_execute
+            assert "invalid_license_signature" in decision.reasons
+            with database.db() as connection:
+                assert connection.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
+                assert connection.execute("SELECT COUNT(*) FROM stock_moves").fetchone()[0] == 0
+            """
+        )
+
     def test_foreign_production_path_and_bogus_public_keys_rejected(self):
         self.isolated(
             """

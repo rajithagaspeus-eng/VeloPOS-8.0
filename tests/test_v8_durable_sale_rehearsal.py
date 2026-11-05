@@ -183,6 +183,45 @@ print(result.reference + '|' + str(result.replayed), flush=True)
         )
         self.assertTrue(replay.replayed)
 
+    def test_connection_refuses_ineffective_full_synchronous_setting(self):
+        from unittest.mock import patch
+        original_connect = sqlite3.connect
+
+        class DurabilityFaultConnection:
+            def __init__(self, actual):
+                self.actual = actual
+
+            def execute(self, sql, *args):
+                if sql == "PRAGMA synchronous":
+                    class WeakDurability:
+                        def fetchone(self):
+                            return (1,)
+                    return WeakDurability()
+                return self.actual.execute(sql, *args)
+
+            def close(self):
+                return self.actual.close()
+
+            def __getattr__(self, name):
+                return getattr(self.actual, name)
+
+        def weak_connect(*args, **kwargs):
+            return DurabilityFaultConnection(original_connect(*args, **kwargs))
+
+        with patch("velopos_qt.durable_sale_rehearsal.sqlite3.connect",
+                   side_effect=weak_connect):
+            with self.assertRaisesRegex(PermissionError, "FULL synchronous"):
+                self.journal.inspect(
+                    request_id="durable-request-0001", lines=self.lines
+                )
+        with original_connect(self.path) as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0], 0)
+            self.assertEqual(conn.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 1)
+
     def test_constructor_refuses_dangling_database_symlink(self):
         missing_target = Path(tempfile.gettempdir()) / (
             "v8-missing-db-target-" + uuid4().hex + ".sqlite"

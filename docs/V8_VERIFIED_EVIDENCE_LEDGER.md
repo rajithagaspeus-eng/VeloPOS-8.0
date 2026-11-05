@@ -228,3 +228,11 @@ After every meaningful integration batch:
 - `47f1930aa3680a8a9ef91818f70152414fee90b4`: added four regressions for before/after reconciliation, parallel identical request deduplication, parallel distinct-request no-oversell, and invalid initial stock. No legacy or production database is opened by this simulation.
 - **Execution status: NOT EXECUTED.** These commits add code/tests but are not a verified passing milestone. No full Windows regression or commercial release approval. Gates remain 0/5. Checkout/payment/refund/stock posting OFF.
 - Next: implement explicit demo initial-stock reconciliation and adversarial journal tamper detection, then run targeted disposable tests when execution is available; defer consolidated Windows suite to final acceptance as owner requested.
+
+
+## 2026-11-06 — RAM sale-to-ledger stock provenance and tamper detection
+
+- Added initial-stock baseline tracking and read-only stock reconciliation in `velopos_qt/isolated_sale_ledger.py`, commit `07e2cb4da725d96045f5c1a8923aff0fcce568f4`. The diagnostic now compares remaining demo stock to initial quantities minus demo sale item quantities, refuses unexpected/missing catalog entries and nonfinite/negative item quantities, and detects orphan journal/item rows.
+- Added adversarial test cases in `tests/test_v8_isolated_sale_ledger.py`, commit `42cb36587607053af92ac9c35f92e71b1e92d3d7`, for manually altered demo stock, altered journal amounts and orphan rows. These test-only mutations affect only the explicitly constructed `:memory:` SQLite database.
+- **Verification: NOT EXECUTED.** These are implementation and regression additions, not an accepted PASS. Full Windows regression remains deferred at owner's request; commercial Gates A-E remain 0/5. No real checkout, payment, refund or stock posting enabled. Do not represent the informal 75% target as reached.
+- Next: run the isolated sale ledger tests in a safe execution environment, resolve failures, then continue integrating authorization and accounting contracts before release.

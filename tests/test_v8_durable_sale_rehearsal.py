@@ -570,6 +570,35 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             request_id="durable-request-0001", lines=self.lines
         ).reference, "REHEARSAL-00000001")
 
+    def test_injected_inode_swap_after_configuration_blocks_write(self):
+        from unittest.mock import patch
+        original_identity = self.journal._identity
+        calls = [0]
+
+        def fake_identity():
+            calls[0] += 1
+            actual = original_identity()
+            if calls[0] == 3:
+                return (actual[0], actual[1] + 1)
+            return actual
+
+        with patch.object(self.journal, "_identity",
+                          side_effect=fake_identity):
+            with self.assertRaisesRegex(
+                PermissionError, "during configuration"
+            ):
+                self.journal.inspect(
+                    request_id="durable-request-0001",
+                    lines=self.lines,
+                )
+        with sqlite3.connect(self.path) as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0], 0)
+            self.assertEqual(conn.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 1)
+
     def test_pinned_inode_checked_after_connection_configuration(self):
         from unittest.mock import patch
         original_identity = self.journal._identity

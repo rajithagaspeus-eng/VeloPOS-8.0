@@ -100,3 +100,12 @@ After every meaningful integration batch:
 - Execution 1: `PYTHONDONTWRITEBYTECODE=1 python -m unittest -v tests.test_v8_legacy_skip_gate` in `/tmp/velopos_isolated`: **6 tests run, 0 failures, 0 errors, 0 skips, exit 0, 18.563 seconds**. Execution 2: same reconstructed tests with `-q`: **6 tests run, exit 0, 19.214 seconds**. Local `py_compile` of reconstructed runner and test module returned exit 0.
 - Classification: **EXECUTED PASS — RECONSTRUCTED ISOLATED CONTRACT ONLY**. Does **NOT** certify the exact GitHub HEAD, actual repository tests, PySide6, Windows compatibility, or full strict release regression. No production checkout authorization or release gate is accepted. Full Windows/exact-source test remains **NOT EXECUTED**.
 - Next: obtain an exact `develop-v8` checkout on a disposable Windows runner and execute `python -m unittest -v tests.test_v8_legacy_skip_gate tests.test_v8_full_regression_runner`, then `python run_v8_full_regression.py` with logs and zero unapproved skips. Checkout OFF; 0/5 gates.
+
+
+## 2026-11-06 — isolated Linux legacy-runner contract verification (6/6 PASS, limited scope)
+
+- Source read from GitHub `develop-v8` at branch HEAD `a3353639d51d8047b026866248e00661a4517329`: `tests/run_all.py` and `tests/test_v8_legacy_skip_gate.py`. Runner and tests were copied into a separate disposable directory; **not a full Git checkout** and not a Windows environment.
+- Executed `python -m unittest -v tests.test_v8_legacy_skip_gate` using Python 3.13.5 on Linux. Actual output: **Ran 6 tests in 18.326s; OK; 0 failures, 0 errors, 0 skips**, exit 0. Local captured log: `/mnt/data/velopos_v8_targeted_test.log` (conversation runtime artifact, not committed to GitHub).
+- Cases: strict skip denial, permitted legacy non-strict skip, valid strict pass, timeout failure reporting with subsequent checks, zero-test denial and nonpositive timeout rejection.
+- **Evidence classification: EXECUTED PASS — isolated copied-source contract subset only.** Does NOT establish an exact-head full-repository test PASS, current Windows/PySide6 behavior, all legacy tests, hardware readiness or any commercial gate.
+- Full `run_v8_full_regression.py` and Windows tests: **NOT EXECUTED**. GitHub-hosted runner issue unresolved. No checkout, payment, refund or stock posting enabled; Gates accepted **0/5**.

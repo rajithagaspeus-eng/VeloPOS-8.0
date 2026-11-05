@@ -505,3 +505,24 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   alone; a private owned temporary directory / OS-level handle
   security would be a stronger long-term design.
 - No main/V7/production modifications; checkout remains disabled.
+
+## Initialization transaction sidecar hardening (2026-11-05)
+
+- Extended pre-COMMIT sidecar validation to the constructor's
+  `BEGIN IMMEDIATE` initialization transaction. This protects the
+  first schema creation and sequence insertion as well as subsequent
+  `inspect()` writes.
+- Added application regression that injects a `-shm` symlink at
+  the constructor's third sidecar check, expects PermissionError,
+  verifies no schema tables were committed, then reopens and creates
+  the first gapless preview reference. External target stays unchanged.
+- Latest workflow runs `42000708761` (Windows: empty runner, zero
+  steps) and `42000706431` (Linux: zero jobs) fail before any
+  application test. The independent no-checkout runner diagnostic
+  `41939831430` also failed before steps. This rules out application
+  test failures as the cause of that diagnostic run, but not the exact
+  GitHub Actions admission / account / runner policy root cause.
+- Full actual VeloPOS application suite and this new test remain
+  UNEXECUTED; private GitHub checkout is unavailable in local
+  execution environment. No new test-pass count is claimed.
+- No main/V7/production changes. Commercial checkout remains disabled.

@@ -950,12 +950,19 @@ class PreviewSandboxCreditLedger:
             for scope, refs in (("credit_charge",charge_refs),
                                 ("credit_payment",payment_refs),
                                 ("credit_note",note_refs)):
+                seen_result_refs = set()
                 for journal in c.execute(
                     "SELECT status,result_ref FROM main.v8_preview_request_journal "
                     "WHERE scope=?", (scope,)
                 ):
                     if journal["status"] != "COMPLETED" or journal["result_ref"] not in refs:
                         issues.append("orphan_credit_journal")
+                    # A second completed request must never attest the same
+                    # financial result, even if both request IDs are unique.
+                    if journal["status"] == "COMPLETED":
+                        if journal["result_ref"] in seen_result_refs:
+                            issues.append("duplicate_credit_journal_result")
+                        seen_result_refs.add(journal["result_ref"])
             charged = sum(row["amount_cents"] for row in charges)
             repaid = sum(row["amount_cents"] for row in payments)
             credited = sum(row["amount_cents"] for row in notes)

@@ -723,6 +723,39 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
             assert "credit_repayment_allocation_mismatch" in audit.reasons
         """)
 
+    def test_credit_note_refuses_mismatched_repayment_allocation(self):
+        self.isolated("""
+            invoice = sale_service.simulate_commit(**args)
+            open_account()
+            issued = charge(invoice.reference)
+            credit_service.declare_repayment(
+                customer_id=customer_id,amount="10",
+                charge_ref=issued.reference,request_id="allocated-payment-0001",
+                **ctx()
+            )
+            with database.db() as c:
+                c.execute(
+                    "UPDATE main.v8_preview_sandbox_credit_allocations "
+                    "SET amount_cents=999 WHERE charge_ref=?",
+                    (issued.reference,)
+                )
+            try:
+                credit_service.declare_credit_note(
+                    customer_id=customer_id,charge_ref=issued.reference,
+                    sale_line_no=1,quantity="1",
+                    request_id="note-after-forged-allocation-0001",**ctx()
+                )
+            except PermissionError as exc:
+                assert "after repayments" in str(exc), exc
+            else:
+                raise AssertionError("Mismatched allocation allowed credit note")
+            with database.db() as c:
+                assert c.execute(
+                    "SELECT COUNT(*) FROM main.v8_preview_sandbox_credit_notes"
+                ).fetchone()[0] == 0
+            assert not credit_service.reconcile().balanced
+        """)
+
     def test_mixed_repayment_modes_denied_in_both_directions(self):
         self.isolated("""
             invoice = sale_service.simulate_commit(**args)

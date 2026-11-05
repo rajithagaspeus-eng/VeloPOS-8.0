@@ -62,6 +62,20 @@ class PreviewSaleRequestServiceTests(unittest.TestCase):
                         request_id="request-sale-0001", lines=self.lines, **claims
                     )
 
+    def test_commit_denies_before_reading_hostile_request_data(self):
+        class HostileLines:
+            def __iter__(self):
+                raise AssertionError("Denied checkout must not inspect lines")
+
+        with self.assertRaises(PermissionError):
+            self.service.commit(
+                request_id="request-hostile-0001",
+                lines=HostileLines(),
+                license_valid=True,
+                is_admin=True,
+                open_shift=True,
+            )
+
     def test_duplicate_barcode_over_limit_fails_closed(self):
         # Two individually valid lines must not bypass aggregate stock bounds.
         with self.assertRaises(ValueError):

@@ -155,3 +155,12 @@ After every meaningful integration batch:
 - This is **pre-run infrastructure failure**, not a Python/Flutter regression result. Verified executed assertions from this diagnostic: **0**. Previous job metadata with runner_id=0 and steps=[] is consistent. No release gate changes; **0/5 accepted**.
 - **LKR 0 policy:** no paid runner, card/payment change or billing upgrade. Next safe action: check GitHub account Billing and licensing / Actions spending limit or available included minutes in the user's own UI, without making paid changes; then use isolated local regression execution if GitHub-hosted runners remain blocked.
 - This ledger entry only; no checkout, payments, refunds, stock posting, main, V7 or customer production data changed.
+
+
+## 2026-11-06 — exact Git blob verified legacy runner contract execution (PASS)
+
+- Read branch `develop-v8` HEAD `283f9ec118e9d18fb7aad415f0dd37066631f127`. Fetched `tests/run_all.py` and `tests/test_v8_legacy_skip_gate.py` from this exact commit via GitHub connector. Assembled only these two source files and `tests/__init__.py` in isolated `/mnt/data/velopos_exact_tests` (no production databases, POS application or customer records).
+- **Byte-for-byte source integrity independently verified:** local `git hash-object tests/run_all.py` = `5381f8ef31b3680c3ce613c3169bead5aac702d4`, matching GitHub content blob SHA; `git hash-object tests/test_v8_legacy_skip_gate.py` = `0664f64390d0d963df7d907ab71c48eabadf90ee`, matching GitHub content blob SHA. This establishes exact-source parity for these two files, despite GitHub clone being unavailable.
+- Executed `PYTHONDONTWRITEBYTECODE=1 python -m unittest -v tests.test_v8_legacy_skip_gate` on Linux isolated filesystem. **Result: 8 tests run in 23.313 seconds; 0 failures, 0 errors, 0 skipped; exit code 0.** Both partial-skip timeout cases, no-test detection, strict skip rejection, timeout argument validation and legacy compatibility passed.
+- Classification: **PASS for exact-Git-blob two-file targeted regression only**. The remaining repository files, Windows execution, full strict suite, Qt/POS integration and commercial release gates were not exercised. No Windows/full-suite pass is claimed; release gates remain **0/5** and commercial checkout OFF.
+- Next single verification task: run the full strict `python run_v8_full_regression.py` on an isolated Windows checkout of the latest exact `develop-v8` SHA and record every test count, skip, failure and runner log before accepting release gates. Preserve main, V7, signing keys and customer data.

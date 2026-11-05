@@ -444,3 +444,24 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   remain UNEXECUTED. Earlier local SQLite contract results must not
   be presented as current application suite results.
 - main/V7/production unchanged; V8 is noncommercial test-only.
+
+## Dangling SQLite sidecar protection and runner isolation (2026-11-05)
+
+- Changed preview sidecar inspection from separate `is_symlink()` /
+  `exists()` / `stat()` calls to one `lstat()` and a regular-file
+  mode/hardlink check. This fails closed on dangling symlinks and
+  directory sidecars, and reduces metadata check race windows.
+- Added two application regressions: dangling rollback sidecar symlink
+  and rollback sidecar directory, each requiring refusal before
+  request/sequence mutation. Tests committed, not locally executed.
+- Added `.github/workflows/v8-runner-diagnostic.yml`: a minimal
+  ubuntu-latest job with no checkout, Python setup, or dependencies.
+  It runs on changes to its own file or manual dispatch and will
+  distinguish runner allocation failures from app/dependency failures.
+  Await its run result before attributing a specific root cause.
+- Latest observed Windows `41939814662` and Linux `41939812993`
+  still fail before application test execution. Existing evidence
+  remains insufficient to identify a definitive GitHub Actions cause.
+- Private repository clone remains blocked by DNS in the execution
+  environment. Full VeloPOS application suite NOT executed, and no
+  new test pass counts are claimed. main/V7/production untouched.

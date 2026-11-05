@@ -549,3 +549,27 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   can be claimed. Do not conflate previous SQLite-only contract
   tests with this branch's full regression suite.
 - main/V7/production and commercial checkout remain unchanged.
+
+## Constructor integrity gate (2026-11-05)
+
+- Added `PRAGMA integrity_check` inside the constructor's
+  `BEGIN IMMEDIATE` transaction, before schema/sequence COMMIT.
+  This prevents a successful initialization commit when SQLite reports
+  structural corruption, complementing the existing inspection gate.
+- Added an application fault-injection regression returning a simulated
+  corrupt integrity result after schema creation. It asserts
+  `PermissionError`, no committed schema, and a successful clean
+  retry with first preview reference 00000001.
+- Executed a local stdlib SQLite initialization integrity/rollback
+  **smoke test: PASS**. This is NOT the VeloPOS application suite,
+  nor the newly committed application regression; those remain
+  UNEXECUTED because private repository checkout cannot resolve
+  github.com from the local container.
+- Windows run `42001842147` again failed without runner or steps;
+  Linux run `42001839686` has zero jobs. The earlier minimal
+  no-checkout diagnostic `41939831430` also failed with no runner.
+  This excludes VeloPOS application execution as the cause of that
+  minimal diagnostic's failure. Exact account/organization policy,
+  spending limit, runner provisioning, or workflow admission reason
+  is not available via connector; do not claim a confirmed cause.
+- No main/V7/production data touched; checkout remains disabled.

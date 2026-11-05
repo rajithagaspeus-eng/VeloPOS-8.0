@@ -812,6 +812,7 @@ class SandboxCreditIntegrationTests(unittest.TestCase):
                 charge_ref=own_charge.reference,
                 request_id="foreign-owner-payment-0001",**ctx()
             )
+            assert credit_service.reconcile().balanced
             with database.db() as c:
                 c.execute(
                     "UPDATE main.v8_preview_sandbox_credit_allocations "

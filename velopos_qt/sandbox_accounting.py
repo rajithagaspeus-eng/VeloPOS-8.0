@@ -280,13 +280,27 @@ class PreviewSandboxAccounting:
                     sold_line = line_map[key]
                     used = sum((q for q, _ in lines), Decimal("0"))
                     refunded_cents = sum(value for _, value in lines)
-                    if used > Decimal(sold_line["quantity"]):
-                        reasons.append("overreturned_original_quantity")
-                    expected_cents = min(
-                        sold_line["line_cents"],
-                        int((used * Decimal(sold_line["price"]))
-                            .quantize(_CENT, rounding=ROUND_HALF_UP) * 100),
-                    )
+                    # A corrupt original line must not crash closeout when
+                    # returns reference it. Fail closed without trusting NaN,
+                    # infinity, zero/negative quantities or invalid prices.
+                    try:
+                        original_qty = Decimal(sold_line["quantity"])
+                        original_price = Decimal(sold_line["price"])
+                        if (not original_qty.is_finite()
+                                or not original_price.is_finite()
+                                or original_qty <= 0 or original_price < 0):
+                            raise ValueError("invalid original sale amount")
+                        if used > original_qty:
+                            reasons.append("overreturned_original_quantity")
+                        expected_cents = min(
+                            sold_line["line_cents"],
+                            int((used * original_price).quantize(
+                                _CENT, rounding=ROUND_HALF_UP
+                            ) * 100),
+                        )
+                    except (ValueError, ArithmeticError, TypeError):
+                        reasons.append("invalid_return_original_sale_decimal")
+                        continue
                     if refunded_cents != expected_cents:
                         reasons.append("return_amount_allocation_mismatch")
             journal_returns = connection.execute(

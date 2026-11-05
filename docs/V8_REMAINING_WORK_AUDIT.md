@@ -801,3 +801,29 @@ using disposable data until all Gate A/B acceptance criteria are proven.
   or an accessible checkout to execute them.
 - Only develop-v8 changed. main, V7, production data and
   commercial checkout unchanged.
+
+## Waiting-writer rollback recovery and runner-log investigation (2026-11-05)
+
+- Added `test_waiting_writer_recovers_after_aborted_transaction`
+  to the committed SQLite contract suite. One connection obtains
+  `BEGIN IMMEDIATE`, inserts a preview row, advances the sequence,
+  and rolls back; a second connection subsequently commits the
+  first reference with no gap. Verifies only the surviving row,
+  sequence 2 and `PRAGMA integrity_check=ok`.
+- **ACTUALLY EXECUTED** local repository SQLite contract tests
+  using `python -m unittest -v
+  tests.test_v8_sqlite_transaction_contract`: **11 PASS,
+  0 FAIL, 3.525 seconds**. The new test was copied verbatim from
+  the committed GitHub test into the existing local test module.
+  This is not a full VeloPOS application test run.
+- Windows run `42007613870` failed before runner assignment.
+  The job logs endpoint for job `127178243554` returned
+  `404 BlobNotFound`, consistent with no logs being produced;
+  it does not prove the precise underlying account/runner
+  failure. Linux and the no-checkout diagnostic also fail
+  pre-execution. Definitive root cause remains unknown.
+- Full durable sale rehearsal application suite and full VeloPOS
+  regression suite remain **UNEXECUTED**: private checkout
+  unavailable to local runner; hosted Actions cannot start jobs.
+- Only develop-v8 changed; main/V7/production data untouched.
+  No commercial checkout enabled.

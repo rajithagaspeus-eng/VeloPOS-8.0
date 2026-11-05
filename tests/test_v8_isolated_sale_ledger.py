@@ -191,6 +191,26 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_missing_journal_leg_blocks_replay_without_writes(self):
+        result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "DELETE FROM journal WHERE reference=? AND account='demo_sales'",
+            (result.reference,))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "accounting mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_duplicate_journal_leg_blocks_new_sale_without_writes(self):
+        result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "INSERT INTO journal VALUES (?,?,?)",
+            (result.reference, "demo_sales", -result.subtotal_cents))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "accounting mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

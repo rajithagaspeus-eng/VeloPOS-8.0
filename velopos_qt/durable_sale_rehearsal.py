@@ -343,19 +343,24 @@ class DurablePreviewSaleJournal:
             conn.execute("PRAGMA foreign_keys=ON")
             # SQLite PRAGMA setters can silently be ineffective on a
             # connection. Verify fail-closed security settings before writes.
-            if conn.execute("PRAGMA trusted_schema").fetchone()[0] != 0:
+            trusted_row = conn.execute("PRAGMA trusted_schema").fetchone()
+            if trusted_row is None or trusted_row[0] != 0:
                 raise PermissionError("Preview SQLite trusted schema must be OFF")
-            if conn.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+            foreign_row = conn.execute("PRAGMA foreign_keys").fetchone()
+            if foreign_row is None or foreign_row[0] != 1:
                 raise PermissionError("Preview SQLite foreign keys must be ON")
             # Rehearsal crash tests depend on durable SQLite commit semantics.
             conn.execute("PRAGMA synchronous=FULL")
             # Fail closed if SQLite refuses a durability configuration;
             # successful PRAGMA execution alone does not prove it took effect.
-            if conn.execute("PRAGMA synchronous").fetchone()[0] != 2:
+            synchronous_row = conn.execute("PRAGMA synchronous").fetchone()
+            if synchronous_row is None or synchronous_row[0] != 2:
                 raise PermissionError("Preview SQLite FULL synchronous mode required")
             # WAL introduces independent -wal/-shm files outside the pinned
             # database inode. Refuse it rather than silently switching modes.
-            if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "delete":
+            journal_row = conn.execute("PRAGMA journal_mode").fetchone()
+            if (journal_row is None or not isinstance(journal_row[0], str)
+                    or journal_row[0].lower() != "delete"):
                 raise PermissionError("Unsupported preview SQLite journal mode")
             conn.execute("PRAGMA busy_timeout=10000")
             timeout_row = conn.execute("PRAGMA busy_timeout").fetchone()

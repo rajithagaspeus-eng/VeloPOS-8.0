@@ -421,3 +421,26 @@ using disposable data until all Gate A/B acceptance criteria are proven.
 - Full repository application regression remains blocked by private
   repo checkout DNS resolution and unavailable GitHub Actions runners.
   main/V7/production and commercial checkout unchanged.
+
+## Sidecar open-race regression and CI scheduling evidence (2026-11-05)
+
+- Added a second `_check_sidecars()` after sqlite3.connect, before
+  journal transactions, narrowing the pre-open sidecar substitution
+  window. This does NOT eliminate a fully adversarial filesystem TOCTOU
+  race; OS-level secure directory ownership or fd-based safeguards
+  would be needed for a stronger guarantee.
+- Added application regression that injects a symlinked rollback
+  journal between the initial check and connect completion and
+  requires fail-closed behavior, unchanged external target and no
+  consumed preview row. Windows symlink privilege restrictions skip
+  this one test explicitly.
+- Windows Actions run `41939391326` failed in roughly two seconds
+  (started 00:10:53Z, completed 00:10:55Z) with runner_name empty and
+  zero steps. Linux `41939389325` reported zero jobs. This strongly
+  points to a pre-execution scheduling or workflow-level failure,
+  not an application test assertion; root cause is still unconfirmed.
+- No checked-out VeloPOS application regression execution was
+  possible in this environment; newly committed application tests
+  remain UNEXECUTED. Earlier local SQLite contract results must not
+  be presented as current application suite results.
+- main/V7/production unchanged; V8 is noncommercial test-only.

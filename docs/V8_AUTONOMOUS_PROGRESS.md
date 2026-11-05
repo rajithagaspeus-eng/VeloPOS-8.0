@@ -2730,3 +2730,12 @@ milestones as commercial security gates permit.
 - No production application code was changed. These regressions were committed but **not executed** in this run; verified passing test count: **0**. Exact-head Windows CI for the new test/checkpoint commit must be inspected and rerun when a Windows runner is assigned.
 - Commercial gates A/B/C/D/E remain unaccepted (0/5). Preview transaction authorization continues to deny financial posting. Do not change `main`, V7 data, production records or signing keys.
 - **Next priority:** recover hosted Windows runner eligibility/assignment and run `python -m unittest -v tests.test_v8_phase2_canonical_branch` plus full `python run_v8_checks.py` with zero skips on exact HEAD. Repair genuine failures if observed. Then continue Gate A service-bound signed identity/shift/branch authorization and Gate B atomic accounting reconciliation, without enabling checkout.
+
+
+## November 5, 2026 — malformed canonical branch schema fail-closed batch
+
+- Code commit `f85269c2db4f1ec045ff925cb637d289e3f4055b` catches SQLite database errors when reading malformed canonical branch registry, membership or shift-binding schemas, treating the affected lookup as denied. No financial posting path is enabled.
+- Regression commit `4fa9858eeb742cf89d6b96d7f0e4149175aedbb4` adds an isolated disposable-db malformed-column scenario that asserts denial and zero sales, returns, stock moves and supplier payments.
+- Before this batch, push Windows Actions run 42062784357 for `8f8cd2eb9318dfda9e09a6fc22d8d4b27a9cf944` failed with runner_id=0 and zero executed steps. This is not evidence of a failing Python test.
+- **Verification:** new test has not been independently executed; passing test count is unverified. Exact-head Windows Actions result must be inspected after this checkpoint commit.
+- **Next:** obtain an assigned Windows runner and execute `python run_v8_checks.py` at the exact branch SHA. If hosted runners remain unavailable, run isolated branch and full-suite checks in an approved disposable environment. Continue service-bound authorization and accounting integrity; Gates A/B/C/D/E remain blocked. Keep V7 and main untouched.

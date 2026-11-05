@@ -295,6 +295,25 @@ print(result.reference + '|' + str(result.replayed), flush=True)
             request_id="durable-request-0001", lines=self.lines
         ).reference, "REHEARSAL-00000001")
 
+    def test_sidecars_checked_before_and_after_connection_configuration(self):
+        from unittest.mock import patch
+        original_check = self.journal._check_sidecars
+        checks = [0]
+
+        def count_checks():
+            checks[0] += 1
+            return original_check()
+
+        with patch.object(self.journal, "_check_sidecars",
+                          side_effect=count_checks):
+            first = self.journal.inspect(
+                request_id="durable-request-0001", lines=self.lines
+            )
+        self.assertEqual(first.reference, "REHEARSAL-00000001")
+        # Before connect, after sqlite3.connect, after connection PRAGMAs,
+        # and before the transaction COMMIT.
+        self.assertEqual(checks[0], 4)
+
     def test_sidecar_substitution_before_commit_rolls_back_both_tables(self):
         from unittest.mock import patch
         sidecar = Path(self.path + "-shm")

@@ -440,7 +440,10 @@ class PreviewSandboxSaleLedger:
                         move_refs_for_barcode = {
                             move["reference"] for move in existing_moves
                         }
-                        if invoice_refs_for_barcode != move_refs_for_barcode:
+                        if (invoice_refs_for_barcode != move_refs_for_barcode
+                                or len(existing_moves) != len(move_refs_for_barcode)):
+                            # A set comparison alone hides duplicate movements
+                            # for one invoice and barcode.
                             raise PermissionError(
                                 "Sandbox stock movement history invoice coverage mismatch"
                             )

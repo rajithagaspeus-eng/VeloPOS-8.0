@@ -229,6 +229,24 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_unknown_item_barcode_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE items SET barcode='UNREGISTERED' WHERE barcode='SOAP'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Unknown RAM rehearsal item"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_zero_item_quantity_blocks_new_rehearsal_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE items SET qty='0' WHERE barcode='SOAP'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal item quantity"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

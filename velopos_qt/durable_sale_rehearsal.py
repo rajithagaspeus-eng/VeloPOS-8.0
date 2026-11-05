@@ -343,6 +343,10 @@ class DurablePreviewSaleJournal:
             conn.execute("PRAGMA foreign_keys=ON")
             # Rehearsal crash tests depend on durable SQLite commit semantics.
             conn.execute("PRAGMA synchronous=FULL")
+            # Fail closed if SQLite refuses a durability configuration;
+            # successful PRAGMA execution alone does not prove it took effect.
+            if conn.execute("PRAGMA synchronous").fetchone()[0] != 2:
+                raise PermissionError("Preview SQLite FULL synchronous mode required")
             # WAL introduces independent -wal/-shm files outside the pinned
             # database inode. Refuse it rather than silently switching modes.
             if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "delete":

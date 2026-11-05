@@ -49,7 +49,10 @@ for name, cmd in jobs:
     rows.append((name, "FAIL" if job_failed else "PASS", detail, time.time() - t))
     if job_failed:
         failed += 1
-        reason = "skipped tests are forbidden in strict mode" if skips and args.fail_on_skips and r.returncode == 0 else "subprocess returned nonzero"
+        reason = ("subprocess timed out" if returncode == 124 else
+                  "no unittest tests executed" if no_tests else
+                  "skipped tests are forbidden in strict mode" if skips and args.fail_on_skips and returncode == 0 else
+                  "subprocess returned nonzero")
         print(f"\n===== {name} FAILED ({reason}) =====\n{out[-3000:]}")
 print("\n" + "=" * 56)
 for name, st, detail, secs in rows:

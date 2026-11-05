@@ -123,6 +123,21 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
         finally:
             self.ledger._db.execute("PRAGMA foreign_keys=ON")
 
+    def test_high_precision_stock_is_not_rounded_by_host_context(self):
+        ledger = IsolatedSaleLedger({
+            "RICE": "1.00000000000000000000000000000000001"})
+        result = ledger.inspect(
+            request_id="ram-precision-0001",
+            lines=[{"barcode": "RICE", "qty": "1",
+                    "price": "1.00"}])
+        self.assertEqual(result.subtotal_cents, 100)
+        self.assertEqual(dict(ledger.snapshot()["stock"])["RICE"], "1E-35")
+        self.assertTrue(ledger.reconcile()["balanced"])
+
+    def test_unbounded_initial_stock_representation_is_rejected(self):
+        with self.assertRaises(ValueError):
+            IsolatedSaleLedger({"RICE": "0." + "0" * 200 + "1"})
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

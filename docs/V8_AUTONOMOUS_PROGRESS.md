@@ -2712,3 +2712,11 @@ milestones as commercial security gates permit.
 - Inspected `.github/workflows/v8-preview-tests.yml`: it requests `windows-latest`, Python 3.12, isolated `VELOPOS_HOME`, compileall, SQLite contracts and full regression. Its step definitions were never reached in the observed job. No workflow weakening or production code changes were made.
 - **Verified passing tests this run: 0; no tests executed.** The older 296-test local Windows milestone does not verify current HEAD. All commercial acceptance gates remain unaccepted (0/5); production checkout, refund, supplier payment, shift and stock posting remain disabled.
 - **Exact next priority:** resolve GitHub-hosted Windows runner assignment/Actions account eligibility or billing/quota with repository owner controls, then rerun the full workflow on the exact new HEAD and inspect job steps/artifacts. Independently run `python -m unittest -v tests.test_v8_sandbox_sale_ledger` and `python run_v8_full_regression.py` in a disposable Windows test environment with zero skips. Repair any genuine failures; resume Gate A service-bound session/branch/shift/signed-entitlement authorization and Gate B financial reconciliation only with executable evidence. Never use live V7 data or modify main.
+
+
+## Ambiguous branch-binding rejection — 2026-11-05
+
+- Branch registry, membership, and shift-binding inspections now require exactly one canonical matching row. Duplicate conflicting records in a malformed preview registry no longer allow the first matching shift row to silently verify a branch.
+- Code: `616e57f20930e03808c04c76812ecd09dc915b8b`; disposable SQLite regression: `1eb8841cbb3361fda3c2347f21e353d297930e10`.
+- Prior exact-head push Actions run `42037827573` (checkpoint `3afc06e`) failed before runner assignment: runner_id=0, zero steps. The new code/test has not been executed in this session; exact-head Windows CI and passing test count are NOT verified.
+- Gate A/B/C/D/E remain blocked. No production financial writes were enabled. Next: obtain Windows runner execution for the latest HEAD, run the canonical branch and full regressions, then test duplicate registry and membership ambiguity and continue service-bound authorization.

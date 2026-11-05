@@ -43,7 +43,15 @@ class DurablePreviewSaleJournal:
                 not re.fullmatch(r"v8-preview-rehearsal-[A-Za-z0-9_-]{1,60}\.sqlite",
                                  candidate.name)):
             raise PermissionError("Only disposable V8 preview databases are allowed")
-        if candidate.exists() and (not candidate.is_file() or candidate.stat().st_nlink != 1):
+        # exists() follows links and misses dangling symlinks. Inspect the
+        # directory entry itself once, before SQLite can open the file.
+        try:
+            initial_metadata = candidate.lstat()
+        except FileNotFoundError:
+            initial_metadata = None
+        if initial_metadata is not None and (
+                not stat.S_ISREG(initial_metadata.st_mode) or
+                initial_metadata.st_nlink != 1):
             raise PermissionError("Shared or nonregular preview database refused")
         self.path = str(candidate)
         self._file_identity = None

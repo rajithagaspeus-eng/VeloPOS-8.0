@@ -225,7 +225,11 @@ print(result.reference + '|' + str(result.replayed), flush=True)
 
         def connect_then_inject(*args, **kwargs):
             conn = original_connect(*args, **kwargs)
-            sidecar.symlink_to(target)
+            try:
+                sidecar.symlink_to(target)
+            except (OSError, NotImplementedError):
+                conn.close()
+                self.skipTest("Symlink creation unavailable")
             return conn
 
         try:

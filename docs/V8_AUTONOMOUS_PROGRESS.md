@@ -2817,3 +2817,12 @@ milestones as commercial security gates permit.
 - Exact-parent push workflow [42106349873](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42106349873) concluded failure, job `127522079478` reported `runner_id=0`, `steps=[]`; thus no Python tests ran. No verified passing test count for this code batch.
 - **Verification:** new tests committed but NOT EXECUTED. Gates A–E accepted **0/5**; commercial transaction permissions remain OFF; main, V7, signing keys and production data untouched.
 - **Exact next priority:** inspect push-triggered Windows CI for checkpoint HEAD, recover runner assignment, run `python -m unittest -v tests.test_v8_isolated_sale_ledger` and full strict no-skip `python run_v8_checks.py` on disposable Windows against exact SHA, fix confirmed failures; then prioritize Gate A trusted service-bound authorization and Gate B independent accounting reconciliation.
+
+
+## 2026-11-06 — RAM negative-quantity and missing-stock catalog regressions
+
+- Reviewed V8 master roadmap, commercial gates, prior progress, isolated sale ledger implementation/tests and latest Windows Actions. Parent HEAD `428c9ae9f37b92554748b9962231f882b7e587c4`.
+- Source test commit `07c074b10c2a9057e7125b198a4ab67c838adbfc` adds two RAM-only regression scenarios: negative posted item quantity must block idempotent replay; removal of a stock catalog row must block new rehearsal. Both assert no further writes. Production service code and transaction permissions unchanged.
+- Parent exact-head Windows preview workflow [42115172250](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42115172250) concluded failure; job `127552785527` reported `runner_id=0` and zero steps. This is not a Python test failure or pass.
+- **Verification:** new tests committed, NOT EXECUTED; passing tests verified this batch: **0**. Commercial gates accepted 0/5; checkout/payment/stock posting remain OFF.
+- **Next priority:** obtain assigned Windows runner; execute `python -m unittest -v tests.test_v8_isolated_sale_ledger` and strict full no-skip V8/legacy regression on disposable data at exact HEAD. Inspect push workflow for checkpoint SHA, repair any actual failures, then implement trusted service-bound Gate A and independent Gate B reconciliation. Never touch main, V7 production data, customer records or signing keys.

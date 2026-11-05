@@ -140,6 +140,27 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             IsolatedSaleLedger({"RICE": "0." + "0" * 200 + "1"})
 
+    def test_tampered_history_blocks_new_sale_without_mutation(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE journal SET amount_cents=999 "
+            "WHERE account='demo_receivable'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "accounting mismatch"):
+            self.ledger.inspect(
+                request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_tampered_history_blocks_replay_without_mutation(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE stock SET qty='999' WHERE barcode='RICE'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "stock movement mismatch"):
+            self.ledger.inspect(
+                request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

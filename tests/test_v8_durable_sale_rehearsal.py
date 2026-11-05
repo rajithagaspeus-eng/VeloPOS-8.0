@@ -268,7 +268,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
 
         def inject_before_schema_commit(journal):
             calls[0] += 1
-            if calls[0] == 3:
+            if calls[0] == 4:
                 try:
                     sidecar.symlink_to(target)
                 except (OSError, NotImplementedError):
@@ -280,7 +280,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                               inject_before_schema_commit):
                 with self.assertRaisesRegex(PermissionError, "sidecar"):
                     DurablePreviewSaleJournal(new_path)
-            self.assertEqual(calls[0], 3)
+            self.assertEqual(calls[0], 4)
             self.assertEqual(target.read_bytes(), b"unchanged")
         finally:
             sidecar.unlink(missing_ok=True)
@@ -307,7 +307,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
 
         def inject_at_precommit():
             checks[0] += 1
-            if checks[0] == 3:
+            if checks[0] == 4:
                 try:
                     sidecar.symlink_to(target)
                 except (OSError, NotImplementedError):
@@ -321,7 +321,7 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                     self.journal.inspect(
                         request_id="durable-request-0001", lines=self.lines
                     )
-            self.assertEqual(checks[0], 3)
+            self.assertEqual(checks[0], 4)
             self.assertEqual(target.read_bytes(), b"unchanged")
         finally:
             sidecar.unlink(missing_ok=True)

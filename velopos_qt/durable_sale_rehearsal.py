@@ -341,6 +341,12 @@ class DurablePreviewSaleJournal:
             # databases or invoke trusted schema functions via SQL objects.
             conn.execute("PRAGMA trusted_schema=OFF")
             conn.execute("PRAGMA foreign_keys=ON")
+            # SQLite PRAGMA setters can silently be ineffective on a
+            # connection. Verify fail-closed security settings before writes.
+            if conn.execute("PRAGMA trusted_schema").fetchone()[0] != 0:
+                raise PermissionError("Preview SQLite trusted schema must be OFF")
+            if conn.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                raise PermissionError("Preview SQLite foreign keys must be ON")
             # Rehearsal crash tests depend on durable SQLite commit semantics.
             conn.execute("PRAGMA synchronous=FULL")
             # Fail closed if SQLite refuses a durability configuration;

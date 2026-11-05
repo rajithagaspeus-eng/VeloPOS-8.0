@@ -95,6 +95,20 @@ class LegacySkipAcceptanceTests(unittest.TestCase):
         self.assertNotIn("UnboundLocalError", result.stdout + result.stderr)
         self.assertIn("gui_smoke", result.stdout)
 
+    def test_timeout_with_partial_skip_output_reports_timeout_without_crashing(self):
+        # A timed-out subprocess may already have printed unittest skip output.
+        # The runner must not reference a CompletedProcess that never existed.
+        result = self.suite(
+            "import time\n"
+            "print('Ran 1 test in 0.001s\\nOK (skipped=1)', flush=True)\n"
+            "time.sleep(3)\n",
+            "--fail-on-skips", "--job-timeout", "1",
+        )
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("FAILED (subprocess timed out)", result.stdout)
+        self.assertIn("REPORTED UNITTEST SKIPS: 1", result.stdout)
+        self.assertNotIn("UnboundLocalError", result.stdout)
+
     def test_empty_unittest_module_fails_closed(self):
         result = self.suite("pass\n", "--fail-on-skips")
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)

@@ -2767,3 +2767,11 @@ milestones as commercial security gates permit.
 - Latest observed pre-batch push Windows run [42085573926](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42085573926) for `2cdc5e7` concluded failure. Job metadata returned failure but did not expose an assigned runner or executed steps. No assertion failure or passing test count can be inferred. Exact new code SHA `6e66a9c` had zero Actions runs returned at inspection.
 - **Verification:** regression committed, not independently executed; verified passing tests this run: **0**. All commercial acceptance gates remain unaccepted (0/5); transaction gateway remains fail-closed. No production financial write, V7 customer data, private signing key or main branch changed.
 - **Exact next priority:** execute `python -m unittest -v tests.test_v8_phase2_canonical_branch` and `python run_v8_full_regression.py` with no skips on an isolated Windows runner, inspect exact-head push Actions job steps and repair genuine failures. Then continue service-bound signed identity/shift/branch enforcement and independently reconciled Gate B financial tests. Hosted Windows runner availability remains an external blocker.
+
+
+## 2026-11-06 — bounded legacy test subprocess milestone
+
+- Parent develop-v8 HEAD: `91a95cd5fafaefa11cad9ce748a213b767b145bc`. Addressed the legacy test gate's unbounded individual subprocess waits; new `--job-timeout` forces failure for a stalled test process, reports the timeout and continues remaining checks. Added disposable contract coverage for timeout and invalid timeout values.
+- Exact-parent push Actions 42086500203 lacked exposed test steps; companion sandbox Actions 42086498099 had no jobs. Cause **unconfirmed**, and these are not app test results.
+- **Windows/full-suite execution NOT EXECUTED** for the new changes in this environment; do not claim Gate E PASS. Gates accepted 0/5; production checkout OFF; V7/main/data untouched.
+- Next: restore runner assignment, execute a full strict regression at new SHA, then advance trusted service-owned sale integration and independent accounting on disposable databases.

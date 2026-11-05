@@ -66,3 +66,10 @@ After every meaningful integration batch:
 - **TEST EXECUTION: NOT EXECUTED.** GitHub file inspection confirmed changes but no Windows/Python test output proves correctness at these commits. Changes may deliberately turn historically false-green suites red until real skips are eliminated. Do not mark Gate E accepted.
 - Next verification in an isolated Windows local checkout: `python -m unittest -v tests.test_v8_legacy_skip_gate tests.test_v8_full_regression_runner`, then the full combined runner with explicit disposable home; record interpreter, exact code SHA, failures/errors/skips and logs. Protect nested untracked `VeloPOS-8.0/` repo; use no real customer data.
 - **Commercial checkout remains disabled; gates accepted 0/5.**
+
+
+## 2026-11-06 — bounded legacy subprocess execution (commit pending at entry creation)
+
+- Parent HEAD before this change: `91a95cd5fafaefa11cad9ce748a213b767b145bc`; develop-v8 only. GitHub push Windows run [42086500203](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42086500203) concluded failure with one job without exposed executed step logs; sandbox run [42086498099](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42086498099) reported zero jobs. **These do not establish Python test failures.**
+- Legacy `tests/run_all.py` now bounds each unittest/static/GUI subprocess with a configurable positive `--job-timeout` (600s default); timeout records FAIL (exit 124 internally) and later jobs continue. Strict `--fail-on-skips` is unchanged. Added isolated timeout and invalid-argument contract cases in `tests/test_v8_legacy_skip_gate.py`.
+- **TEST EXECUTION: NOT EXECUTED in an exact GitHub/Windows checkout at this entry.** No commercial release gate accepted; checkout remains disabled. Next: obtain a runner with executed steps; perform targeted and full no-skip Windows regressions against exact final commit SHA, and reconcile any observed failures.

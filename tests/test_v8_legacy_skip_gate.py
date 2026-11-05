@@ -64,9 +64,9 @@ class LegacySkipAcceptanceTests(unittest.TestCase):
 
     def test_hung_unittest_is_a_failure_and_later_checks_still_run(self):
         result = self.suite(
-            "import time,unittest\\n"
-            "class Sample(unittest.TestCase):\\n"
-            "    def test_hangs(self): time.sleep(3)\\n",
+            "import time,unittest\n"
+            "class Sample(unittest.TestCase):\n"
+            "    def test_hangs(self): time.sleep(3)\n",
             "--fail-on-skips", "--job-timeout", "1",
         )
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -76,8 +76,14 @@ class LegacySkipAcceptanceTests(unittest.TestCase):
         self.assertIn("gui_smoke", result.stdout)
         self.assertIn("JOB(S) FAILED", result.stdout)
 
+    def test_empty_unittest_module_fails_closed(self):
+        result = self.suite("pass\\n", "--fail-on-skips")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("no tests executed", result.stdout)
+        self.assertIn("JOB(S) FAILED", result.stdout)
+
     def test_nonpositive_job_timeout_is_rejected(self):
-        result = self.suite("pass\\n", "--job-timeout", "0")
+        result = self.suite("pass\n", "--job-timeout", "0")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("--job-timeout must be positive", result.stderr)
 

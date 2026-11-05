@@ -253,6 +253,48 @@ print(result.reference + '|' + str(result.replayed), flush=True)
                 1,
             )
 
+    def test_initialization_sidecar_failure_rolls_back_schema(self):
+        from unittest.mock import patch
+        new_path = str(Path(tempfile.gettempdir()) /
+                       ("v8-preview-rehearsal-" + uuid4().hex + ".sqlite"))
+        self.addCleanup(lambda: Path(new_path).unlink(missing_ok=True))
+        sidecar = Path(new_path + "-shm")
+        target = Path(tempfile.gettempdir()) / (
+            "v8-sidecar-target-" + uuid4().hex
+        )
+        target.write_bytes(b"unchanged")
+        original_check = DurablePreviewSaleJournal._check_sidecars
+        calls = [0]
+
+        def inject_before_schema_commit(journal):
+            calls[0] += 1
+            if calls[0] == 3:
+                try:
+                    sidecar.symlink_to(target)
+                except (OSError, NotImplementedError):
+                    self.skipTest("Symlink creation unavailable")
+            return original_check(journal)
+
+        try:
+            with patch.object(DurablePreviewSaleJournal, "_check_sidecars",
+                              inject_before_schema_commit):
+                with self.assertRaisesRegex(PermissionError, "sidecar"):
+                    DurablePreviewSaleJournal(new_path)
+            self.assertEqual(calls[0], 3)
+            self.assertEqual(target.read_bytes(), b"unchanged")
+        finally:
+            sidecar.unlink(missing_ok=True)
+            target.unlink(missing_ok=True)
+        with sqlite3.connect(new_path) as conn:
+            tables = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+            self.assertEqual(tables, [])
+        restarted = DurablePreviewSaleJournal(new_path)
+        self.assertEqual(restarted.inspect(
+            request_id="durable-request-0001", lines=self.lines
+        ).reference, "REHEARSAL-00000001")
+
     def test_sidecar_substitution_before_commit_rolls_back_both_tables(self):
         from unittest.mock import patch
         sidecar = Path(self.path + "-shm")

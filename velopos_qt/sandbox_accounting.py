@@ -151,8 +151,12 @@ class PreviewSandboxAccounting:
                 "main.v8_preview_request_journal WHERE scope='sale'"
             ).fetchall()
             matched_sale_journals = set()
+            sale_journal_refs = set()
             for journal in journal_sales:
                 ref = journal["result_ref"]
+                if ref in sale_journal_refs:
+                    reasons.append("duplicate_sale_journal_result")
+                sale_journal_refs.add(ref)
                 if journal["status"] != "COMPLETED" or ref not in sale_by_ref:
                     reasons.append("unmatched_sale_journal")
                 else:
@@ -308,8 +312,12 @@ class PreviewSandboxAccounting:
                 "main.v8_preview_request_journal WHERE scope='return'"
             ).fetchall()
             matched_return_journals = set()
+            return_journal_refs = set()
             for journal in journal_returns:
                 ref = journal["result_ref"]
+                if ref in return_journal_refs:
+                    reasons.append("duplicate_return_journal_result")
+                return_journal_refs.add(ref)
                 if journal["status"] != "COMPLETED" or ref not in ret_by_ref:
                     reasons.append("unmatched_return_journal")
                 else:

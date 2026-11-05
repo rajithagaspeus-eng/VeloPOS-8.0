@@ -491,6 +491,9 @@ class PreviewSandboxCreditLedger:
                 "SELECT 1 FROM main.v8_preview_sandbox_credit_repayments r "
                 "LEFT JOIN main.v8_preview_sandbox_credit_allocations a "
                 "ON a.repayment_ref=r.reference "
+                "AND a.customer_id=r.customer_id "
+                "AND a.branch_id=r.branch_id "
+                "AND a.amount_cents=r.amount_cents "
                 "WHERE r.customer_id=? AND a.repayment_ref IS NULL LIMIT 1",
                 (customer_id,)
             ).fetchone() is not None:

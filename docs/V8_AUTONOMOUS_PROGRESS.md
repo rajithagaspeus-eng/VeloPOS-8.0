@@ -2614,3 +2614,11 @@ milestones as commercial security gates permit.
 - Commit 3a5b8402eb9b2bab572b1c455bf0227d9c1ccbc3: sandbox-only accounting closeout now rejects duplicate completed sale/return journal result references, even when each request key is unique. This prevents multiple request records from falsely validating the same invoice or return.
 - Commit bfdf1d83bdfe112997760bb672322e0a1dcea3ed adds two disposable SQLite tamper regressions; commit 102333d29fd67dddbed09074b4602d42824a0b6d corrects their journal schema field to payload_sha256. **Tests committed, execution not yet verified.**
 - Next exact action: inspect Windows Actions for checkpoint HEAD; if runners remain unassigned, independently execute isolated sandbox accounting regressions. Then harden credit-note journal/result uniqueness and allocation completeness with tests. Maintain 0/5 commercial gates; no production writes, V7/main edits or checkout enablement.
+
+
+## Credit journal uniqueness hardening — 2026-11-05
+
+- Re-read V8 master roadmap, commercial gates, prior checkpoint, recent develop-v8 history and latest Windows Actions before implementation. Previous exact-head 66675e6 runs [41949741526](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/41949741526) and 41949739873 failed; job 126990592067 reports runner_id=0 and steps=[], so **no test execution was confirmed**.
+- Commit e6188f461faa5faeca996721eee1665f71d59a65: sandbox accounting closeout now detects repeated result_ref across completed credit_charge, credit_payment and credit_note request journals, even if request_id is different. This only changes the isolated read-only audit, not financial posting or authorization.
+- Commit 84306895cfcbc429d97e5e85e2d4fbaef1e81aab: disposable SQLite regression covering all three credit journal scopes, with restoration and balanced re-audit between tamper cases. **Test execution not verified**; do not report a passing test count.
+- **Next exact priority:** inspect Windows Actions for this checkpoint HEAD and recover runner execution. Run tests/test_v8_sandbox_credit.py independently in a disposable environment if Windows remains unassigned, repair any confirmed failures, then harden credit-note quantity/amount allocation and independent journal completeness. Maintain 0/5 accepted gates and no checkout, main, V7, production data, secrets or signing-key changes.

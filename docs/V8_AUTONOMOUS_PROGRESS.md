@@ -2686,3 +2686,11 @@ milestones as commercial security gates permit.
 - Regression commit `070a1cf00a8316e7b707a7607553404b251e5f5b` adds both an expired-predecessor gap rejection and an exact-boundary equality acceptance check, with ephemeral signing keys and isolated preview data.
 - **Verification:** no local test runner or Windows runner execution established for these commits. Do not claim passing tests. Exact-head Windows CI must be checked after this checkpoint commit, and any executed failures repaired.
 - **Next priority:** run `python -m unittest -v tests.test_v8_phase2_activation_chain` in an isolated environment and obtain an assigned Windows full-suite run for exact head. Then review signed status time/sequence semantics and service-bound branch/session authorization. No production financial posting, V7/main modifications, customer records, or signing secrets. Gates A/B/C/D/E remain unaccepted.
+
+
+## November 5, 2026 — activation regression CI coverage
+
+- Commit `ad447818078f1ccb74f6014c5777ff17c982bd4c` expands `.github/workflows/v8-sandbox-regression.yml` to run four signed activation-chain/status/server-reference regression modules, and adds path triggers for their implementation and test files. This is CI coverage only; no entitlement or commercial transaction permission was enabled.
+- At inspection the latest prior push run `42020398666` for `9cc18a3b53bf27b4ce07062c5dc70826af388663` was marked `failure` and the jobs endpoint returned zero jobs. This does not demonstrate a test failure or a passing suite; hosted runner execution remains unverified.
+- **Verification outstanding:** inspect the push-triggered run for the new exact HEAD, including jobs and test logs. Run `python run_v8_checks.py` on isolated Windows Python/PySide6 with zero skips; if runner provisioning continues to fail, diagnose Actions billing/runner eligibility without bypassing gates.
+- **Next priority:** verify signed activation continuity regressions and service-bound branch/session authorization, then resolve any confirmed failures; preserve hard-deny commercial checkout and all Gate A/B blockers.

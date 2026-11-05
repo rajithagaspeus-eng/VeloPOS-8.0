@@ -124,6 +124,32 @@ class SQLiteTransactionContractTests(unittest.TestCase):
             )
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
+    def test_crash_after_sequence_advance_before_commit_rolls_back_both(self):
+        script = """
+import os, sqlite3, sys
+db = sqlite3.connect(sys.argv[1], isolation_level=None)
+db.execute("BEGIN IMMEDIATE")
+db.execute("INSERT INTO preview_rehearsals VALUES (?,?,?)",
+           ("crashed-request", "c" * 64, "REHEARSAL-00000001"))
+db.execute("UPDATE preview_sequence SET next_number=2 WHERE singleton=1")
+os._exit(39)
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script, self.path],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 39, result.stderr)
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute(
+                "SELECT COUNT(*) FROM preview_rehearsals"
+            ).fetchone()[0], 0)
+            self.assertEqual(db.execute(
+                "SELECT next_number FROM preview_sequence"
+            ).fetchone()[0], 1)
+            self.assertEqual(db.execute(
+                "PRAGMA integrity_check"
+            ).fetchone()[0], "ok")
+
     def test_concurrent_aborted_claims_do_not_consume_references(self):
         from concurrent.futures import ThreadPoolExecutor
 

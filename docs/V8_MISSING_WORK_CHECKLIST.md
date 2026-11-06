@@ -60,3 +60,10 @@ On every significant delivery: add date, exact branch SHA, completed acceptance 
 - [ ] **EXECUTE** targeted regression tests and the full combined suite at an exact current `develop-v8` SHA on isolated Windows. All code above is **COMMITTED ONLY**, not verified as PASS. Resolve real failures/skips rather than weakening the no-skip contract.
 - [ ] Diagnose GitHub-hosted run `42081895568` (unassigned runner, no steps) and `42081892649`, and restore trustworthy CI execution and archived test output.
 - [ ] Continue Gates A/B service-owned transaction integrity and accounting reconciliation; **production checkout remains disabled**.
+
+## 2026-11-06 — no-cost development and verification policy
+
+- [x] Turn all four V8 GitHub Actions workflows to manual-only; eliminate automatic push/PR jobs while the owner-reported Actions allowance is exhausted. Branch guard: `develop-v8` only.
+- [x] Commit `tests/test_v8_ci_budget_policy.py` to reject new automatic triggers and absent branch guards; local 4-test policy regression passed on synthetic fixtures, and actual GitHub workflow event mappings were independently inspected.
+- [ ] Run exact-head source checkout and full **zero-skip** legacy + V8 regressions on an isolated local Windows device when available (not paid GitHub Actions); retain logs, interpreter, SHA and no production paths.
+- [ ] Complete trusted service-owned sale/return/stock/credit Gate A/B integration and independent accounting fixtures. Commercial checkout remains OFF.

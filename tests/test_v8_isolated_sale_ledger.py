@@ -11,6 +11,24 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
         self.lines = [{"barcode": "RICE", "qty": "2", "price": "12.50"},
                       {"barcode": "SOAP", "qty": "1", "price": "0.10"}]
 
+    def test_blob_line_amount_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE items SET line_cents=? WHERE barcode='RICE'", (b"2500",))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "item amount mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_fractional_line_amount_blocks_new_rehearsal_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE items SET line_cents=? WHERE barcode='RICE'", (2500.5,))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "item amount mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_blob_item_quantity_blocks_replay_without_writes(self):
         self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
         self.ledger._db.execute(

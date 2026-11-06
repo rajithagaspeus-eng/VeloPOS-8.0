@@ -163,6 +163,8 @@ class IsolatedSaleLedger:
                     (reference,),
                 ).fetchall()
                 if (line_total != expected or len(entries) != 2 or
+                        any(type(account) is not str or type(amount) is not int
+                            for account, amount in entries) or
                         dict(entries) != {"demo_receivable": expected,
                                           "demo_sales": -expected}):
                     raise ValueError("RAM rehearsal accounting mismatch")

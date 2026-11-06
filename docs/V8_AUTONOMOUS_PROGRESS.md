@@ -2835,3 +2835,13 @@ milestones as commercial security gates permit.
 - Exact-parent Windows workflow [42123882852](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42123882852) concluded failure; job `127582940589` reports `runner_id=0`, `steps=[]`. This is not evidence of Python test execution. Companion sandbox workflow [42123880283](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42123880283) also failed; cause not established.
 - **Verification:** newly committed tests NOT EXECUTED; verified passing tests this run **0**. Commercial gates accepted **0/5**. Main, V7, production databases, keys and real transactions untouched.
 - **Exact next priority:** restore hosted runner assignment or obtain isolated Windows execution; run `python -m unittest -v tests.test_v8_isolated_sale_ledger` and complete strict no-skip `python run_v8_full_regression.py` against exact HEAD. Inspect new exact-head Actions jobs, fix genuine failures, then prioritize service-owned Gate A authorization and independent Gate B financial reconciliation.
+
+
+## 2026-11-06 — malformed RAM subtotal fail-closed validation
+
+- Reviewed roadmap, commercial gates, durable checkpoint, isolated RAM ledger and regression source. Parent checkpoint HEAD was `fbfd8b99b3ce50198743124c02cfc04ac4d98643`.
+- Code commit `5fe09febb3d2d89d2904e03f6ceec2d16a01eefe` makes `reconcile()` reject persisted request subtotal values that are not actual Python integers or are negative, before comparing ledger amounts. SQLite INTEGER affinity can hold malformed TEXT; existing accounting checks did not explicitly validate this field's type.
+- Regression commit `8e60c2d190f8e070ef30d642ae45399fbf85bb91` adds two disposable in-memory tests: corrupted text subtotal blocks replay, negative subtotal blocks another rehearsal; both require unchanged snapshots.
+- Previous Windows run [42123882852](https://github.com/rajithagaspeus-eng/VeloPOS-8.0/actions/runs/42123882852) had a failed preview-tests job with no reported steps; no executed test evidence. PR-filtered exact-head workflow lookup returned no runs for code SHA; this does not establish push CI.
+- **Verification:** no tests executed in this session, verified passing count **0**. Commercial gates accepted **0/5**; production checkout, payment, stock posting OFF. No main/V7/production data/key changes.
+- **Next priority:** recover assigned Windows CI and execute targeted `python -m unittest -v tests.test_v8_isolated_sale_ledger` and full strict no-skip regression at exact HEAD; repair confirmed failures. Then implement trusted service-bound Gate A and independently reconciled Gate B with disposable databases.

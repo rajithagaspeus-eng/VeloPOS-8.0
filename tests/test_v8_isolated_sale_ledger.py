@@ -11,6 +11,42 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
         self.lines = [{"barcode": "RICE", "qty": "2", "price": "12.50"},
                       {"barcode": "SOAP", "qty": "1", "price": "0.10"}]
 
+    def test_blob_item_quantity_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE items SET qty=? WHERE barcode='RICE'", (b"2",))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal item quantity"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_oversized_item_quantity_blocks_new_rehearsal_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE items SET qty=? WHERE barcode='RICE'", ("9" * 129,))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal item quantity"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_blob_stock_quantity_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE stock SET qty=? WHERE barcode='RICE'", (b"8",))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal stock"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_oversized_stock_quantity_blocks_new_rehearsal_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE stock SET qty=? WHERE barcode='RICE'", ("9" * 129,))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "Invalid RAM rehearsal stock"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_atomic_lines_stock_and_balanced_journal(self):
         result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
         snapshot = self.ledger.snapshot()

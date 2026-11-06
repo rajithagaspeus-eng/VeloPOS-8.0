@@ -62,8 +62,12 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
 
     def test_corrupt_reference_sequence_blocks_new_rehearsal_without_writes(self):
         self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
-        self.ledger._db.execute(
-            "UPDATE requests SET reference='RAM-REHEARSAL-00000009'")
+        self.ledger._db.execute("PRAGMA foreign_keys=OFF")
+        try:
+            self.ledger._db.execute(
+                "UPDATE requests SET reference='RAM-REHEARSAL-00000009'")
+        finally:
+            self.ledger._db.execute("PRAGMA foreign_keys=ON")
         before = self.ledger.snapshot()
         with self.assertRaisesRegex(ValueError, "request metadata mismatch"):
             self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)

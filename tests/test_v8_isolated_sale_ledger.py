@@ -11,6 +11,26 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
         self.lines = [{"barcode": "RICE", "qty": "2", "price": "12.50"},
                       {"barcode": "SOAP", "qty": "1", "price": "0.10"}]
 
+    def test_valid_persisted_request_id_reconciles_and_replays_exactly_once(self):
+        result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(self.ledger.reconcile()["reconciled_requests"], 1)
+        snapshot = self.ledger.snapshot()
+        replay = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(result.reference, replay.reference)
+        self.assertTrue(replay.replayed)
+        self.assertEqual(snapshot, self.ledger.snapshot())
+
+    def test_persisted_request_id_with_literal_backslash_z_fails_closed(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE requests SET request_id=?",
+            ("ram-sale-0001" + chr(92) + "Z",),
+        )
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "request metadata mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_corrupt_persisted_request_id_blocks_replay_without_writes(self):
         self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
         self.ledger._db.execute(

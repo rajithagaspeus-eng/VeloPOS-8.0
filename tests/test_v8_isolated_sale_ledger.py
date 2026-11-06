@@ -300,6 +300,28 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_blob_journal_amount_blocks_replay_without_writes(self):
+        result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE journal SET amount_cents=? "
+            "WHERE reference=? AND account='demo_receivable'",
+            (b"2510", result.reference))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "accounting mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_real_journal_amount_blocks_new_sale_without_writes(self):
+        result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE journal SET amount_cents=? "
+            "WHERE reference=? AND account='demo_sales'",
+            (-2510.5, result.reference))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "accounting mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

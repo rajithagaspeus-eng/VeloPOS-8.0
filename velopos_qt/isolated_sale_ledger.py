@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from decimal import Context, Decimal, InvalidOperation, localcontext
 import json
+import re
 import sqlite3
 from threading import RLock
 
@@ -9,6 +10,7 @@ from .sale_request_service import rehearse_sale_request
 from .sale_plan import plan_preview_sale
 
 _RECONCILE_CONTEXT = Context(prec=512)
+_PERSISTED_REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}\\Z")
 
 
 @dataclass(frozen=True)
@@ -139,7 +141,8 @@ class IsolatedSaleLedger:
                 "SELECT request_id,fingerprint,reference FROM requests ORDER BY reference"
             ).fetchall()
             for number, (request_id, fingerprint, reference) in enumerate(metadata, 1):
-                if (type(request_id) is not str or len(request_id) < 8 or
+                if (type(request_id) is not str or
+                        _PERSISTED_REQUEST_ID.fullmatch(request_id) is None or
                         type(fingerprint) is not str or len(fingerprint) != 64 or
                         any(ch not in "0123456789abcdef" for ch in fingerprint) or
                         reference != f"RAM-REHEARSAL-{number:08d}"):

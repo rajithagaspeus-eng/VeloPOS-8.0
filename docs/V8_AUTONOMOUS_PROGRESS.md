@@ -2913,3 +2913,12 @@ milestones as commercial security gates permit.
 - **Executed locally:** 4 expression-level contract tests with Python 3.13.5, all PASS, 0 skips. **Not executed:** actual source module's added tests or combined Windows POS suite on exact GitHub HEAD. See `docs/V8_VERIFIED_EVIDENCE_LEDGER.md` for evidence boundary and first invalid local invocation.
 - No paid CI triggered, no commercial checkout activated. Main, V7, real customer SQLite and license keys preserved; accepted release gates 0/5.
 - Next priority: get full `tests.test_v8_isolated_sale_ledger` executing with locally fetched exact source and disposable dependencies; investigate any failures, then expand independent sale/return/credit/stock reconciliation without connecting real payment or stock posting.
+
+
+## November 6, 2026 — persisted metadata corruption regression batch
+
+- On `develop-v8`, added two RAM-only regression scenarios: a SQLite BLOB request ID must block replay without writes, and a malformed sequential reference must block another rehearsal without writes. The reference corruption fixture temporarily disables SQLite foreign-key enforcement only to construct a deliberately invalid in-memory test row, then restores enforcement before invoking the service.
+- Code/test commits: `7a271bef6844e07031d9f9faafe644809858ebaf`, `25187e799970352c2f1f91bb164606c0ae044133`. These are **test additions**, not evidence of a passing test run.
+- Windows hosted Actions remain unverified for this head. Latest visible Windows push run `42183099368` failed on older SHA `62c1db87c01d9bcfd41a5b8093657ed06144380d`; manual-only workflow policy/free allowance prevents assuming a fresh runner execution. No paid workflow was triggered.
+- **Verification this run: zero executed tests; zero passing results claimed.** The source was inspected, but the private repository could not be cloned into the disposable local runtime (network DNS unavailable). The new test cases require execution before acceptance.
+- **Exact next task:** execute `python -m unittest -v tests.test_v8_isolated_sale_ledger` and `python run_v8_checks.py` with strict no-skip policy on a free disposable environment at the exact `develop-v8` head, fix failures, then advance Gate A trusted service authorization and Gate B independently reconciled accounting. Preserve the V7/production boundary and continue to deny commercial posting.

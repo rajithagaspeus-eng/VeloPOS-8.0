@@ -153,14 +153,19 @@ class IsolatedSaleLedger:
                 if type(expected) is not int or expected < 0:
                     raise ValueError("RAM rehearsal subtotal mismatch")
                 line_amounts = db.execute(
-                    "SELECT line_cents FROM items WHERE reference=?",
+                    "SELECT barcode,line_cents FROM items WHERE reference=?",
                     (reference,),
                 ).fetchall()
-                if (not line_amounts or any(
-                        type(row[0]) is not int or row[0] < 0
-                        for row in line_amounts)):
+                # Each canonical sale plan emits one row per barcode. A
+                # duplicated persisted line must not silently inflate stock
+                # consumption or hide behind a zero-value accounting entry.
+                barcodes = [row[0] for row in line_amounts]
+                if (len(barcodes) != len(set(barcodes)) or
+                        not line_amounts or any(
+                            type(row[1]) is not int or row[1] < 0
+                            for row in line_amounts)):
                     raise ValueError("RAM rehearsal item amount mismatch")
-                line_total = sum(row[0] for row in line_amounts)
+                line_total = sum(row[1] for row in line_amounts)
                 entries = db.execute(
                     "SELECT account,amount_cents FROM journal WHERE reference=?",
                     (reference,),

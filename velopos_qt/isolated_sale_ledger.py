@@ -10,7 +10,7 @@ from .sale_request_service import rehearse_sale_request
 from .sale_plan import plan_preview_sale
 
 _RECONCILE_CONTEXT = Context(prec=512)
-_PERSISTED_REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}\\Z")
+_PERSISTED_REQUEST_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}\Z")
 
 
 @dataclass(frozen=True)

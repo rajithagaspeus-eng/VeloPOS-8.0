@@ -1,10 +1,7 @@
 name: V8 runner allocation diagnostic
 
+# Zero-spend policy: manual-only runner diagnosis.
 on:
-  push:
-    branches: [develop-v8]
-    paths:
-      - '.github/workflows/v8-runner-diagnostic.yml'
   workflow_dispatch:
 
 permissions:
@@ -12,6 +9,7 @@ permissions:
 
 jobs:
   runner-diagnostic:
+    if: github.ref == 'refs/heads/develop-v8'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:

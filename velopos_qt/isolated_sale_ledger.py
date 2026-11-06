@@ -176,21 +176,27 @@ class IsolatedSaleLedger:
                     "SELECT reference,barcode,qty FROM items"):
                 if barcode not in consumed:
                     raise ValueError("Unknown RAM rehearsal item")
+                if type(raw_qty) is not str or len(raw_qty) > 128:
+                    raise ValueError("Invalid RAM rehearsal item quantity")
                 try:
                     qty = Decimal(raw_qty)
                 except InvalidOperation as exc:
                     raise ValueError("Invalid RAM rehearsal item quantity") from exc
-                if not qty.is_finite() or qty <= 0:
+                if (not qty.is_finite() or qty <= 0 or qty > 1000000 or
+                        not -18 <= qty.adjusted() <= 18):
                     raise ValueError("Invalid RAM rehearsal item quantity")
                 with localcontext(_RECONCILE_CONTEXT):
                     consumed[barcode] += qty
             with localcontext(_RECONCILE_CONTEXT):
                 for barcode, raw in stock.items():
+                    if type(raw) is not str or len(raw) > 128:
+                        raise ValueError("Invalid RAM rehearsal stock")
                     try:
                         amount = Decimal(raw)
                     except InvalidOperation as exc:
                         raise ValueError("Invalid RAM rehearsal stock") from exc
-                    if (not amount.is_finite() or amount < 0 or
+                    if (not amount.is_finite() or amount < 0 or amount > 1000000 or
+                            (amount != 0 and not -18 <= amount.adjusted() <= 18) or
                             amount != self._initial_stock[barcode] - consumed[barcode]):
                         raise ValueError("RAM rehearsal stock movement mismatch")
             for table in ("items", "journal"):

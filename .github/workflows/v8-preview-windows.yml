@@ -2,9 +2,7 @@
 # This workflow runs only for develop-v8 and never uses production secrets.
 name: V8 Windows preview checks
 
-# The primary .github/workflows/v8-preview-tests.yml already runs on every
-# develop-v8 push/PR. Keep this extended diagnostic job manual-only, otherwise
-# two identical Windows suites consume free runner minutes per commit.
+# Hosted-runner budget exhausted: this job is owner-dispatched only.
 on:
   workflow_dispatch:
 
@@ -17,6 +15,7 @@ concurrency:
 
 jobs:
   preview-no-skips:
+    if: github.ref == 'refs/heads/develop-v8'
     name: Windows Python 3.12, all V8 preview tests (no skips)
     runs-on: windows-latest
     timeout-minutes: 25

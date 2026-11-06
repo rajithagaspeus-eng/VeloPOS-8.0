@@ -67,3 +67,9 @@ On every significant delivery: add date, exact branch SHA, completed acceptance 
 - [x] Commit `tests/test_v8_ci_budget_policy.py` to reject new automatic triggers and absent branch guards; local 4-test policy regression passed on synthetic fixtures, and actual GitHub workflow event mappings were independently inspected.
 - [ ] Run exact-head source checkout and full **zero-skip** legacy + V8 regressions on an isolated local Windows device when available (not paid GitHub Actions); retain logs, interpreter, SHA and no production paths.
 - [ ] Complete trusted service-owned sale/return/stock/credit Gate A/B integration and independent accounting fixtures. Commercial checkout remains OFF.
+
+## 2026-11-06 — RAM rehearsal request-ID reconciliation
+
+- [x] Repair mistaken persisted request-ID regex end-anchor in RAM-only `isolated_sale_ledger` that prevented normal post-sale reconciliation; add valid replay and malformed backslash-Z rejection regressions. Implementation `ae280d90b00f46b850ff0887a73812e25560121c`; tests `7e2f191ce1b8a6777052a599f31037b43c9e3e4a`.
+- [ ] Execute the **actual committed module tests** and full no-skip regression in a disposable source checkout. Only four copied-expression contract tests ran locally (4/4 PASS); this does not certify the source integration.
+- [ ] Continue service-owned billing/stock/credit financial reconciliation and real Windows acceptance before enabling checkout.

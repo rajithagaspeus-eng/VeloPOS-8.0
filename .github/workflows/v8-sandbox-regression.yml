@@ -1,21 +1,7 @@
 name: V8 sandbox regression (develop-v8 only)
 
+# Zero-spend policy: no automatic push-triggered runner jobs.
 on:
-  push:
-    branches: [develop-v8]
-    paths:
-      - 'velopos_qt/**'
-      - 'velopos/**'
-      - 'tests/test_v8_sandbox_sale_ledger.py'
-      - 'tests/test_v8_phase2_atomic_sale_boundary.py'
-      - 'tests/test_v8_phase2_activation_chain.py'
-      - 'tests/test_v8_phase2_composed_activation_chain.py'
-      - 'tests/test_v8_phase2_activation_status.py'
-      - 'tests/test_v8_phase2_server_activation_reference.py'
-      - 'velopos_qt/activation_chain.py'
-      - 'velopos_qt/activation_status.py'
-      - 'velopos_qt/server_activation_reference.py'
-      - '.github/workflows/v8-sandbox-regression.yml'
   workflow_dispatch:
 
 permissions:

@@ -145,6 +145,10 @@ class IsolatedSaleLedger:
                         reference != f"RAM-REHEARSAL-{number:08d}"):
                     raise ValueError("RAM rehearsal request metadata mismatch")
             for reference, expected in requests:
+                # SQLite INTEGER affinity does not prevent a corrupted row
+                # from containing TEXT/REAL; refuse it before arithmetic.
+                if type(expected) is not int or expected < 0:
+                    raise ValueError("RAM rehearsal subtotal mismatch")
                 line_amounts = db.execute(
                     "SELECT line_cents FROM items WHERE reference=?",
                     (reference,),

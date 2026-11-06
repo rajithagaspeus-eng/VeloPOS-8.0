@@ -260,3 +260,13 @@ After every meaningful integration batch:
 - `8e1dba2d16783a85ef791b1fee32b679755f5a18` adds three adversarial regressions for malformed stored fingerprints, negative item amounts, and injected foreign-key violations; all mutate disposable `:memory:` SQLite only.
 - **Tests NOT EXECUTED**: GitHub Actions account billing block remains known; no full exact-HEAD local Windows run in this turn. No PASS, no 75% acceptance claim. Commercial Gates A-E remain 0/5; checkout/payment/refund/production stock posting remain OFF. No `main`, V7, real database, customer record, or key edits.
 - Next action: run focused exact-HEAD disposable ledger tests in an available runner and correct any failures before treating this slice as verified.
+
+## 2026-11-06 — zero-spend Actions policy, tested regression source
+
+- Starting branch HEAD: `62c1db87c01d9bcfd41a5b8093657ed06144380d`. Owner reports GitHub Actions free allowance is exhausted. Account billing/quota was not independently accessed.
+- Disabled automatic `push` and `pull_request` event triggers in `.github/workflows/v8-preview-tests.yml` and automatic `push` triggers in `v8-sandbox-regression.yml` and `v8-runner-diagnostic.yml`. All FOUR V8 workflows now expose only `workflow_dispatch`; jobs have `develop-v8` branch guards. Manual runs must not be dispatched until owner authorization/available free capacity.
+- GitHub source inspection after these changes verified **4/4 workflow event mappings contain only workflow_dispatch and 4/4 include develop-v8 job guards**.
+- Added `tests/test_v8_ci_budget_policy.py`, committed at `a4ba89fcf8dc4805336a7ecd7a07fc7133025a80`. Its Git blob SHA `639718303853aa23b6eb96036b7fff49a77b6199` matches the local test file checked with `git hash-object`.
+- **EXECUTED locally** in a disposable Linux Python 3.13.5 test harness: `python -m unittest -v tests.test_v8_ci_budget_policy` **4 tests, 0 failures, 0 errors, 0 skips, exit 0**. Local policy-workflow fixtures were synthetic and manual-only; the Python test *source* matches the GitHub blob, but these are **not** full-suite or Windows exact-checkout test results. Separately, direct GitHub source inspection checked the 4 actual workflow triggers and guards.
+- **NOT EXECUTED**: Windows full no-skip regression and POS transactions/hardware validation on this head. Gate E remains blocked and commercial gates accepted stay **0/5**. Checkout, payments, refunds, stock posting remain disabled. No `main`, V7, customer databases, secrets or keys changed.
+- Next priority: use a free, disposable local Windows checkout for exact-head full no-skip regression, then continue Gate A service-owned financial boundaries and Gate B independent reconciliation without enabling commercial checkout.

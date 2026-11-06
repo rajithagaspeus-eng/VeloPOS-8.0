@@ -2905,3 +2905,11 @@ milestones as commercial security gates permit.
 - Added `tests/test_v8_ci_budget_policy.py` in commit `a4ba89fcf8dc4805336a7ecd7a07fc7133025a80`. **Executed locally**: Linux Python 3.13.5, 4 policy tests PASSED, 0 failures/errors/skips; matching local test source Git blob SHA `639718303853aa23b6eb96036b7fff49a77b6199`. Workflow fixtures for those tests were synthetic; actual remote workflows separately inspected as manual-only with branch guards.
 - The complete exact-head Windows regression and financial functionality tests were **NOT EXECUTED**. Avoid claiming a commercial QA pass; Gates A-E accepted 0/5, checkout/stock/payment postings disabled. No `main`, V7, real customer data, license keys or secrets changed.
 - Next: run source-exact Windows no-skip suite using a disposable local database and available free interpreter, then pursue Gate A trusted transaction service and Gate B financial reconciliation.
+
+## 2026-11-06 — RAM rehearsal request-ID reconciliation bug repair
+
+- Started from `develop-v8` `27cdefceb19f0077aff0185151a45f1914f61f37` with Actions workflows manual-only. Reviewed canonical GitHub development instructions, roadmap, financial gates, source, ledger and regression tests.
+- Found malformed raw end anchor for the persisted RAM request ID (`\\\\Z` literal instead of `\\Z` assertion). Fixed in `ae280d90b00f46b850ff0887a73812e25560121c`; added valid reconciliation/replay and backslash-Z tamper/no-write tests in `7e2f191ce1b8a6777052a599f31037b43c9e3e4a`.
+- **Executed locally:** 4 expression-level contract tests with Python 3.13.5, all PASS, 0 skips. **Not executed:** actual source module's added tests or combined Windows POS suite on exact GitHub HEAD. See `docs/V8_VERIFIED_EVIDENCE_LEDGER.md` for evidence boundary and first invalid local invocation.
+- No paid CI triggered, no commercial checkout activated. Main, V7, real customer SQLite and license keys preserved; accepted release gates 0/5.
+- Next priority: get full `tests.test_v8_isolated_sale_ledger` executing with locally fetched exact source and disposable dependencies; investigate any failures, then expand independent sale/return/credit/stock reconciliation without connecting real payment or stock posting.

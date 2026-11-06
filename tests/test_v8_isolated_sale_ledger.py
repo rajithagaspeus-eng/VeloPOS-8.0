@@ -438,6 +438,26 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_duplicate_zero_amount_item_blocks_replay_without_writes(self):
+        result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "INSERT INTO items VALUES (?,?,?,?)",
+            (result.reference, "SOAP", "1", 0))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "item amount mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_duplicate_zero_amount_item_blocks_new_request_without_writes(self):
+        result = self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "INSERT INTO items VALUES (?,?,?,?)",
+            (result.reference, "RICE", "0.5", 0))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "item amount mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

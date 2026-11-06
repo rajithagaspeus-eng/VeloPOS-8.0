@@ -282,6 +282,24 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
             self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
         self.assertEqual(before, self.ledger.snapshot())
 
+    def test_text_subtotal_corruption_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE requests SET subtotal_cents='corrupt'")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "subtotal mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_negative_subtotal_corruption_blocks_new_sale_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE requests SET subtotal_cents=-1")
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "subtotal mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_commercial_commit_always_denied(self):
         before = self.ledger.snapshot()
         with self.assertRaises(PermissionError):

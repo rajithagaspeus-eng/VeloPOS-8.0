@@ -11,6 +11,26 @@ class IsolatedSaleLedgerTests(unittest.TestCase):
         self.lines = [{"barcode": "RICE", "qty": "2", "price": "12.50"},
                       {"barcode": "SOAP", "qty": "1", "price": "0.10"}]
 
+    def test_corrupt_persisted_request_id_blocks_replay_without_writes(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE requests SET request_id=?",
+            ("X" * 129,))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "request metadata mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
+    def test_corrupt_persisted_request_id_blocks_new_rehearsal(self):
+        self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
+        self.ledger._db.execute(
+            "UPDATE requests SET request_id=?",
+            ("invalid request id",))
+        before = self.ledger.snapshot()
+        with self.assertRaisesRegex(ValueError, "request metadata mismatch"):
+            self.ledger.inspect(request_id="ram-sale-0002", lines=self.lines)
+        self.assertEqual(before, self.ledger.snapshot())
+
     def test_blob_line_amount_blocks_replay_without_writes(self):
         self.ledger.inspect(request_id="ram-sale-0001", lines=self.lines)
         self.ledger._db.execute(

@@ -1,0 +1,30 @@
+# Python / editor
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/
+.idea/
+# Customer and development data
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+Backups/
+Receipts/
+Exports/
+ProductImages/
+# Credentials and signing material
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+issued_licenses.csv
+velopos/_pubkey.py
+# Builds
+build/
+dist/
+*.exe
+*.msi

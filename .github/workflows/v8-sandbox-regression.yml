@@ -1,0 +1,64 @@
+name: V8 sandbox regression (develop-v8 only)
+
+# Zero-spend policy: no automatic push-triggered runner jobs.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v8-sandbox-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sandbox-regression:
+    if: github.ref == 'refs/heads/develop-v8'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      VELOPOS_HOME: ${{ runner.temp }}/VeloPOS8PreviewData
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install preview regression dependencies
+        run: python -m pip install 'cryptography>=42' 'pillow>=10' 'qrcode' 'customtkinter>=5.2' pyserial
+      - name: Compile sandbox modules and regression tests
+        run: python -m compileall -q velopos_qt/sandbox_sale_ledger.py velopos_qt/idempotency_ledger.py tests/test_v8_sandbox_sale_ledger.py tests/test_v8_phase2_atomic_sale_boundary.py
+      - name: Check installed preview dependencies
+        run: python -m pip check
+      - name: Run dependency-free SQLite crash recovery contract
+        run: python -m unittest -v tests.test_v8_sqlite_crash_contract
+      - name: Run dependency-free SQLite transaction and WAL contract
+        run: python -m unittest -v tests.test_v8_sqlite_transaction_contract
+      - name: Verify commercial release gates remain closed
+        run: |
+          python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment tests.test_v8_sale_request_service tests.test_v8_sale_rehearsal_journal tests.test_v8_durable_sale_rehearsal
+          python -m velopos_qt.release_readiness > v8-release-readiness.json
+      - name: Verify signed activation continuity remains fail closed
+        run: |
+          python -m unittest -v tests.test_v8_phase2_activation_chain tests.test_v8_phase2_composed_activation_chain tests.test_v8_phase2_activation_status tests.test_v8_phase2_server_activation_reference
+      - name: Preserve release readiness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-release-readiness
+          path: v8-release-readiness.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Run isolated sandbox and atomic boundary regression suites
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest -v tests.test_v8_sandbox_sale_ledger tests.test_v8_phase2_atomic_sale_boundary 2>&1 | tee v8-sandbox-regression.log
+      - name: Preserve regression output for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-sandbox-regression-log
+          path: v8-sandbox-regression.log
+          if-no-files-found: ignore
+          retention-days: 14

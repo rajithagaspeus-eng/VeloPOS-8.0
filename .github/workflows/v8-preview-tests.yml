@@ -1,0 +1,85 @@
+name: V8 preview automated tests
+
+# Zero-spend policy: only manually dispatched verification; no push or PR CI.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Avoid spending Windows runner minutes on superseded develop-v8 commits.
+concurrency:
+  group: v8-preview-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview-tests:
+    if: github.ref == 'refs/heads/develop-v8'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install app and Qt test dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt "PySide6>=6.7,<7"
+          python -m pip check
+          python -c "import sys; import PySide6, cryptography; print('Python:', sys.version); print('Qt:', PySide6.__version__)"
+      - name: Prepare isolated test home and record exact checkout
+        shell: pwsh
+        run: |
+          $isolated = Join-Path $env:RUNNER_TEMP 'VeloPOS8PreviewData'
+          "VELOPOS_HOME=$isolated" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Tested checkout SHA: $(git rev-parse HEAD)"
+          Write-Host "GitHub event SHA: $env:GITHUB_SHA"
+          if ((git rev-parse HEAD) -ne $env:GITHUB_SHA) {
+            throw "CI checkout does not match requested commit"
+          }
+      - name: Compile preview Python modules and tests
+        shell: pwsh
+        run: python -m compileall -q velopos_qt tests
+      - name: Run dependency-free SQLite crash recovery contract
+        run: python -m unittest -v tests.test_v8_sqlite_crash_contract
+      - name: Run dependency-free SQLite transaction and WAL contract
+        run: python -m unittest -v tests.test_v8_sqlite_transaction_contract
+      - name: Verify fail-closed release and transaction proof contracts
+        shell: pwsh
+        run: python -m unittest -v tests.test_v8_release_readiness tests.test_v8_commercial_boundary_assessment tests.test_v8_sale_request_service tests.test_v8_sale_rehearsal_journal tests.test_v8_durable_sale_rehearsal
+      - name: Full V8 and legacy application regression (no skips)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          python run_v8_full_regression.py 2>&1 | Tee-Object -FilePath v8-preview-test-results.txt
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) {
+            Write-Error "Full application regression suite failed with exit code $testExit"
+            exit $testExit
+          }
+      - name: Preserve V8 test output for failure diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-preview-windows-test-output
+          path: v8-preview-test-results.txt
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Report failed step and exact SHA
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "Final checkout SHA: $(git rev-parse HEAD)"
+          Write-Host "Workflow outcome: ${{ job.status }}"
+          Write-Host "Commercial release remains blocked regardless of test outcome."

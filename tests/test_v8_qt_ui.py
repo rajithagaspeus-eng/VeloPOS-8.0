@@ -1,0 +1,1218 @@
+"""Optional offscreen Qt smoke test. Never imports a customer database.
+
+Run separately: python -m unittest tests.test_v8_qt_ui -v
+"""
+import os
+import tempfile
+import unittest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+try:
+    from PySide6.QtCore import QSettings
+    from PySide6.QtWidgets import QApplication
+    from velopos_qt.app import SettingsPreview
+    from velopos_qt.settings_model import SettingsAdapter
+except ModuleNotFoundError as exc:
+    # Skip only when Qt itself is genuinely absent. A missing/broken VeloPOS
+    # import is a real failure and must never be reported as "PySide6 absent".
+    if exc.name == "PySide6" or (exc.name or "").startswith("PySide6."):
+        QApplication = None
+    else:
+        raise
+
+
+class FakeInventory:
+    def search(self, query="", limit=100):
+        products = [
+            {"barcode": "D001", "name_en": "Sample Rice", "name_local": "සහල්", "stock_qty": 5, "selling_price": 250},
+            {"barcode": "D002", "name_en": "Sample Soap", "name_local": "සබන්", "stock_qty": 8, "selling_price": 180},
+        ]
+        return [p for p in products if query.lower() in
+                (p["barcode"] + p["name_en"] + p["name_local"]).lower()][:limit]
+
+
+class FakeDirectory:
+    def customers(self, query="", limit=100):
+        records = [{"id": 1, "name": "Demo Customer", "phone": "0771112222",
+                    "address": "Demo Town", "credit_balance": 125.50}]
+        return [row for row in records if query.lower() in row["name"].lower()][:limit]
+
+    def suppliers(self, query="", limit=100):
+        records = [{"id": 1, "name": "Demo Supplier", "contact": "Demo Contact",
+                    "phone": "0773334444", "address": "", "active": 1}]
+        return [row for row in records if query.lower() in row["name"].lower()][:limit]
+
+
+class FakeStore:
+    def __init__(self):
+        self.data = {"shop_name": "Demo", "theme": "light", "font_size": "15"}
+
+    def get(self, key, default=""):
+        return self.data.get(key, default)
+
+    def set_many(self, changes):
+        self.data.update(changes)
+
+
+@unittest.skipIf(QApplication is None, "PySide6 not installed")
+class PreviewSmokeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.qt_app = QApplication.instance() or QApplication([])
+
+    def setUp(self):
+        self.sandbox = tempfile.TemporaryDirectory(prefix="velopos8_qt_test_")
+        self.preferences = QSettings(os.path.join(self.sandbox.name, "preview.ini"), QSettings.Format.IniFormat)
+        self.window = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences,
+                                      inventory=FakeInventory())
+        self.window.directory = FakeDirectory()
+
+    def tearDown(self):
+        self.window.close()
+        self.window.deleteLater()
+        self.sandbox.cleanup()
+
+    def test_sidebar_and_inventory_layout_are_readable(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QHeaderView
+        self.assertEqual(
+            self.window.nav.horizontalScrollBarPolicy(),
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(
+            self.window.nav.item(1).toolTip(),
+            self.window.nav.item(1).text(),
+        )
+        self.window.nav.setCurrentRow(1)
+        page = self.window._pages[1]
+        self.assertEqual(
+            page.table.horizontalHeader().sectionResizeMode(1),
+            QHeaderView.ResizeMode.Stretch,
+        )
+        self.assertEqual(page.table.item(0, 1).toolTip(), "Sample Rice")
+
+    def test_premium_inventory_and_billing_surfaces_keep_draft_only_behavior(self):
+        from PySide6.QtWidgets import QFrame
+        from velopos_qt.app import DARK, LIGHT
+        self.window.nav.setCurrentRow(1)
+        inventory = self.window._pages[1]
+        self.assertEqual(inventory.search_panel.objectName(), "searchPanel")
+        self.assertEqual(inventory.table.objectName(), "catalogTable")
+        self.assertEqual(inventory.status.objectName(), "catalogStatus")
+        self.assertEqual(inventory.table.rowCount(), 2)
+        self.assertEqual(inventory.table.item(0, 1).text(), "Sample Rice")
+        self.window.nav.setCurrentRow(2)
+        billing = self.window._pages[2]
+        self.assertEqual(billing.scan_panel.objectName(), "searchPanel")
+        self.assertEqual(billing.query.objectName(), "barcodeSearch")
+        self.assertEqual(billing.results.objectName(), "searchResults")
+        self.assertEqual(billing.cart_table.objectName(), "draftCartTable")
+        self.assertEqual(billing.notice.objectName(), "previewSafetyNotice")
+        self.assertTrue(billing.notice.text())
+        self.assertEqual(billing.cart_table.rowCount(), 0)
+        self.assertIsNone(self.window.transaction_gateway)
+        self.assertIsNone(self.window.checkout_preflight)
+        for stylesheet in (DARK, LIGHT):
+            self.assertIn("QFrame#searchPanel", stylesheet)
+            self.assertIn("QLineEdit#barcodeSearch:focus", stylesheet)
+            self.assertIn("QFrame#billingTotals", stylesheet)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(inventory.heading.text(), self.window.t("inventory"))
+        self.assertEqual(billing.heading.text(), self.window.t("billing"))
+        self.assertTrue(billing.notice.text())
+
+    def test_premium_directory_surfaces_keep_readonly_and_localized_views(self):
+        from velopos_qt.app import DARK, LIGHT
+        from velopos_qt.directory_pages import DirectoryPage
+
+        for index, kind, expected in (
+            (3, "customers", "Demo Customer"),
+            (4, "suppliers", "Demo Supplier"),
+        ):
+            self.window.nav.setCurrentRow(index)
+            page = self.window._pages[index]
+            self.assertIsInstance(page, DirectoryPage)
+            self.assertEqual(page.kind, kind)
+            self.assertEqual(page.search_panel.objectName(), "directorySearchPanel")
+            self.assertEqual(page.search.objectName(), "directorySearch")
+            self.assertEqual(page.table.objectName(), "directoryTable")
+            self.assertEqual(page.notice.objectName(), "directoryNotice")
+            self.assertEqual(page.table.rowCount(), 1)
+            self.assertEqual(page.table.item(0, 0).text(), expected)
+            self.assertIsNone(page.editor)
+            self.assertFalse(page.new_button.isVisible())
+            self.assertFalse(page.edit_button.isVisible())
+            self.window.locale_combo.setCurrentIndex(1)
+            self.assertEqual(page.heading.text(), self.window.t(kind))
+            self.window.locale_combo.setCurrentIndex(2)
+            self.assertEqual(page.heading.text(), self.window.t(kind))
+            self.window.locale_combo.setCurrentIndex(0)
+            self.assertEqual(page.heading.text(), self.window.t(kind))
+        for theme in (DARK, LIGHT):
+            self.assertIn("QFrame#directorySearchPanel", theme)
+            self.assertIn("QLineEdit#directorySearch:focus", theme)
+            self.assertIn("QTableWidget#directoryTable", theme)
+
+    def test_preview_login_dialog_and_signout_gate(self):
+        from PySide6.QtWidgets import QDialog
+        from velopos_qt.login_dialog import PreviewLoginDialog
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeAuthenticator:
+            def needs_setup(self):
+                return True
+            def bootstrap_admin(self, username, password):
+                if len(password) < 12:
+                    raise ValueError("Use a stronger password")
+                return PreviewIdentity(username, "Admin")
+
+        fake = FakeAuthenticator()
+        dialog = PreviewLoginDialog(fake, self.window.t)
+        try:
+            dialog.username.setText("preview-owner")
+            dialog.password.setText("short")
+            dialog.accept()
+            self.assertIsNone(dialog.identity)
+            self.assertIn("stronger", dialog.error.text())
+            dialog.password.setText("UniqueStrongPassword123!")
+            dialog.accept()
+            self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted)
+            self.window.identity = dialog.identity
+            self.window.authenticator = fake
+            self.window._update_auth_ui()
+            self.assertEqual(self.window.user_label.text(), "preview-owner (Admin)")
+            self.window.preview_logout()
+            self.assertIsNone(self.window.identity)
+            self.assertEqual(self.window.user_label.text(), "")
+        finally:
+            dialog.close()
+            dialog.deleteLater()
+
+    def test_premium_preview_shell_is_structured_and_nontransactional(self):
+        from PySide6.QtWidgets import QFrame, QLabel
+        from velopos_qt.app import DARK, LIGHT
+        self.assertEqual(self.window.width(), 1220)
+        self.assertEqual(self.window.nav.objectName(), "mainNavigation")
+        self.assertEqual(
+            len(self.window.findChildren(QFrame, "navigationPanel")), 1
+        )
+        self.assertEqual(
+            len(self.window.findChildren(QFrame, "workspacePanel")), 1
+        )
+        self.assertEqual(len(self.window.findChildren(QFrame, "heroPanel")), 1)
+        self.assertEqual(len(self.window.dashboard_overview.cards), 4)
+        self.assertEqual(
+            self.window.dashboard_overview.cards[0].index_label.text(),
+            "01  /  STORE PULSE",
+        )
+        self.assertEqual(
+            self.window.quick_buttons[0][0].objectName(), "quickAction"
+        )
+        self.assertEqual(len(self.window.nav_keys), 14)
+        for stylesheet in (DARK, LIGHT):
+            self.assertIn("QFrame#heroPanel", stylesheet)
+            self.assertIn("QFrame#metricCard", stylesheet)
+            self.assertIn("QListWidget#mainNavigation::item:selected", stylesheet)
+        self.window.nav.setCurrentRow(6)
+        self.window.controls["theme"].setCurrentText("dark")
+        self.window._apply_theme()
+        self.assertIn("QFrame#heroPanel", self.window.styleSheet())
+        self.window.locale_combo.setCurrentIndex(1)
+        self.window.nav.setCurrentRow(0)
+        self.assertTrue(self.window.dashboard_intro.text())
+        self.assertEqual(
+            self.window.dashboard_overview.cards[0].value.text(), "—"
+        )
+        self.assertIsNone(self.window.transaction_gateway)
+        self.assertIsNone(self.window.checkout_preflight)
+
+    def test_dashboard_preview_kpi_cards_and_refresh(self):
+        from velopos_qt.dashboard_page import DashboardOverview
+
+        class FakeStats:
+            def __init__(self):
+                self.count = 0
+            def snapshot(self):
+                self.count += 1
+                return {
+                    "products": 8 + self.count,
+                    "customers": 3, "suppliers": 2,
+                    "low_stock": 1,
+                    "alerts": [{"name_en": "Notebook", "barcode": "X1",
+                                "stock_qty": 2}],
+                }
+
+        fake = FakeStats()
+        opened = []
+        page = DashboardOverview(
+            fake, self.window.t, open_inventory=lambda: opened.append(True)
+        )
+        try:
+            self.assertEqual(page.cards[0].value.text(), "9")
+            self.assertIn("Notebook", page.alert_body.text())
+            page.refresh_button.click()
+            self.assertEqual(page.cards[0].value.text(), "10")
+            page.open_stock_button.click()
+            self.assertEqual(opened, [True])
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.cards[0].label.text(), "භාණ්ඩ")
+            self.assertEqual(page.cards[0].value.text(), "10")
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_dashboard_fallback_has_no_fabricated_counts(self):
+        self.assertEqual(self.window.dashboard_overview.cards[0].value.text(), "—")
+        self.assertIn("No demo statistics", self.window.dashboard_overview.alert_body.text())
+
+    def test_dashboard_quick_navigation_and_translation(self):
+        self.assertEqual(len(self.window.quick_buttons), 3)
+        self.window.quick_buttons[0][0].click()
+        self.assertEqual(self.window.nav.currentRow(), 1)
+        self.window.nav.setCurrentRow(0)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(self.window.quick_buttons[0][0].text(), "තොගය බලන්න")
+        self.window.quick_buttons[1][0].click()
+        self.assertEqual(self.window.nav.currentRow(), 2)
+
+    def test_billing_shift_status_is_read_only_and_translated(self):
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeShift:
+            def current(self):
+                return {"id": 12, "cashier": "owner", "opened_at": "2026-11-04"}
+
+        user = PreviewIdentity("owner", "Admin")
+        page = BillingPage(
+            FakeInventory(), self.window.t,
+            shift_reader=FakeShift(), identity=lambda: user,
+        )
+        try:
+            self.assertIn("#12", page.shift_status.text())
+            self.assertIn("owner", page.shift_status.text())
+            self.assertFalse(hasattr(page, "checkout_button"))
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertIn("සේවා වාරය", page.shift_status.text())
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_reports_kpi_tiles_and_error_clearing(self):
+        from velopos_qt.reports_page import ReportsPage
+
+        class DemoReader:
+            def __init__(self):
+                self.fail = False
+            def snapshot(self, start, end):
+                if self.fail:
+                    raise ValueError("Invalid date range")
+                return {
+                    "sale_count": 3,
+                    "sales_total": 1000,
+                    "returns_total": 100,
+                    "net_revenue": 900,
+                    "adjusted_gross_profit": 350,
+                    "expenses": 40,
+                    "indicative_net": 310,
+                    "vat_net": 12,
+                    "service_net": 5,
+                    "recent_sales": [],
+                }
+            def staff_activity(self):
+                return []
+
+        reader = DemoReader()
+        page = ReportsPage(reader, self.window.t, lambda: True)
+        try:
+            self.assertEqual(len(page.metric_cards), 9)
+            self.assertEqual(page.metric_cards[0][1].text(), "3")
+            self.assertEqual(page.metric_cards[3][1].text(), "900.00")
+            self.assertEqual(page.metric_cards[6][1].text(), "310.00")
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.metric_cards[0][0].text(), self.window.t("report_sales_count"))
+            reader.fail = True
+            page.refresh()
+            self.assertTrue(all(value.text() == "—" for _, value in page.metric_cards))
+            self.assertEqual(page.sales.rowCount(), 0)
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_session_revocation_navigation_clears_held_draft(self):
+        from velopos_qt.auth_model import PreviewIdentity
+        role = {"current": "Admin"}
+        class StubAuthenticator:
+            def current_role(self, identity):
+                return role["current"]
+        self.window.authenticator = StubAuthenticator()
+        self.window.identity = PreviewIdentity("owner", "Admin", "fake-preview-token")
+        self.window.nav.setCurrentRow(2)
+        bill = self.window._pages[2]
+        bill.query.setText("D001")
+        bill.scan_or_add()
+        bill.hold_draft()
+        self.assertIsNotNone(bill._held_draft)
+        role["current"] = None
+        self.window.nav.setCurrentRow(1)
+        self.assertIsNone(self.window.identity)
+        self.assertIsNone(bill._held_draft)
+        self.assertEqual(bill.cart.lines, {})
+        self.assertEqual(self.window.user_label.text(), "")
+
+    def test_demand_view_is_admin_only_and_displays_sparse_data_honestly(self):
+        from decimal import Decimal
+        from velopos_qt.forecast_page import ForecastPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeDemand:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, **args):
+                self.calls += 1
+                if args["horizon"] == "invalid":
+                    raise ValueError("Invalid planning horizon")
+                return {
+                    "history_from": "2026-10-07", "history_to": "2026-11-03",
+                    "ready_products": 1, "evaluated_products": 2,
+                    "products": [
+                        {"barcode": "GOOD", "product": "Rice", "stock": 10,
+                         "observed_sale_days": 8, "units_28d": Decimal("42"),
+                         "status": "baseline", "units_expected": Decimal("15.75"),
+                         "stock_coverage_days": Decimal("4.4"),
+                         "backtest": {"mean_absolute_error": Decimal("1.25"),
+                                      "evaluated_windows": 3}},
+                        {"barcode": "NEW", "product": "Soap", "stock": 5,
+                         "observed_sale_days": 1, "units_28d": Decimal("1"),
+                         "status": "insufficient", "units_expected": None,
+                         "stock_coverage_days": None},
+                    ],
+                }
+
+        fake = FakeDemand()
+        page = ForecastPage(fake, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(fake.calls, 0)
+            self.assertEqual(page.table.rowCount(), 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 2)
+            self.assertEqual(page.table.item(0, 5).text(), "15.75")
+            self.assertEqual(page.table.item(0, 7).text(), "1.25")
+            self.assertEqual(page.table.item(1, 7).text(),
+                             self.window.t("forecast_backtest_unavailable"))
+            self.assertEqual(page.table.item(1, 5).text(),
+                             self.window.t("forecast_insufficient"))
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("forecast_title"))
+            page.horizon_input.setText("invalid")
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 0)
+            self.assertEqual(page.status.text(), "—")
+            page.horizon_input.setText("7")
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 2)
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.table.rowCount(), 0)
+            self.assertEqual(page.status.text(), "—")
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_analytics_view_is_admin_only_localized_and_clears_stale_data(self):
+        from decimal import Decimal
+        from velopos_qt.analytics_page import AnalyticsPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class Reader:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, start, end):
+                self.calls += 1
+                if start == "invalid":
+                    raise ValueError("Invalid date")
+                return {
+                    "sales_total": Decimal("250.00"),
+                    "refunds_total": Decimal("20.00"),
+                    "net_revenue": Decimal("230.00"),
+                    "indicative_net": Decimal("50.00"),
+                    "daily": [{"date": "2026-11-02", "bills": 1,
+                               "sales": Decimal("250"), "refunds": Decimal("20"),
+                               "net_revenue": Decimal("230"),
+                               "indicative_net": Decimal("50")}],
+                    "expenses_by_category": [
+                        {"category": "Rent", "entries": 1, "total": Decimal("30")}
+                    ],
+                    "top_products": [
+                        {"barcode": "SKU", "product": "Soap", "qty": 2,
+                         "revenue": Decimal("250")}
+                    ],
+                }
+
+        reader = Reader()
+        page = AnalyticsPage(reader, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(page.cards[2][1].text(), "230.00")
+            self.assertEqual(page.daily_table.rowCount(), 1)
+            self.assertEqual(page.products_table.rowCount(), 1)
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("analytics"))
+            page.start_input.setText("invalid")
+            page.refresh()
+            self.assertEqual(page.daily_table.rowCount(), 0)
+            self.assertTrue(all(n.text() == "—" for _, n in page.cards))
+            page.start_input.setText("2026-11-01")
+            page.refresh()
+            self.assertEqual(page.expense_table.rowCount(), 1)
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.products_table.rowCount(), 0)
+            self.assertTrue(all(n.text() == "—" for _, n in page.cards))
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_purchasing_is_admin_only_and_clears_on_logout(self):
+        from velopos_qt.purchasing_page import PurchasingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class DemoPurchaseReader:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, **date_filters):
+                self.calls += 1
+                if date_filters.get("start") == "invalid":
+                    raise ValueError("Invalid date")
+                return {
+                    "purchase_count": 1, "total": 210,
+                    "paid": 40, "unpaid_estimate": 170,
+                    "supplier_payables": 125, "supplier_advances": 0,
+                    "balances": [{"id": 4, "name": "Demo", "bought": 210,
+                                  "paid": 85, "balance": 125}],
+                    "recent": [{"grn_no": "GRN-DEMO", "date": "2026-11-01",
+                                "supplier": "Demo", "total": 210,
+                                "paid": 40, "status": "OK"}],
+                    "suppliers": [{"id": 4, "name": "Demo"}],
+                }
+
+        reader = DemoPurchaseReader()
+        page = PurchasingPage(reader, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(reader.calls, 0)
+            self.assertEqual(page.table.rowCount(), 0)
+            self.window.identity = PreviewIdentity("cashier", "Cashier")
+            page.refresh()
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(reader.calls, 1)
+            self.assertEqual(page.table.rowCount(), 1)
+            self.assertEqual(page.suppliers.rowCount(), 1)
+            self.assertEqual(page.balances.rowCount(), 1)
+            self.assertIn("125.00", page.liabilities.text())
+            page.start_input.setText("invalid")
+            page.refresh()
+            self.assertEqual(page.balances.rowCount(), 0)
+            self.assertEqual(page.liabilities.text(), "—")
+            self.assertIn("Invalid date", page.warning.text())
+            page.start_input.setText("2026-11-01")
+            page.refresh()
+            self.assertEqual(page.balances.rowCount(), 1)
+            self.assertIn("210.00", page.summary.text())
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("purchasing"))
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.summary.text(), "—")
+            self.assertEqual(page.table.rowCount(), 0)
+            self.assertEqual(page.suppliers.rowCount(), 0)
+            self.assertEqual(page.balances.rowCount(), 0)
+            self.assertEqual(page.liabilities.text(), "—")
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_customer_lookup_failure_redacts_previous_profile(self):
+        from decimal import Decimal
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        gate = {"failure": False}
+        class Reader:
+            def search(self, term):
+                if gate["failure"]:
+                    raise PermissionError("Access revoked")
+                return [{"id": 11, "name": "Private Name", "phone": "0770009999"}]
+            def get(self, customer_id):
+                return {
+                    "name": "Private Name", "loyalty_points": Decimal("8"),
+                    "credit_balance": Decimal("12"), "credit_limit": Decimal("50"),
+                }
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=Reader(),
+            identity=lambda: PreviewIdentity("cashier", "Cashier"),
+        )
+        try:
+            page.refresh_customers()
+            page.customer_choice.setCurrentIndex(1)
+            self.assertIn("Private Name", page.customer_summary.text())
+            gate["failure"] = True
+            page.refresh_customers()
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertIsNone(page.customer_id)
+            self.assertEqual(page.loyalty_projection.text(), "")
+            self.assertNotIn("Private Name", page.customer_summary.text())
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_customer_ui_rechecks_live_authorization_not_cached_role(self):
+        from decimal import Decimal
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        gate = {"authorized": True}
+        class Reader:
+            def __init__(self):
+                self.calls = 0
+            def search(self, term):
+                self.calls += 1
+                if not gate["authorized"]:
+                    raise AssertionError("Reader called after session revoked")
+                return [{"id": 10, "name": "Private Customer", "phone": "0701234567"}]
+            def get(self, customer_id):
+                if not gate["authorized"]:
+                    raise AssertionError("Stale profile exposed")
+                return {
+                    "name": "Private Customer",
+                    "loyalty_points": Decimal("6"), "credit_balance": Decimal("1"),
+                    "credit_limit": Decimal("20"),
+                }
+        reader = Reader()
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=reader,
+            identity=lambda: PreviewIdentity("owner", "Admin"),
+            authorize_customer=lambda: gate["authorized"],
+        )
+        try:
+            page.refresh_customers()
+            self.assertEqual(reader.calls, 1)
+            page.customer_choice.setCurrentIndex(1)
+            self.assertIn("Private Customer", page.customer_summary.text())
+            gate["authorized"] = False
+            page.refresh_customer_summary()
+            self.assertFalse(page.customer_search.isEnabled())
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertEqual(page.customer_search.text(), "")
+            self.assertEqual(page.loyalty_projection.text(), "")
+            page.refresh_customers()
+            self.assertEqual(reader.calls, 1)
+            page.query.setText("D001")
+            page.scan_or_add()
+            self.assertEqual(page.loyalty_projection.text(), "")
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_customer_privacy_clears_selector_if_access_revoked(self):
+        from decimal import Decimal
+        from velopos_qt.auth_model import PreviewIdentity
+        from velopos_qt.billing_page import BillingPage
+
+        state = {"person": PreviewIdentity("cashier", "Cashier")}
+        class Reader:
+            def search(self, term):
+                return [{"id": 4, "name": "Private Buyer", "phone": "0700012345"}]
+            def get(self, customer_id):
+                return {"name": "Private Buyer", "loyalty_points": Decimal("8"),
+                        "credit_balance": Decimal("25"), "credit_limit": Decimal("100")}
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=Reader(),
+            identity=lambda: state["person"],
+        )
+        try:
+            page.refresh_customers()
+            page.customer_choice.setCurrentIndex(1)
+            self.assertEqual(page.customer_id, 4)
+            self.assertIn("Private Buyer", page.customer_choice.currentText())
+            state["person"] = None
+            page.refresh_customer_summary()
+            self.assertIsNone(page.customer_id)
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertEqual(page.customer_search.text(), "")
+            self.assertNotIn("Private Buyer", page.customer_summary.text())
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_customer_loyalty_selection_is_login_gated_and_held_safely(self):
+        from velopos_qt.billing_page import BillingPage
+        from velopos_qt.auth_model import PreviewIdentity
+        from decimal import Decimal
+
+        identity = {"current": None}
+        class FakeCustomerReader:
+            def __init__(self):
+                self.searches = 0
+            def search(self, term):
+                assert identity["current"] is not None
+                self.searches += 1
+                return [{"id": 7, "name": "Preview Buyer", "phone": "0700000000"}]
+            def get(self, customer_id):
+                assert identity["current"] is not None
+                assert customer_id == 7
+                return {
+                    "id": 7, "name": "Preview Buyer",
+                    "loyalty_points": Decimal("13.50"),
+                    "credit_balance": Decimal("40.00"),
+                    "credit_limit": Decimal("200.00"),
+                }
+
+        reader = FakeCustomerReader()
+        page = BillingPage(
+            FakeInventory(), self.window.t, customer_reader=reader,
+            identity=lambda: identity["current"],
+        )
+        try:
+            self.assertFalse(page.customer_search.isEnabled())
+            self.assertEqual(reader.searches, 0)
+            identity["current"] = PreviewIdentity("owner", "Admin")
+            page.refresh_customer_summary()
+            self.assertTrue(page.customer_search.isEnabled())
+            page.customer_search.setText("Preview")
+            page.refresh_customers()
+            self.assertEqual(reader.searches, 1)
+            page.customer_choice.setCurrentIndex(1)
+            self.assertEqual(page.customer_id, 7)
+            self.assertIn("13.50", page.customer_summary.text())
+            page.query.setText("D001")
+            page.scan_or_add()
+            self.assertIn("2.50", page.loyalty_projection.text())
+            page.hold_draft()
+            self.assertEqual(page.loyalty_projection.text(), "")
+            self.assertIsNone(page.customer_id)
+            self.assertEqual(page._held_draft[3], 7)
+            page.resume_draft()
+            self.assertEqual(page.customer_id, 7)
+            self.assertEqual(page.customer_choice.currentData(), 7)
+            self.assertEqual(page.cart_table.rowCount(), 1)
+            self.assertIn("2.50", page.loyalty_projection.text())
+            page.clear_session_draft()
+            identity["current"] = None
+            page.refresh_customer_summary()
+            self.assertEqual(page.customer_choice.count(), 0)
+            self.assertEqual(page.customer_id, None)
+            self.assertFalse(page.customer_search.isEnabled())
+            self.assertNotIn("Preview Buyer", page.customer_summary.text())
+            self.assertEqual(page.loyalty_projection.text(), "")
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_held_draft_resume_preserves_lines_and_tender(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("D001")
+        page.scan_or_add()
+        page.discount_input.setText("25")
+        page.tender_input.setText("300")
+        page.hold_draft()
+        self.assertEqual(page.cart_table.rowCount(), 0)
+        self.assertIsNotNone(page._held_draft)
+        self.assertFalse(page.hold_button.isEnabled())
+        self.assertTrue(page.resume_button.isEnabled())
+        page.resume_draft()
+        self.assertEqual(page.cart_table.rowCount(), 1)
+        self.assertEqual(page.discount_input.text(), "25")
+        self.assertEqual(page.tender_input.text(), "300")
+        self.assertIsNone(page._held_draft)
+        self.assertFalse(hasattr(page, "checkout_button"))
+
+    def test_held_draft_cannot_overwrite_active_and_signout_destroys_both(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("D001")
+        page.scan_or_add()
+        page.hold_draft()
+        page.query.setText("D002")
+        page.scan_or_add()
+        self.assertEqual(len(page.cart.lines), 1)
+        page.resume_draft()
+        self.assertEqual(list(page.cart.lines), ["D002"])
+        self.assertIsNotNone(page._held_draft)
+        self.window.preview_logout()
+        self.assertEqual(page.cart.lines, {})
+        self.assertIsNone(page._held_draft)
+        self.assertFalse(page.resume_button.isEnabled())
+
+    def test_smart_inventory_is_admin_only_and_localized(self):
+        from velopos_qt.inventory_insights_page import InventoryInsightsPage
+        from velopos_qt.auth_model import PreviewIdentity
+
+        class FakeInsights:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, **_options):
+                self.calls += 1
+                return {
+                    "low_count": 2, "expired_count": 1, "expiring_count": 1,
+                    "low_rows": [{"barcode": "LOW", "name_en": "Rice", "stock_qty": 2, "suggested_topup": 4}],
+                    "expiry_rows": [{"barcode": "OLD", "name_en": "Milk",
+                                     "expiry_date": "2026-11-01"}],
+                    "movements": [{"ts": "2026-11-04", "barcode": "LOW",
+                                   "qty_change": -1, "qty_after": 2,
+                                   "reason": "SALE", "user": "demo"}],
+                }
+
+        fake = FakeInsights()
+        page = InventoryInsightsPage(fake, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(fake.calls, 0)
+            self.assertTrue(all(v.text() == "—" for _, v in page.cards))
+            self.window.identity = PreviewIdentity("staff", "Cashier")
+            page.refresh()
+            self.assertEqual(fake.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(fake.calls, 1)
+            self.assertEqual(page.cards[0][1].text(), "2")
+            self.assertEqual(page.low_table.rowCount(), 1)
+            self.assertEqual(page.low_table.item(0, 3).text(), "4")
+            self.assertEqual(page.ledger_table.rowCount(), 1)
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.heading.text(), self.window.t("smart_inventory"))
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.low_table.rowCount(), 0)
+            self.assertTrue(all(v.text() == "—" for _, v in page.cards))
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_smart_inventory_ui_validates_bounded_integer_filters(self):
+        from PySide6.QtGui import QValidator
+        from velopos_qt.inventory_insights_page import InventoryInsightsPage
+
+        class NoAccessReader:
+            def snapshot(self, **_kwargs):
+                raise AssertionError("Unauthorized stock query")
+
+        page = InventoryInsightsPage(
+            NoAccessReader(), self.window.t, lambda: False
+        )
+        try:
+            for field, maximum in ((page.low_input, 100000),
+                                   (page.days_input, 365)):
+                validator = field.validator()
+                self.assertIsNotNone(validator)
+                self.assertEqual(
+                    validator.validate(str(maximum), 0)[0],
+                    QValidator.State.Acceptable,
+                )
+                self.assertNotEqual(
+                    validator.validate("2.5", 0)[0],
+                    QValidator.State.Acceptable,
+                )
+                self.assertNotEqual(
+                    validator.validate("-1", 0)[0],
+                    QValidator.State.Acceptable,
+                )
+                self.assertNotEqual(
+                    validator.validate(str(maximum + 1), 0)[0],
+                    QValidator.State.Acceptable,
+                )
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_signout_clears_cashier_draft_and_discount(self):
+        from velopos_qt.auth_model import PreviewIdentity
+        self.window.identity = PreviewIdentity("owner", "Admin")
+        self.window.nav.setCurrentRow(2)
+        bill = self.window._pages[2]
+        bill.query.setText("D001")
+        bill.scan_or_add()
+        bill.discount_input.setText("25")
+        bill.tender_input.setText("300")
+        self.assertEqual(len(bill.cart.lines), 1)
+        self.window.preview_logout()
+        self.assertEqual(len(bill.cart.lines), 0)
+        self.assertEqual(bill.discount_input.text(), "0")
+        self.assertEqual(bill.tender_input.text(), "0")
+        self.assertEqual(bill.cart_table.rowCount(), 0)
+        self.assertFalse(hasattr(bill, "checkout_button"))
+
+    def test_cashier_shortcuts_have_correct_targets(self):
+        from PySide6.QtGui import QKeySequence
+        self.window.nav.setCurrentRow(2)
+        bill = self.window._pages[2]
+        self.assertEqual(bill.discount_shortcut.key().toString(), QKeySequence("F4").toString())
+        self.assertEqual(bill.tender_shortcut.key().toString(), QKeySequence("F5").toString())
+        self.assertEqual(bill.hold_shortcut.key().toString(), QKeySequence("F6").toString())
+        self.assertEqual(bill.resume_shortcut.key().toString(), QKeySequence("F7").toString())
+
+    def test_admin_reports_are_hidden_until_login(self):
+        from velopos_qt.auth_model import PreviewIdentity
+        from velopos_qt.reports_page import ReportsPage
+
+        class FakeReports:
+            def __init__(self):
+                self.calls = 0
+            def snapshot(self, start, end):
+                self.calls += 1
+                return {
+                    "sale_count": 2,
+                    "sales_total": 400,
+                    "returns_total": 0,
+                    "net_revenue": 400,
+                    "recorded_gross_profit": 100,
+                    "adjusted_gross_profit": 100,
+                    "vat_net": 0,
+                    "service_net": 0,
+                    "expenses": 20,
+                    "indicative_net": 80,
+                    "recent_sales": [{"invoice_no": "DEMO", "date": "2026-11-01",
+                                      "total_amount": 400, "payment_method": "Cash"}],
+                }
+            def staff_activity(self, limit=30):
+                return [{"ts": "2026-11-01", "user": "admin", "action": "TEST"}]
+
+        reader = FakeReports()
+        page = ReportsPage(reader, self.window.t, self.window._is_preview_admin)
+        try:
+            self.assertEqual(page.sales.rowCount(), 0)
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("cashier", "Cashier")
+            page.refresh()
+            self.assertEqual(reader.calls, 0)
+            self.window.identity = PreviewIdentity("owner", "Admin")
+            page.refresh()
+            self.assertEqual(reader.calls, 1)
+            self.assertEqual(page.sales.rowCount(), 1)
+            self.assertEqual(page.audit.rowCount(), 1)
+            self.window.locale_combo.setCurrentIndex(1)
+            page.retranslate()
+            self.assertEqual(page.title.text(), "වාර්තා සහ ක්‍රියාකාරකම්")
+            self.window.identity = None
+            page.refresh()
+            self.assertEqual(page.sales.rowCount(), 0)
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_dashboard_then_shop_settings(self):
+        self.assertEqual(self.window.nav.count(), 14)
+        self.assertEqual(self.window.nav.currentRow(), 0)
+        self.window.nav.setCurrentRow(5)
+        self.assertEqual(self.window.controls["shop_name"].text(), "Demo")
+
+    def test_billing_draft_heading_does_not_overlap_results_at_small_height(self):
+        from velopos_qt.billing_page import BillingPage
+        from PySide6.QtWidgets import QScrollArea
+
+        page = BillingPage(FakeInventory(), self.window.t)
+        try:
+            page.resize(880, 420)
+            page.show()
+            self.qt_app.processEvents()
+            self.assertIsInstance(page.scroll_area, QScrollArea)
+            self.assertGreaterEqual(page.results.height(), 155)
+            self.assertGreaterEqual(page.cart_table.height(), 135)
+            self.assertGreaterEqual(
+                page.cart_title.geometry().top(),
+                page.results.geometry().bottom() + 1,
+                "Draft items must be below, not drawn on top of, search rows",
+            )
+            self.assertGreater(
+                page.scroll_area.verticalScrollBar().maximum(), 0,
+                "Small screens must scroll instead of compressing billing tables",
+            )
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_tender_typing_does_not_requery_stock(self):
+        from velopos_qt.billing_page import BillingPage
+
+        class CountingStock:
+            def __init__(self):
+                self.calls = 0
+            def inspect(self, cart):
+                self.calls += 1
+                return []
+
+        stock = CountingStock()
+        page = BillingPage(FakeInventory(), self.window.t, stock_reader=stock)
+        try:
+            page.query.setText("D001")
+            page.scan_or_add()
+            self.assertEqual(stock.calls, 1)
+            page.discount_input.setText("5")
+            page.tender_input.setText("300")
+            self.assertEqual(stock.calls, 1)
+            page.cart_table.selectRow(0)
+            page.quantity_input.setText("2")
+            page.edit_quantity()
+            self.assertEqual(stock.calls, 2)
+            page.refresh_stock()
+            self.assertEqual(stock.calls, 3)
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_billing_discount_cash_estimate_and_no_checkout(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("D001")
+        page.scan_or_add()
+        page.discount_input.setText("25")
+        page.tender_input.setText("300")
+        self.assertIn("225.00", page.net_total.text())
+        self.assertIn("75.00", page.cash_status.text())
+        self.assertFalse(hasattr(page, "checkout_button"))
+        page.discount_input.setText("300")
+        self.assertIn(self.window.t("preview_error"), page.net_total.text())
+        page.discount_input.setText("25")
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(page.discount_label.text(), "වට්ටම")
+        self.assertIn("75.00", page.cash_status.text())
+
+    def test_billing_barcode_scan_quantity_and_localization(self):
+        from PySide6.QtWidgets import QHeaderView
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        self.assertEqual(
+            page.results.horizontalHeader().sectionResizeMode(1),
+            QHeaderView.ResizeMode.Stretch,
+        )
+        self.assertEqual(
+            page.cart_table.horizontalHeader().sectionResizeMode(0),
+            QHeaderView.ResizeMode.Stretch,
+        )
+        page.query.setText("D001")
+        page.scan_or_add()
+        self.assertEqual(str(page.cart.subtotal()), "250.00")
+        self.assertEqual(page.query.text(), "")
+        self.assertEqual(page.cart_table.item(0, 0).toolTip(), "Sample Rice")
+        page.cart_table.selectRow(0)
+        page.quantity_input.setText("3")
+        page.edit_quantity()
+        self.assertEqual(str(page.cart.subtotal()), "750.00")
+        self.assertIn("750.00", page.total.text())
+        self.assertIn("1", page.line_count.text())
+        self.window.locale_combo.setCurrentIndex(2)
+        self.assertEqual(page.quantity_button.text(), "அளவை மாற்று")
+        page.remove_selected()
+        self.assertEqual(page.cart_table.rowCount(), 0)
+        self.assertFalse(hasattr(page, "checkout_button"))
+
+    def test_scan_ambiguous_search_requires_selection(self):
+        self.window.nav.setCurrentRow(2)
+        page = self.window._pages[2]
+        page.query.setText("Sample")
+        self.assertGreater(page.results.rowCount(), 1)
+        page.scan_or_add()
+        self.assertEqual(len(page.cart.lines), 0)
+
+    def test_inventory_and_billing_draft_without_checkout(self):
+        self.window.nav.setCurrentRow(1)
+        inventory = self.window._pages[1]
+        self.assertEqual(inventory.table.rowCount(), 2)
+        inventory.query.setText("Rice")
+        self.assertEqual(inventory.table.rowCount(), 1)
+
+        self.window.nav.setCurrentRow(2)
+        billing = self.window._pages[2]
+        billing.results.setCurrentCell(0, 0)
+        billing.add_selected()
+        self.assertEqual(billing.cart_table.rowCount(), 1)
+        self.assertEqual(str(billing.cart.subtotal()), "250.00")
+        self.assertFalse(hasattr(billing, "checkout_button"))
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(billing.heading.text(), "බිල්පත් කෙටුම්පත")
+        billing.clear_cart()
+        self.assertEqual(billing.cart_table.rowCount(), 0)
+
+    def test_customer_supplier_directories(self):
+        self.window.nav.setCurrentRow(3)
+        customers = self.window._pages[3]
+        self.assertEqual(customers.table.rowCount(), 1)
+        self.assertEqual(customers.table.item(0, 0).text(), "Demo Customer")
+        customers.search.setText("nonexistent")
+        self.assertEqual(customers.table.rowCount(), 0)
+
+        self.window.nav.setCurrentRow(4)
+        suppliers = self.window._pages[4]
+        self.assertEqual(suppliers.table.rowCount(), 1)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(suppliers.heading.text(), "සැපයුම්කරුවන්")
+
+    def test_existing_bill_preview_estimate_uses_read_only_callback(self):
+        from velopos_qt.core_pages import BillingPage
+
+        requests = []
+        def estimate(cart, discount, redeem):
+            requests.append((cart, discount, redeem))
+            return {"net": 265.00}
+
+        page = BillingPage(FakeInventory(), self.window.t, bill_preview=estimate)
+        try:
+            page.results.setCurrentCell(0, 0)
+            page.add_selected()
+            self.assertEqual(len(requests), 1)
+            self.assertEqual(requests[0][0][0]["barcode"], "D001")
+            self.assertEqual(requests[0][1:], (0.0, 0.0))
+            self.assertIn("265.00", page.net_total.text())
+            page.clear_cart()
+            self.assertEqual(page.net_total.text(), "")
+        finally:
+            page.close()
+            page.deleteLater()
+
+    def test_inventory_editor_dialog_and_preview_header(self):
+        from velopos_qt.product_dialog import ProductDialog
+        from velopos_qt.core_pages import InventoryPage
+
+        class FakeEditor:
+            def __init__(self):
+                self.saved = []
+            def get(self, barcode):
+                return {
+                    "barcode": barcode, "name_en": "Rice",
+                    "name_local": "සහල්", "stock_qty": 5,
+                    "selling_price": 250
+                }
+            def save(self, *args, **kwargs):
+                self.saved.append((args, kwargs))
+
+        editor = FakeEditor()
+        self.assertIn("TEST MODE", self.window.preview_badge.text())
+        inventory_page = InventoryPage(FakeInventory(), self.window.t, editor=editor)
+        dialog = ProductDialog(editor, self.window.t, barcode="D001")
+        try:
+            self.assertFalse(dialog.barcode.isEnabled() and not dialog.barcode.isReadOnly())
+            self.assertEqual(dialog.name.text(), "Rice")
+            dialog.stock.setText("8")
+            dialog.accept()
+            self.assertEqual(editor.saved[0][0], ("D001", "Rice"))
+            self.assertEqual(editor.saved[0][1]["stock"], "8")
+            self.assertEqual(inventory_page.add_product_button.text(), "New product")
+        finally:
+            dialog.close()
+            inventory_page.close()
+            dialog.deleteLater()
+            inventory_page.deleteLater()
+
+    def test_customer_supplier_edit_dialog_preview_only(self):
+        from PySide6.QtWidgets import QDialog
+        from velopos_qt.directory_dialog import DirectoryDialog
+        from velopos_qt.directory_pages import DirectoryPage
+
+        class FakeEditor:
+            def __init__(self):
+                self.saved = []
+            def get(self, kind, identifier):
+                if kind == "customers":
+                    return {"id": identifier, "name": "Demo Customer",
+                            "phone": "0771112222", "address": "Demo Town"}
+                return {"id": identifier, "name": "Demo Supplier",
+                        "contact": "Rep", "phone": "0773334444", "whatsapp": "",
+                        "address": "", "notes": "", "active": 1}
+            def save(self, kind, **kwargs):
+                self.saved.append((kind, kwargs))
+
+        editor = FakeEditor()
+        page = DirectoryPage(FakeDirectory(), "customers", self.window.t, editor=editor)
+        dialog = DirectoryDialog(editor, "customers", self.window.t, identifier=1)
+        try:
+            self.assertEqual(page.table.rowCount(), 1)
+            self.assertEqual(page.new_button.text(), "Add new")
+            self.assertEqual(dialog.fields["name"].text(), "Demo Customer")
+            dialog.fields["address"].setText("Updated")
+            dialog.accept()
+            self.assertEqual(dialog.result(), QDialog.DialogCode.Accepted)
+            self.assertEqual(editor.saved[0][1]["address"], "Updated")
+            self.assertEqual(editor.saved[0][1]["identifier"], 1)
+        finally:
+            dialog.close()
+            page.close()
+            dialog.deleteLater()
+            page.deleteLater()
+
+    def test_printer_settings_page_is_lazy_and_safe(self):
+        self.assertNotIn(7, self.window._pages)
+        self.window.nav.setCurrentRow(7)
+        self.assertIn(7, self.window._pages)
+        self.assertEqual(self.window.controls["printer_brand"].currentText(), "")
+        self.window.controls["printer_brand"].setCurrentText("Xprinter")
+        self.window.controls["paper_size"].setCurrentText("80mm")
+        self.window.controls["print_mode"].setCurrentText("Browser only")
+        self.window.controls["print_copies"].setCurrentText("2")
+        self.window.controls["receipt_footer"].setText("Thanks")
+        # Test the adapter directly to avoid a modal confirmation blocking smoke tests.
+        settings = self.window.adapter.save({
+            key: self.window.controls[key].currentText()
+                 if hasattr(self.window.controls[key], "currentText")
+                 else self.window.controls[key].text()
+            for key in ("printer_brand", "paper_size", "print_mode", "print_copies", "receipt_footer")
+        })
+        self.assertEqual(settings["print_copies"], "2")
+
+    def test_printer_labels_translate_in_sinhala(self):
+        self.window.nav.setCurrentRow(7)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(self.window.nav.item(7).text(), "මුද්‍රණ යන්ත්‍ර සහ රිසිට්පත්")
+        self.assertEqual(self.window.printer_notice.text()[:4], "මෙහි")
+
+    def test_sinhala_switch_updates_visible_labels(self):
+        self.window.nav.setCurrentRow(5)
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(self.window.nav.item(5).text(), "වෙළඳසැල් තොරතුරු")
+        self.assertTrue(any(label.text() == "වෙළඳසැලේ නම"
+                            for label, _ in self.window.translatable_labels))
+
+    def test_language_persists_across_preview_windows(self):
+        self.window.locale_combo.setCurrentIndex(1)
+        self.assertEqual(self.preferences.value("language"), "si")
+        other = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences,
+                                inventory=FakeInventory())
+        try:
+            self.assertEqual(other.locale, "si")
+            self.assertEqual(other.locale_combo.currentData(), "si")
+            self.assertEqual(other.nav.item(0).text(), "ප්‍රධාන පුවරුව")
+        finally:
+            other.close()
+            other.deleteLater()
+
+    def test_invalid_saved_locale_falls_back_to_english(self):
+        self.preferences.setValue("language", "unknown")
+        other = SettingsPreview(SettingsAdapter(FakeStore()), preferences=self.preferences)
+        try:
+            self.assertEqual(other.locale, "en")
+        finally:
+            other.close()
+            other.deleteLater()
+
+    def test_tamil_then_english_does_not_destroy_inputs(self):
+        self.window.nav.setCurrentRow(5)
+        self.window.controls["shop_name"].setText("Unsaved demo")
+        self.window.locale_combo.setCurrentIndex(2)
+        self.window.locale_combo.setCurrentIndex(0)
+        self.assertEqual(self.window.controls["shop_name"].text(), "Unsaved demo")
+
+
+if __name__ == "__main__":
+    unittest.main()
